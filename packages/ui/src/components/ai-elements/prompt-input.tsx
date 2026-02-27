@@ -278,11 +278,13 @@ export const usePromptInputAttachments = () => {
 
 export type PromptInputAttachmentProps = HTMLAttributes<HTMLDivElement> & {
 	data: FileUIPart & { id: string };
+	loading?: boolean;
 	className?: string;
 };
 
 export function PromptInputAttachment({
 	data,
+	loading,
 	className,
 	...props
 }: PromptInputAttachmentProps) {
@@ -310,13 +312,22 @@ export function PromptInputAttachment({
 					<div className="relative size-5 shrink-0">
 						<div className="absolute inset-0 flex size-5 items-center justify-center overflow-hidden rounded bg-background transition-opacity group-hover:opacity-0">
 							{isImage ? (
-								<img
-									alt={filename || "attachment"}
-									className="size-5 object-cover"
-									height={20}
-									src={data.url}
-									width={20}
-								/>
+								<>
+									<img
+										alt={filename || "attachment"}
+										className={cn("size-5 object-cover", loading && "opacity-50")}
+										height={20}
+										src={data.url}
+										width={20}
+									/>
+									{loading && (
+										<div className="absolute inset-0 flex items-center justify-center">
+											<Loader2Icon className="size-3 animate-spin text-muted-foreground" />
+										</div>
+									)}
+								</>
+							) : loading ? (
+								<Loader2Icon className="size-3 animate-spin text-muted-foreground" />
 							) : (
 								<div className="flex size-5 items-center justify-center text-muted-foreground">
 									<PaperclipIcon className="size-3" />
@@ -344,14 +355,19 @@ export function PromptInputAttachment({
 			<PromptInputHoverCardContent className="w-auto p-2">
 				<div className="w-auto space-y-3">
 					{isImage && (
-						<div className="flex max-h-96 w-96 items-center justify-center overflow-hidden rounded-md border">
+						<div className="relative flex max-h-96 w-96 items-center justify-center overflow-hidden rounded-md border">
 							<img
 								alt={filename || "attachment preview"}
-								className="max-h-full max-w-full object-contain"
+								className={cn("max-h-full max-w-full object-contain", loading && "opacity-50")}
 								height={384}
 								src={data.url}
 								width={448}
 							/>
+							{loading && (
+								<div className="absolute inset-0 flex items-center justify-center">
+									<Loader2Icon className="size-6 animate-spin text-muted-foreground" />
+								</div>
+							)}
 						</div>
 					)}
 					<div className="flex items-center gap-2.5">

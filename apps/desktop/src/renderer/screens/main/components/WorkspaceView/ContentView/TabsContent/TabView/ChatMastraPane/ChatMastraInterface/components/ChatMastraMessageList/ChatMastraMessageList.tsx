@@ -7,9 +7,15 @@ import {
 } from "@superset/ui/ai-elements/conversation";
 import { Message, MessageContent } from "@superset/ui/ai-elements/message";
 import { ShimmerLabel } from "@superset/ui/ai-elements/shimmer-label";
-import { FileIcon, FileSearchIcon } from "lucide-react";
-import { type ReactNode, useMemo } from "react";
+import {
+	FileIcon,
+	FileSearchIcon,
+	FileTextIcon,
+	ImageIcon,
+} from "lucide-react";
+import { type ReactNode, useCallback, useMemo } from "react";
 import { HiMiniChatBubbleLeftRight } from "react-icons/hi2";
+import { useTabsStore } from "renderer/stores/tabs/store";
 import { MastraToolCallBlock } from "../../../../ChatPane/ChatInterface/components/MastraToolCallBlock";
 import { StreamingMessageText } from "../../../../ChatPane/ChatInterface/components/MessagePartsRenderer/components/StreamingMessageText";
 import { ReasoningBlock } from "../../../../ChatPane/ChatInterface/components/ReasoningBlock";
@@ -43,13 +49,15 @@ interface ChatMastraMessageListProps {
 	toolInputBuffers: MastraToolInputBuffers | undefined;
 }
 
-function ImagePart({ src }: { src: string }) {
+function ImagePart({ src, onClick }: { src: string; onClick?: () => void }) {
 	return (
-		<img
-			src={src}
-			alt="Attached"
-			className="max-h-48 cursor-zoom-in rounded-lg object-contain"
-		/>
+		<button type="button" className="cursor-zoom-in" onClick={onClick}>
+			<img
+				src={src}
+				alt="Attached"
+				className="max-h-48 rounded-lg object-contain"
+			/>
+		</button>
 	);
 }
 
@@ -60,11 +68,17 @@ function FileChip({
 	filename?: string;
 	mediaType: string;
 }) {
-	const label = filename || mediaType;
+	const icon = mediaType.startsWith("image/") ? (
+		<ImageIcon className="size-3.5 shrink-0" />
+	) : mediaType === "application/pdf" ? (
+		<FileIcon className="size-3.5 shrink-0" />
+	) : (
+		<FileTextIcon className="size-3.5 shrink-0" />
+	);
 	return (
-		<div className="inline-flex items-center gap-1.5 rounded-lg border bg-muted px-3 py-1.5 text-xs text-muted-foreground">
-			<FileIcon className="size-3.5 shrink-0" />
-			<span className="max-w-[200px] truncate">{label}</span>
+		<div className="inline-flex items-center gap-1.5 rounded-md border border-border bg-background px-2 py-1 text-xs text-muted-foreground">
+			{icon}
+			<span className="max-w-[150px] truncate">{filename || "Attachment"}</span>
 		</div>
 	);
 }
@@ -209,7 +223,23 @@ function getStreamingPreviewToolParts({
 	});
 }
 
-function UserMessage({ message }: { message: MastraMessage }) {
+function UserMessage({
+	message,
+	workspaceId,
+}: {
+	message: MastraMessage;
+	workspaceId: string;
+}) {
+	const addFileViewerPane = useTabsStore((s) => s.addFileViewerPane);
+
+	const handleImageClick = useCallback(
+		(url: string) => {
+			if (!workspaceId) return;
+			addFileViewerPane(workspaceId, { filePath: url, isPinned: true });
+		},
+		[workspaceId, addFileViewerPane],
+	);
+
 	const images: Array<{ key: string; src: string }> = [];
 	const fileChips: Array<{
 		key: string;
@@ -243,11 +273,17 @@ function UserMessage({ message }: { message: MastraMessage }) {
 			data-chat-user-message="true"
 			data-message-id={message.id}
 		>
-			{images.map((img) => (
-				<div key={img.key} className="max-w-[85%]">
-					<ImagePart src={img.src} />
+			{images.length > 0 && (
+				<div className="flex max-w-[85%] flex-wrap gap-2">
+					{images.map((img) => (
+						<ImagePart
+							key={img.key}
+							src={img.src}
+							onClick={() => handleImageClick(img.src)}
+						/>
+					))}
 				</div>
-			))}
+			)}
 			{fileChips.length > 0 && (
 				<div className="flex max-w-[85%] flex-wrap justify-end gap-1.5">
 					{fileChips.map((chip) => (
@@ -458,7 +494,13 @@ export function ChatMastraMessageList({
 				) : (
 					visibleMessages.map((message) => {
 						if (message.role === "user")
-							return <UserMessage key={message.id} message={message} />;
+							return (
+								<UserMessage
+									key={message.id}
+									message={message}
+									workspaceId={workspaceId}
+								/>
+							);
 
 						return (
 							<AssistantMessage

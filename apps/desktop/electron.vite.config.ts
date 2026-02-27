@@ -109,6 +109,8 @@ export default defineConfig({
 					"pg-native",
 					"@ast-grep/napi",
 					"libsql",
+					"bufferutil",
+					"utf-8-validate",
 				],
 				plugins: [sentryPlugin].filter(Boolean),
 			},

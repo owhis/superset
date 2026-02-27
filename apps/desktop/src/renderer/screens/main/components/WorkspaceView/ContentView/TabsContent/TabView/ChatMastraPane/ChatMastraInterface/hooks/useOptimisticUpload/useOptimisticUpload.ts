@@ -111,5 +111,5 @@ export function useOptimisticUpload({
 		return entry?.uploading ?? !entries.has(f.id);
 	});
 
-	return { getUploadedFiles, isUploading };
+	return { getUploadedFiles, isUploading, entries };
 }

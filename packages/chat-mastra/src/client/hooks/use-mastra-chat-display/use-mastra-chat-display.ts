@@ -94,25 +94,34 @@ export function useMastraChatDisplay(options: UseMastraChatDisplayOptions) {
 		ListMessagesOutput[number] | null
 	>(null);
 	const optimisticTextRef = useRef<string | null>(null);
+	const optimisticIdRef = useRef<string | null>(null);
 
 	useEffect(() => {
-		const optimisticText = optimisticTextRef.current;
-		if (!optimisticText) return;
+		if (!optimisticIdRef.current) return;
 
-		const found = historicalMessages.some(
-			(message) =>
-				message.role === "user" &&
-				message.content.some(
-					(part) =>
-						part.type === "text" &&
-						"text" in part &&
-						part.text === optimisticText,
-				),
-		);
+		const optimisticText = optimisticTextRef.current;
+
+		const found = optimisticText
+			? historicalMessages.some(
+					(message) =>
+						message.role === "user" &&
+						message.content.some(
+							(part) =>
+								part.type === "text" &&
+								"text" in part &&
+								part.text === optimisticText,
+						),
+				)
+			: historicalMessages.some(
+					(message) =>
+						message.role === "user" &&
+						message.content.some((part) => part.type === "file"),
+				);
 		if (!found) return;
 
 		setOptimisticUserMessage(null);
 		optimisticTextRef.current = null;
+		optimisticIdRef.current = null;
 	}, [historicalMessages]);
 
 	const messages = useMemo(() => {
@@ -138,12 +147,32 @@ export function useMastraChatDisplay(options: UseMastraChatDisplayOptions) {
 					typeof input.payload?.content === "string"
 						? input.payload.content
 						: "";
-				if (text) {
-					optimisticTextRef.current = text;
+				const files = input.payload?.files;
+				if (text || (files && files.length > 0)) {
+					const optimisticId = `optimistic-${Date.now()}`;
+					optimisticTextRef.current = text || null;
+					optimisticIdRef.current = optimisticId;
+					const content: ListMessagesOutput[number]["content"] = [];
+					if (files) {
+						for (const f of files) {
+							content.push({
+								type: "file",
+								data: f.data,
+								mediaType: f.mediaType,
+								filename: f.filename,
+							} as ListMessagesOutput[number]["content"][number]);
+						}
+					}
+					if (text) {
+						content.push({
+							type: "text",
+							text,
+						} as ListMessagesOutput[number]["content"][number]);
+					}
 					setOptimisticUserMessage({
-						id: `optimistic-${Date.now()}`,
+						id: optimisticId,
 						role: "user",
-						content: [{ type: "text", text }],
+						content,
 						createdAt: new Date(),
 					} as ListMessagesOutput[number]);
 				}
@@ -158,6 +187,7 @@ export function useMastraChatDisplay(options: UseMastraChatDisplayOptions) {
 					setCommandError(error);
 					setOptimisticUserMessage(null);
 					optimisticTextRef.current = null;
+					optimisticIdRef.current = null;
 					return;
 				}
 			},

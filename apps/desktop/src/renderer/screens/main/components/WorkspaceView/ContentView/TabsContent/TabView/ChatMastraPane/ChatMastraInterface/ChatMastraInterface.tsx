@@ -4,6 +4,7 @@ import {
 	useMastraChatDisplay,
 } from "@superset/chat-mastra/client";
 import {
+	PromptInputAttachment,
 	type PromptInputMessage,
 	PromptInputProvider,
 	useProviderAttachments,
@@ -46,15 +47,79 @@ function toErrorMessage(error: unknown): string | null {
 	return "Unknown chat error";
 }
 
-export function ChatMastraInterface(props: ChatMastraInterfaceProps) {
+type HarnessFilePayload = {
+	data: string;
+	mediaType: string;
+	filename?: string;
+};
+
+function MastraUploadFooter({
+	sessionId,
+	onError,
+	onSend,
+	...footerProps
+}: {
+	sessionId: string | null;
+	onError: (message: string) => void;
+	onSend: (payload: { content: string; files?: HarnessFilePayload[] }) => void;
+} & Omit<
+	React.ComponentProps<typeof ChatInputFooter>,
+	"onSend" | "submitDisabled" | "renderAttachment"
+>) {
+	const attachments = useProviderAttachments();
+	const { getUploadedFiles, isUploading, entries } = useOptimisticUpload({
+		sessionId,
+		attachmentFiles: attachments.files,
+		removeAttachment: attachments.remove,
+		onError,
+	});
+
+	const handleSend = useCallback(
+		(message: PromptInputMessage) => {
+			const { ready, files: uploadedFiles } = getUploadedFiles();
+			if (!ready) return;
+
+			const files: HarnessFilePayload[] = uploadedFiles.map((file) => ({
+				data: file.url,
+				mediaType: file.mediaType,
+				filename: file.filename,
+			}));
+
+			onSend({
+				content: message.text,
+				files: files.length > 0 ? files : undefined,
+			});
+		},
+		[getUploadedFiles, onSend],
+	);
+
+	const renderAttachment = useCallback(
+		(
+			file: { id: string } & {
+				url: string;
+				mediaType: string;
+				filename?: string;
+				type: "file";
+			},
+		) => {
+			const entry = entries.get(file.id);
+			const loading = entry?.uploading ?? !entries.has(file.id);
+			return <PromptInputAttachment data={file} loading={loading} />;
+		},
+		[entries],
+	);
+
 	return (
-		<PromptInputProvider>
-			<ChatMastraInterfaceInner {...props} />
-		</PromptInputProvider>
+		<ChatInputFooter
+			{...footerProps}
+			submitDisabled={isUploading}
+			renderAttachment={renderAttachment}
+			onSend={handleSend}
+		/>
 	);
 }
 
-function ChatMastraInterfaceInner({
+export function ChatMastraInterface({
 	sessionId,
 	workspaceId,
 	cwd,
@@ -104,14 +169,6 @@ function ChatMastraInterfaceInner({
 	const setRuntimeErrorMessage = useCallback((message: string) => {
 		setRuntimeError(message);
 	}, []);
-
-	const attachments = useProviderAttachments();
-	const { getUploadedFiles, isUploading } = useOptimisticUpload({
-		sessionId,
-		attachmentFiles: attachments.files,
-		removeAttachment: attachments.remove,
-		onError: setRuntimeErrorMessage,
-	});
 
 	const canAbort = Boolean(isRunning);
 	const loadMcpOverview = useCallback(
@@ -193,45 +250,30 @@ function ChatMastraInterfaceInner({
 	]);
 
 	const handleSend = useCallback(
-		async (message: PromptInputMessage) => {
-			let text = message.text.trim();
+		async (payload: { content: string; files?: HarnessFilePayload[] }) => {
+			let content = payload.content.trim();
 
-			const slashCommandResult = await resolveSlashCommandInput(text);
+			const slashCommandResult = await resolveSlashCommandInput(content);
 			if (slashCommandResult.handled) {
 				return;
 			}
-			text = slashCommandResult.nextText.trim();
+			content = slashCommandResult.nextText.trim();
 
-			const { ready, files: uploadedFiles } = getUploadedFiles();
-			if (!ready) return;
-
-			if (!text && uploadedFiles.length === 0) return;
+			if (!content && (!payload.files || payload.files.length === 0)) return;
 			setSubmitStatus("submitted");
 			clearRuntimeError();
 
-			const files = uploadedFiles.map((file) => ({
-				data: file.url,
-				mediaType: file.mediaType,
-				filename: file.filename,
-			}));
-
 			await commands.sendMessage({
 				payload: {
-					content: text || "",
-					...(files.length > 0 ? { files } : {}),
+					content,
+					...(payload.files?.length ? { files: payload.files } : {}),
 				},
 				metadata: {
 					model: activeModel?.id,
 				},
 			});
 		},
-		[
-			activeModel?.id,
-			clearRuntimeError,
-			commands,
-			getUploadedFiles,
-			resolveSlashCommandInput,
-		],
+		[activeModel?.id, clearRuntimeError, commands, resolveSlashCommandInput],
 	);
 
 	const handleStop = useCallback(
@@ -245,7 +287,7 @@ function ChatMastraInterfaceInner({
 
 	const handleSlashCommandSend = useCallback(
 		(command: SlashCommand) => {
-			void handleSend({ text: `/${command.name}`, files: [] });
+			void handleSend({ content: `/${command.name}` });
 		},
 		[handleSend],
 	);
@@ -265,32 +307,35 @@ function ChatMastraInterfaceInner({
 				toolInputBuffers={toolInputBuffers}
 			/>
 			<McpControls mcpUi={mcpUi} />
-			<ChatInputFooter
-				cwd={cwd}
-				error={errorMessage}
-				canAbort={canAbort}
-				submitStatus={submitStatus}
-				submitDisabled={isUploading}
-				availableModels={availableModels}
-				selectedModel={activeModel}
-				setSelectedModel={setSelectedModel}
-				modelSelectorOpen={modelSelectorOpen}
-				setModelSelectorOpen={setModelSelectorOpen}
-				permissionMode={permissionMode}
-				setPermissionMode={setPermissionMode}
-				thinkingEnabled={thinkingEnabled}
-				setThinkingEnabled={setThinkingEnabled}
-				slashCommands={slashCommands}
-				onSend={(message) => {
-					void handleSend(message);
-				}}
-				onSubmitStart={() => setSubmitStatus("submitted")}
-				onSubmitEnd={() => {
-					if (!canAbort) setSubmitStatus(undefined);
-				}}
-				onStop={handleStop}
-				onSlashCommandSend={handleSlashCommandSend}
-			/>
+			<PromptInputProvider>
+				<MastraUploadFooter
+					sessionId={sessionId}
+					onError={setRuntimeErrorMessage}
+					onSend={(payload) => {
+						void handleSend(payload);
+					}}
+					cwd={cwd}
+					error={errorMessage}
+					canAbort={canAbort}
+					submitStatus={submitStatus}
+					availableModels={availableModels}
+					selectedModel={activeModel}
+					setSelectedModel={setSelectedModel}
+					modelSelectorOpen={modelSelectorOpen}
+					setModelSelectorOpen={setModelSelectorOpen}
+					permissionMode={permissionMode}
+					setPermissionMode={setPermissionMode}
+					thinkingEnabled={thinkingEnabled}
+					setThinkingEnabled={setThinkingEnabled}
+					slashCommands={slashCommands}
+					onSubmitStart={() => setSubmitStatus("submitted")}
+					onSubmitEnd={() => {
+						if (!canAbort) setSubmitStatus(undefined);
+					}}
+					onStop={handleStop}
+					onSlashCommandSend={handleSlashCommandSend}
+				/>
+			</PromptInputProvider>
 		</div>
 	);
 }
