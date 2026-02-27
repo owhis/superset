@@ -315,7 +315,10 @@ export function PromptInputAttachment({
 								<>
 									<img
 										alt={filename || "attachment"}
-										className={cn("size-5 object-cover", loading && "opacity-50")}
+										className={cn(
+											"size-5 object-cover",
+											loading && "opacity-50",
+										)}
 										height={20}
 										src={data.url}
 										width={20}
@@ -358,7 +361,10 @@ export function PromptInputAttachment({
 						<div className="relative flex max-h-96 w-96 items-center justify-center overflow-hidden rounded-md border">
 							<img
 								alt={filename || "attachment preview"}
-								className={cn("max-h-full max-w-full object-contain", loading && "opacity-50")}
+								className={cn(
+									"max-h-full max-w-full object-contain",
+									loading && "opacity-50",
+								)}
 								height={384}
 								src={data.url}
 								width={448}

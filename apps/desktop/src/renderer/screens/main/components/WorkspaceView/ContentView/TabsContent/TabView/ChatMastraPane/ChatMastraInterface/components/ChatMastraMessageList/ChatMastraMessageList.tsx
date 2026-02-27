@@ -75,10 +75,11 @@ function FileChip({
 	) : (
 		<FileTextIcon className="size-3.5 shrink-0" />
 	);
+	const label = filename || mediaType.split("/").pop() || mediaType;
 	return (
 		<div className="inline-flex items-center gap-1.5 rounded-md border border-border bg-background px-2 py-1 text-xs text-muted-foreground">
 			{icon}
-			<span className="max-w-[150px] truncate">{filename || "Attachment"}</span>
+			<span className="max-w-[150px] truncate">{label}</span>
 		</div>
 	);
 }
@@ -250,18 +251,23 @@ function UserMessage({
 
 	const parts = message.content as MastraMessageContent[];
 	for (let i = 0; i < parts.length; i++) {
-		const part = parts[i];
+		const part = parts[i] as Record<string, unknown>;
 		const key = `${message.id}-${i}`;
 		if (part.type === "text") {
-			textParts.push({ key, text: part.text });
-		} else if (part.type === "file") {
-			if (part.mediaType.startsWith("image/")) {
-				images.push({ key, src: part.data });
-			} else {
+			textParts.push({ key, text: part.text as string });
+		} else if (part.type === "file" || part.type === "image") {
+			const mime =
+				(part.mediaType as string) ||
+				(part.mimeType as string) ||
+				"application/octet-stream";
+			const data = (part.data as string) || (part.image as string) || "";
+			if (mime.startsWith("image/") && data) {
+				images.push({ key, src: data });
+			} else if (data) {
 				fileChips.push({
 					key,
-					filename: part.filename,
-					mediaType: part.mediaType,
+					filename: part.filename as string | undefined,
+					mediaType: mime,
 				});
 			}
 		}
@@ -352,19 +358,25 @@ function AssistantMessage({
 			continue;
 		}
 
-		if (part.type === "file") {
-			if (part.mediaType.startsWith("image/")) {
+		if (part.type === "file" || part.type === "image") {
+			const rawPart = part as Record<string, unknown>;
+			const mime =
+				(rawPart.mediaType as string) ||
+				(rawPart.mimeType as string) ||
+				"application/octet-stream";
+			const data = (rawPart.data as string) || (rawPart.image as string) || "";
+			if (mime.startsWith("image/") && data) {
 				nodes.push(
 					<div key={`${message.id}-${partIndex}`} className="max-w-[85%]">
-						<ImagePart src={part.data} />
+						<ImagePart src={data} />
 					</div>,
 				);
-			} else {
+			} else if (data) {
 				nodes.push(
 					<FileChip
 						key={`${message.id}-${partIndex}`}
-						filename={part.filename}
-						mediaType={part.mediaType}
+						filename={rawPart.filename as string | undefined}
+						mediaType={mime}
 					/>,
 				);
 			}

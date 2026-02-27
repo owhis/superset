@@ -115,7 +115,9 @@ export function useMastraChatDisplay(options: UseMastraChatDisplayOptions) {
 			: historicalMessages.some(
 					(message) =>
 						message.role === "user" &&
-						message.content.some((part) => part.type === "file"),
+						message.content.some(
+							(part) => part.type === "file" || part.type === "image",
+						),
 				);
 		if (!found) return;
 
