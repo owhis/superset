@@ -127,6 +127,8 @@ export function TabPane({
 								<TooltipTrigger asChild>
 									<button
 										type="button"
+										aria-label="Open pane in new window"
+										title="Open in window"
 										onClick={handleOpenPaneWindow}
 										disabled={openPaneWindowMutation.isPending}
 										className="rounded p-0.5 text-muted-foreground/60 transition-colors hover:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-40"

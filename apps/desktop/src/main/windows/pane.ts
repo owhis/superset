@@ -75,6 +75,18 @@ export function openPaneWindow({
 			window.show();
 		}
 	});
+	window.webContents.on(
+		"did-fail-load",
+		(_event, errorCode, errorDescription, validatedURL) => {
+			console.error("[pane-window] Failed to load renderer:");
+			console.error(`  Error code: ${errorCode}`);
+			console.error(`  Description: ${errorDescription}`);
+			console.error(`  URL: ${validatedURL}`);
+			if (!window.isDestroyed()) {
+				window.show();
+			}
+		},
+	);
 
 	window.on("closed", () => {
 		paneWindows.delete(paneId);

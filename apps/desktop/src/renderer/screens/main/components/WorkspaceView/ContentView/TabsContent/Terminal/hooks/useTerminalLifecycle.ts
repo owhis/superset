@@ -680,13 +680,21 @@ export function useTerminalLifecycle({
 			} else {
 				const detachTimeout = setTimeout(() => {
 					void (async () => {
+						// Abort stale async detach work if this timeout was canceled/replaced.
+						if (pendingDetaches.get(paneId) !== detachTimeout) return;
+
 						const keepAttached =
 							await shouldKeepAttachedForLivePaneWindow(paneId);
+
+						// Re-check after await to avoid racing a quick remount.
+						if (pendingDetaches.get(paneId) !== detachTimeout) return;
 						if (!keepAttached) {
 							detachRef.current({ paneId });
 						}
-						pendingDetaches.delete(paneId);
-						coldRestoreState.delete(paneId);
+						if (pendingDetaches.get(paneId) === detachTimeout) {
+							pendingDetaches.delete(paneId);
+							coldRestoreState.delete(paneId);
+						}
 					})();
 				}, 50);
 				pendingDetaches.set(paneId, detachTimeout);
