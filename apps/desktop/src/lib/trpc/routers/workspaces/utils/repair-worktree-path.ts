@@ -74,3 +74,24 @@ export async function tryRepairWorktreePath(
 		return null;
 	}
 }
+
+/**
+ * Returns the current usable worktree path for a tracked worktree.
+ *
+ * If the stored path still exists, it is returned unchanged. Otherwise this
+ * attempts the same branch-based repair flow used by terminal/git-status code.
+ */
+export async function resolveWorktreePathWithRepair(
+	worktreeId: string,
+): Promise<string | null> {
+	const worktree = localDb
+		.select({ path: worktrees.path })
+		.from(worktrees)
+		.where(eq(worktrees.id, worktreeId))
+		.get();
+
+	if (!worktree) return null;
+	if (existsSync(worktree.path)) return worktree.path;
+
+	return tryRepairWorktreePath(worktreeId);
+}

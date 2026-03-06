@@ -33,10 +33,8 @@ function createTestRepo(name: string): string {
 
 function seedCommit(repoPath: string): void {
 	writeFileSync(join(repoPath, "README.md"), "# test\n");
-	execSync("git add . && git commit -m 'init'", {
-		cwd: repoPath,
-		stdio: "ignore",
-	});
+	execSync("git add .", { cwd: repoPath, stdio: "ignore" });
+	execSync('git commit -m "init"', { cwd: repoPath, stdio: "ignore" });
 }
 
 // ---------------------------------------------------------------------------
@@ -98,7 +96,9 @@ mock.module("main/lib/local-db", () => ({
 }));
 
 // Import after mocks are registered
-const { tryRepairWorktreePath } = await import("./repair-worktree-path");
+const { resolveWorktreePathWithRepair, tryRepairWorktreePath } = await import(
+	"./repair-worktree-path"
+);
 
 // ---------------------------------------------------------------------------
 // Tests
@@ -143,6 +143,31 @@ describe("tryRepairWorktreePath", () => {
 		expect(result).toBe(wtPath);
 	});
 
+	test("resolveWorktreePathWithRepair returns existing path without repair", async () => {
+		const mainRepo = createTestRepo("main-resolve-valid");
+		seedCommit(mainRepo);
+
+		const wtPath = join(TEST_DIR, "wt-resolve-valid");
+		execSync(
+			`git -C "${mainRepo}" worktree add "${wtPath}" -b feat-resolve-valid HEAD`,
+			{ stdio: "ignore" },
+		);
+
+		mockWorktrees.set("wt-resolve-1", {
+			id: "wt-resolve-1",
+			path: wtPath,
+			branch: "feat-resolve-valid",
+			projectId: "proj-resolve-1",
+		});
+		mockProjects.set("proj-resolve-1", {
+			id: "proj-resolve-1",
+			mainRepoPath: mainRepo,
+		});
+
+		const result = await resolveWorktreePathWithRepair("wt-resolve-1");
+		expect(result).toBe(wtPath);
+	});
+
 	test("repairs path after `git worktree move`", async () => {
 		const mainRepo = createTestRepo("main-move");
 		seedCommit(mainRepo);
@@ -169,6 +194,36 @@ describe("tryRepairWorktreePath", () => {
 		expect(result).toBe(newPath);
 		// DB should also be updated
 		expect(mockWorktrees.get("wt-2")?.path).toBe(newPath);
+	});
+
+	test("resolveWorktreePathWithRepair returns repaired path after move", async () => {
+		const mainRepo = createTestRepo("main-resolve-move");
+		seedCommit(mainRepo);
+
+		const oldPath = join(TEST_DIR, "wt-resolve-old");
+		const newPath = join(TEST_DIR, "wt-resolve-new");
+		execSync(
+			`git -C "${mainRepo}" worktree add "${oldPath}" -b feat-resolve-move HEAD`,
+			{ stdio: "ignore" },
+		);
+		execSync(`git -C "${mainRepo}" worktree move "${oldPath}" "${newPath}"`, {
+			stdio: "ignore",
+		});
+
+		mockWorktrees.set("wt-resolve-2", {
+			id: "wt-resolve-2",
+			path: oldPath,
+			branch: "feat-resolve-move",
+			projectId: "proj-resolve-2",
+		});
+		mockProjects.set("proj-resolve-2", {
+			id: "proj-resolve-2",
+			mainRepoPath: mainRepo,
+		});
+
+		const result = await resolveWorktreePathWithRepair("wt-resolve-2");
+		expect(result).toBe(newPath);
+		expect(mockWorktrees.get("wt-resolve-2")?.path).toBe(newPath);
 	});
 
 	test("rejects candidate when it equals the main repo path", async () => {
@@ -224,6 +279,25 @@ describe("tryRepairWorktreePath", () => {
 		mockProjects.set("proj-5", { id: "proj-5", mainRepoPath: mainRepo });
 
 		const result = await tryRepairWorktreePath("wt-5");
+		expect(result).toBeNull();
+	});
+
+	test("resolveWorktreePathWithRepair returns null when missing path cannot be repaired", async () => {
+		const mainRepo = createTestRepo("main-resolve-missing");
+		seedCommit(mainRepo);
+
+		mockWorktrees.set("wt-resolve-3", {
+			id: "wt-resolve-3",
+			path: "/nonexistent/path",
+			branch: "feat-missing",
+			projectId: "proj-resolve-3",
+		});
+		mockProjects.set("proj-resolve-3", {
+			id: "proj-resolve-3",
+			mainRepoPath: mainRepo,
+		});
+
+		const result = await resolveWorktreePathWithRepair("wt-resolve-3");
 		expect(result).toBeNull();
 	});
 });

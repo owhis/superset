@@ -1,13 +1,31 @@
-import { projects, workspaces, worktrees } from "@superset/local-db";
+import {
+	projects,
+	type SelectWorkspace,
+	workspaces,
+	worktrees,
+} from "@superset/local-db";
 import { TRPCError } from "@trpc/server";
 import { eq, isNotNull, isNull } from "drizzle-orm";
 import { localDb } from "main/lib/local-db";
 import { z } from "zod";
 import { publicProcedure, router } from "../../..";
 import { getWorkspace } from "../utils/db-helpers";
+import { resolveWorktreePathWithRepair } from "../utils/repair-worktree-path";
 import { getWorkspacePath } from "../utils/worktree";
 
-type WorktreePathMap = Map<string, string>;
+async function getWorkspacePathForQuery(
+	workspace: SelectWorkspace,
+): Promise<string | null> {
+	if (workspace.type === "branch") {
+		return getWorkspacePath(workspace);
+	}
+
+	if (!workspace.worktreeId) {
+		return null;
+	}
+
+	return resolveWorktreePathWithRepair(workspace.worktreeId);
+}
 
 /** Returns workspace IDs in sidebar visual order (by project.tabOrder, then workspace.tabOrder). */
 function getWorkspacesInVisualOrder(): string[] {
@@ -66,7 +84,7 @@ export const createQueryProcedures = () => {
 				return {
 					...workspace,
 					type: workspace.type as "worktree" | "branch",
-					worktreePath: getWorkspacePath(workspace) ?? "",
+					worktreePath: (await getWorkspacePathForQuery(workspace)) ?? "",
 					project: project
 						? {
 								id: project.id,
@@ -95,17 +113,12 @@ export const createQueryProcedures = () => {
 				.sort((a, b) => a.tabOrder - b.tabOrder);
 		}),
 
-		getAllGrouped: publicProcedure.query(() => {
+		getAllGrouped: publicProcedure.query(async () => {
 			const activeProjects = localDb
 				.select()
 				.from(projects)
 				.where(isNotNull(projects.tabOrder))
 				.all();
-
-			const allWorktrees = localDb.select().from(worktrees).all();
-			const worktreePathMap: WorktreePathMap = new Map(
-				allWorktrees.map((wt) => [wt.id, wt.path]),
-			);
 
 			const groupsMap = new Map<
 				string,
@@ -162,16 +175,16 @@ export const createQueryProcedures = () => {
 				.all()
 				.sort((a, b) => a.tabOrder - b.tabOrder);
 
-			for (const workspace of allWorkspaces) {
+			const workspacesWithResolvedPaths = await Promise.all(
+				allWorkspaces.map(async (workspace) => ({
+					workspace,
+					worktreePath: (await getWorkspacePathForQuery(workspace)) ?? "",
+				})),
+			);
+
+			for (const { workspace, worktreePath } of workspacesWithResolvedPaths) {
 				const group = groupsMap.get(workspace.projectId);
 				if (group) {
-					let worktreePath = "";
-					if (workspace.type === "worktree" && workspace.worktreeId) {
-						worktreePath = worktreePathMap.get(workspace.worktreeId) ?? "";
-					} else if (workspace.type === "branch") {
-						worktreePath = group.project.mainRepoPath;
-					}
-
 					group.workspaces.push({
 						...workspace,
 						type: workspace.type as "worktree" | "branch",
