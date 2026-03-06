@@ -1,5 +1,6 @@
 import { existsSync } from "node:fs";
 import { workspaces, worktrees } from "@superset/local-db";
+import { TRPCError } from "@trpc/server";
 import { and, eq, isNull } from "drizzle-orm";
 import { localDb } from "main/lib/local-db";
 import { z } from "zod";
@@ -69,6 +70,14 @@ export const createGitStatusProcedures = () => {
 					if (repairedPath) {
 						worktreePath = repairedPath;
 					}
+				}
+
+				if (!existsSync(worktreePath)) {
+					throw new TRPCError({
+						code: "NOT_FOUND",
+						message: "Worktree path does not exist on disk",
+						cause: { reason: "path_missing", path: worktreePath },
+					});
 				}
 
 				const { ahead, behind } = await getAheadBehindCount({
