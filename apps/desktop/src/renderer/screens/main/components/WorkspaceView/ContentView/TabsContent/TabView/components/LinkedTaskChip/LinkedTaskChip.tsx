@@ -1,6 +1,5 @@
 import { eq, or } from "@tanstack/db";
 import { useLiveQuery } from "@tanstack/react-db";
-import { useMemo } from "react";
 import { LinearIcon } from "renderer/components/icons/LinearIcon";
 import { useCollections } from "renderer/routes/_authenticated/providers/CollectionsProvider";
 import { useTabsStore } from "renderer/stores/tabs/store";
@@ -22,10 +21,7 @@ export function LinkedTaskChip({ slug, workspaceId }: LinkedTaskChipProps) {
 		[collections, slug],
 	);
 
-	const title = useMemo(() => {
-		if (!taskData || taskData.length === 0) return null;
-		return taskData[0].title;
-	}, [taskData]);
+	const title = taskData && taskData.length > 0 ? taskData[0].title : null;
 
 	return (
 		<button

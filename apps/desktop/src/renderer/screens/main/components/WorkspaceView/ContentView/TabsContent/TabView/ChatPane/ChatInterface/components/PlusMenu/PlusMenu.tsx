@@ -28,13 +28,18 @@ export function PlusMenu({ onLinkIssue }: PlusMenuProps) {
 					<LuPlus className="size-3.5" />
 				</PromptInputButton>
 			</DropdownMenuTrigger>
-			<DropdownMenuContent side="top" align="end" className="w-52">
+			<DropdownMenuContent
+				side="top"
+				align="end"
+				className="w-52"
+				onCloseAutoFocus={(e) => e.preventDefault()}
+			>
 				<DropdownMenuItem onSelect={() => attachments.openFileDialog()}>
 					<HiMiniPaperClip className="size-4" />
 					Add attachment
 					<DropdownMenuShortcut>⌘U</DropdownMenuShortcut>
 				</DropdownMenuItem>
-				<DropdownMenuItem onSelect={() => setTimeout(onLinkIssue, 100)}>
+				<DropdownMenuItem onSelect={onLinkIssue}>
 					<SiLinear className="size-4" />
 					Link issue
 					<DropdownMenuShortcut>⌘I</DropdownMenuShortcut>

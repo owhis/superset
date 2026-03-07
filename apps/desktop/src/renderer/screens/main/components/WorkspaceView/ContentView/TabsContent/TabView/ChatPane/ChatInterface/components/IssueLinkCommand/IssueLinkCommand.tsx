@@ -112,6 +112,7 @@ export function IssueLinkCommand({
 		<CommandDialog
 			open={open}
 			onOpenChange={handleOpenChange}
+			modal
 			title="Link issue"
 			description="Search for an issue to link"
 			showCloseButton={false}

@@ -5,8 +5,8 @@ import { useCallback, useState } from "react";
 import { useTabsStore } from "renderer/stores/tabs/store";
 import { normalizeWorkspaceFilePath } from "../../../../../../ChatPane/ChatInterface/utils/file-paths";
 import { LinkedTaskChip } from "../../../../../../components/LinkedTaskChip";
+import { parseUserMentions } from "../../../../../../utils/parseUserMentions";
 import { AttachmentChip } from "../AttachmentChip";
-import { parseUserMentions } from "./utils/parseUserMentions";
 
 type MastraMessage = NonNullable<
 	UseMastraChatDisplayReturn["messages"]
@@ -159,15 +159,13 @@ export function UserMessage({
 						>
 							{taskMentions.length > 0 && (
 								<div className="flex flex-wrap justify-end gap-2">
-									{taskMentions.map((segment, segmentIndex) =>
-										segment.type === "task-mention" ? (
-											<LinkedTaskChip
-												key={`${message.id}-${partIndex}-task-${segmentIndex}`}
-												slug={segment.slug}
-												workspaceId={workspaceId}
-											/>
-										) : null,
-									)}
+									{taskMentions.map((segment, segmentIndex) => (
+										<LinkedTaskChip
+											key={`${message.id}-${partIndex}-task-${segmentIndex}`}
+											slug={segment.slug}
+											workspaceId={workspaceId}
+										/>
+									))}
 								</div>
 							)}
 							{hasNonTaskContent && (
