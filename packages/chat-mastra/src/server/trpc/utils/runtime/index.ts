@@ -1,5 +1,6 @@
 export {
 	destroyRuntime,
+	generateAndSetTitle,
 	onUserPromptSubmit,
 	type RuntimeHarness,
 	type RuntimeHookManager,
@@ -7,8 +8,10 @@ export {
 	type RuntimeMcpServerStatus,
 	type RuntimeSession,
 	reloadHookConfig,
+	restartRuntimeFromUserMessage,
 	runSessionStartHook,
 	subscribeToSessionEvents,
+	syncRuntimeHookSessionId,
 } from "./runtime";
 export {
 	authenticateRuntimeMcpServer,

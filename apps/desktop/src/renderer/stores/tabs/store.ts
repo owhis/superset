@@ -339,7 +339,9 @@ export const useTabsStore = create<TabsStore>()(
 				setTabAutoTitle: (tabId, title) => {
 					set((state) => {
 						const tab = state.tabs.find((t) => t.id === tabId);
-						if (!tab || tab.name === title) return state;
+						if (!tab || tab.name === title || tab.userTitle?.trim()) {
+							return state;
+						}
 						return {
 							tabs: state.tabs.map((t) =>
 								t.id === tabId ? { ...t, name: title } : t,
@@ -708,10 +710,14 @@ export const useTabsStore = create<TabsStore>()(
 							existingFileViewer.commitHash === options.commitHash;
 
 						if (isSameFile) {
-							if (
-								options.viewMode &&
-								existingFileViewer.viewMode !== options.viewMode
-							) {
+							const nextViewMode =
+								options.viewMode ?? existingFileViewer.viewMode;
+							const shouldUpdateViewerState =
+								nextViewMode !== existingFileViewer.viewMode ||
+								options.line !== undefined ||
+								options.column !== undefined;
+
+							if (shouldUpdateViewerState) {
 								set({
 									panes: {
 										...state.panes,
@@ -719,7 +725,11 @@ export const useTabsStore = create<TabsStore>()(
 											...paneToReuse,
 											fileViewer: {
 												...existingFileViewer,
-												viewMode: options.viewMode,
+												viewMode: nextViewMode,
+												initialLine:
+													options.line ?? existingFileViewer.initialLine,
+												initialColumn:
+													options.column ?? existingFileViewer.initialColumn,
 											},
 										},
 									},
@@ -936,10 +946,17 @@ export const useTabsStore = create<TabsStore>()(
 					const pane = state.panes[paneId];
 					if (!pane || pane.tabId !== tabId) return;
 
+					const alreadyFocused = state.focusedPaneIds[tabId] === paneId;
+
 					set({
 						panes: {
 							...state.panes,
-							[paneId]: { ...pane, status: acknowledgedStatus(pane.status) },
+							[paneId]: {
+								...pane,
+								status: alreadyFocused
+									? pane.status
+									: acknowledgedStatus(pane.status),
+							},
 						},
 						focusedPaneIds: {
 							...state.focusedPaneIds,
@@ -981,7 +998,7 @@ export const useTabsStore = create<TabsStore>()(
 
 					const newPanes = {
 						...state.panes,
-						[paneId]: { ...pane, name },
+						[paneId]: { ...pane, name, userTitle: name },
 					};
 					const tabName = deriveTabName(newPanes, pane.tabId);
 
@@ -990,6 +1007,20 @@ export const useTabsStore = create<TabsStore>()(
 						tabs: state.tabs.map((t) =>
 							t.id === pane.tabId ? { ...t, name: tabName } : t,
 						),
+					});
+				},
+				setPaneAutoTitle: (paneId, title) => {
+					set((state) => {
+						const pane = state.panes[paneId];
+						if (!pane || pane.name === title || pane.userTitle?.trim()) {
+							return state;
+						}
+						return {
+							panes: {
+								...state.panes,
+								[paneId]: { ...pane, name: title },
+							},
+						};
 					});
 				},
 
