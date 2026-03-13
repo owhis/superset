@@ -1,6 +1,6 @@
 import { Command, CommandInput, CommandList } from "@superset/ui/command";
 import { Tabs, TabsList, TabsTrigger } from "@superset/ui/tabs";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { electronTrpc } from "renderer/lib/electron-trpc";
 import {
 	type NewWorkspaceModalTab,
@@ -22,6 +22,7 @@ interface NewWorkspaceModalContentProps {
 	onNewProject: () => void;
 }
 
+/** Content pane for the New Workspace modal — handles project selection, branch search, and workspace creation. */
 export function NewWorkspaceModalContent({
 	isOpen,
 	preSelectedProjectId,
@@ -41,14 +42,22 @@ export function NewWorkspaceModalContent({
 		void utils.projects.searchBranches.invalidate();
 	}, [isOpen, utils]);
 
+	const appliedPreSelectionRef = useRef(false);
+
+	useEffect(() => {
+		if (!isOpen) {
+			appliedPreSelectionRef.current = false;
+		}
+	}, [isOpen]);
+
 	useEffect(() => {
 		if (!isOpen) return;
 
-		if (
-			preSelectedProjectId &&
-			preSelectedProjectId !== draft.selectedProjectId
-		) {
-			updateDraft({ selectedProjectId: preSelectedProjectId });
+		if (preSelectedProjectId && !appliedPreSelectionRef.current) {
+			appliedPreSelectionRef.current = true;
+			if (preSelectedProjectId !== draft.selectedProjectId) {
+				updateDraft({ selectedProjectId: preSelectedProjectId });
+			}
 			return;
 		}
 
