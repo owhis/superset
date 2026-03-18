@@ -241,4 +241,68 @@ export const githubRouter = {
 				failedChecksCount,
 			};
 		}),
+	toggleIssueSync: protectedProcedure
+		.input(
+			z.object({
+				organizationId: z.string().uuid(),
+				repositoryId: z.string().uuid(),
+				enabled: z.boolean(),
+			}),
+		)
+		.mutation(async ({ ctx, input }) => {
+			await verifyOrgAdmin(ctx.session.user.id, input.organizationId);
+
+			// Update the repo's issueSyncEnabled flag
+			const result = await db
+				.update(githubRepositories)
+				.set({ issueSyncEnabled: input.enabled, updatedAt: new Date() })
+				.where(
+					and(
+						eq(githubRepositories.id, input.repositoryId),
+						eq(githubRepositories.organizationId, input.organizationId),
+					),
+				)
+				.returning({ id: githubRepositories.id });
+
+			if (result.length === 0) {
+				throw new TRPCError({
+					code: "NOT_FOUND",
+					message: "Repository not found",
+				});
+			}
+
+			// If enabling, trigger initial sync via QStash so existing issues get imported
+			if (input.enabled) {
+				const installation = await db.query.githubInstallations.findFirst({
+					where: eq(githubInstallations.organizationId, input.organizationId),
+					columns: { id: true },
+				});
+
+				if (installation) {
+					const syncUrl = `${env.NEXT_PUBLIC_API_URL}/api/github/jobs/initial-sync`;
+					const syncBody = {
+						installationDbId: installation.id,
+						organizationId: input.organizationId,
+					};
+
+					if (env.NODE_ENV === "development") {
+						fetch(syncUrl, {
+							method: "POST",
+							headers: { "Content-Type": "application/json" },
+							body: JSON.stringify(syncBody),
+						}).catch((error) => {
+							console.error("[github/toggleIssueSync] Dev sync failed:", error);
+						});
+					} else {
+						await qstash.publishJSON({
+							url: syncUrl,
+							body: syncBody,
+							retries: 3,
+						});
+					}
+				}
+			}
+
+			return { success: true };
+		}),
 } satisfies TRPCRouterRecord;
