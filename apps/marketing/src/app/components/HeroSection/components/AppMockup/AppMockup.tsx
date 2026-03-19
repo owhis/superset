@@ -301,7 +301,7 @@ export function AppMockup({ activeDemo = "Use Any Agents" }: AppMockupProps) {
 					<div className="border-b border-white/[0.06] px-3 py-3">
 						<button
 							type="button"
-							className="flex w-full cursor-pointer items-center gap-2 rounded px-2.5 py-1.5 text-xs text-muted-foreground/40 hover:bg-white/[0.025] hover:text-muted-foreground/60"
+							className="flex w-full cursor-pointer items-center gap-2 rounded-xs px-2.5 py-1.5 text-xs text-muted-foreground/40 hover:bg-white/[0.025] hover:text-muted-foreground/60"
 						>
 							<LuPlus className="size-4" />
 							<span>New Workspace</span>
@@ -388,7 +388,7 @@ export function AppMockup({ activeDemo = "Use Any Agents" }: AppMockupProps) {
 									{port.ports.map((p) => (
 										<span
 											key={p}
-											className="rounded bg-white/[0.03] px-1.5 py-0.5 text-[11px] tabular-nums text-muted-foreground/40"
+											className="rounded-xs border border-white/[0.05] bg-white/[0.02] px-1.5 py-0.5 text-[11px] tabular-nums text-muted-foreground/40"
 										>
 											{p}
 										</span>
@@ -404,7 +404,7 @@ export function AppMockup({ activeDemo = "Use Any Agents" }: AppMockupProps) {
 					{/* Tab bar */}
 					<div className="flex items-center gap-1 border-b border-white/[0.06] bg-white/[0.02] px-3 py-2 backdrop-blur-md">
 						{/* Claude tab - always visible, active */}
-						<div className="flex items-center gap-1.5 rounded-t border-b-2 border-[#D97757]/75 bg-[#D97757]/[0.05] px-4 py-1.5 text-xs text-foreground/90">
+						<div className="flex items-center gap-1.5 rounded-t-xs border-b-2 border-[#D97757]/75 bg-[#D97757]/[0.05] px-4 py-1.5 text-xs text-foreground/90">
 							{activeDemo === "Create Parallel Branches" ? (
 								<>
 									<LuTerminal className="size-3.5 text-muted-foreground/70" />
@@ -425,7 +425,7 @@ export function AppMockup({ activeDemo = "Use Any Agents" }: AppMockupProps) {
 						</div>
 						{/* Other agent tabs - shown when "Use Any Agents" is active */}
 						<motion.div
-							className="flex items-center gap-1.5 overflow-hidden rounded-t py-1.5 text-xs text-muted-foreground/40 hover:bg-white/[0.03]"
+							className="flex items-center gap-1.5 overflow-hidden rounded-t-xs py-1.5 text-xs text-muted-foreground/40 hover:bg-white/[0.03]"
 							initial={{
 								opacity: 0,
 								width: 0,
@@ -454,7 +454,7 @@ export function AppMockup({ activeDemo = "Use Any Agents" }: AppMockupProps) {
 							<LuX className="size-3.5 text-muted-foreground/20" />
 						</motion.div>
 						<motion.div
-							className="flex items-center gap-1.5 overflow-hidden rounded-t py-1.5 text-xs text-muted-foreground/40 hover:bg-white/[0.03]"
+							className="flex items-center gap-1.5 overflow-hidden rounded-t-xs py-1.5 text-xs text-muted-foreground/40 hover:bg-white/[0.03]"
 							initial={{
 								opacity: 0,
 								width: 0,
@@ -483,7 +483,7 @@ export function AppMockup({ activeDemo = "Use Any Agents" }: AppMockupProps) {
 							<LuX className="size-3.5 text-muted-foreground/20" />
 						</motion.div>
 						<motion.div
-							className="flex items-center gap-1.5 overflow-hidden rounded-t py-1.5 text-xs text-muted-foreground/40 hover:bg-white/[0.03]"
+							className="flex items-center gap-1.5 overflow-hidden rounded-t-xs py-1.5 text-xs text-muted-foreground/40 hover:bg-white/[0.03]"
 							initial={{
 								opacity: 0,
 								width: 0,
@@ -595,7 +595,7 @@ export function AppMockup({ activeDemo = "Use Any Agents" }: AppMockupProps) {
 							</div>
 
 							<div className="mt-auto border-t border-white/[0.04] pt-4">
-								<div className="flex items-center gap-3 rounded-md border border-white/[0.07] bg-black/20 px-3 py-2.5">
+								<div className="flex items-center gap-3 rounded-xs border border-white/[0.07] bg-black/20 px-3 py-2.5">
 									<span className="text-muted-foreground/50">❯</span>
 									<span className="flex-1 text-muted-foreground/35">
 										Type a task for Claude...
@@ -675,12 +675,12 @@ export function AppMockup({ activeDemo = "Use Any Agents" }: AppMockupProps) {
 
 						{/* Commit & Push section */}
 						<div className="space-y-2.5 border-b border-white/[0.06] px-4 py-3">
-							<div className="flex h-9 items-center rounded border border-white/[0.06] bg-black/20 px-3 text-xs text-muted-foreground/30">
+							<div className="flex h-9 items-center rounded-xs border border-white/[0.06] bg-black/20 px-3 text-xs text-muted-foreground/30">
 								Commit message...
 							</div>
 							<button
 								type="button"
-								className="flex w-full items-center justify-center gap-2 rounded bg-white/[0.04] px-4 py-2 text-xs text-foreground/70 hover:bg-white/[0.07]"
+								className="flex w-full items-center justify-center gap-2 rounded-xs border border-white/[0.06] bg-white/[0.04] px-4 py-2 text-xs text-foreground/70 hover:bg-white/[0.07]"
 							>
 								<span>↑</span>
 								<span>Push</span>
@@ -734,14 +734,14 @@ export function AppMockup({ activeDemo = "Use Any Agents" }: AppMockupProps) {
 									Review PR #827
 								</span>
 							</div>
-							<span className="rounded bg-[#D97757]/[0.08] px-2 py-0.5 text-xs text-[#D97757]/75">
+							<span className="rounded-xs border border-[#D97757]/[0.10] bg-[#D97757]/[0.08] px-2 py-0.5 text-xs text-[#D97757]/75">
 								Open
 							</span>
 						</div>
 
 						{/* File tabs */}
 						<div className="flex items-center gap-1.5 border-b border-white/[0.06] px-4 py-2.5 text-xs">
-							<span className="rounded bg-white/[0.04] px-3 py-1.5 text-foreground/60">
+							<span className="rounded-xs border border-white/[0.06] bg-white/[0.04] px-3 py-1.5 text-foreground/60">
 								cloud-workspace.ts
 							</span>
 							<span className="px-3 py-1.5 text-muted-foreground/30">
@@ -811,13 +811,13 @@ export function AppMockup({ activeDemo = "Use Any Agents" }: AppMockupProps) {
 						<div className="flex items-center gap-2.5 border-t border-white/[0.06] px-4 py-3">
 							<button
 								type="button"
-								className="rounded bg-emerald-300/[0.10] px-4 py-2 text-xs text-emerald-300/75 hover:bg-emerald-300/[0.16]"
+								className="rounded-xs border border-emerald-300/[0.10] bg-emerald-300/[0.10] px-4 py-2 text-xs text-emerald-300/75 hover:bg-emerald-300/[0.16]"
 							>
 								Approve
 							</button>
 							<button
 								type="button"
-								className="rounded bg-white/[0.04] px-4 py-2 text-xs text-foreground/50 hover:bg-white/[0.07]"
+								className="rounded-xs border border-white/[0.06] bg-white/[0.04] px-4 py-2 text-xs text-foreground/50 hover:bg-white/[0.07]"
 							>
 								Comment
 							</button>
