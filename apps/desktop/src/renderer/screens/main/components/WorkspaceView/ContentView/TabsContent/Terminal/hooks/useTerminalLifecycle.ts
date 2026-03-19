@@ -620,10 +620,10 @@ export function useTerminalLifecycle({
 
 		const handleVisibilityChange = () => {
 			if (document.hidden) return;
-			scheduleReattachRecovery(isFocusedRef.current);
+			scheduleReattachRecovery(false);
 		};
 		const handleWindowFocus = () => {
-			scheduleReattachRecovery(isFocusedRef.current);
+			scheduleReattachRecovery(false);
 		};
 
 		document.addEventListener("visibilitychange", handleVisibilityChange);
