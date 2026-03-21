@@ -77,6 +77,9 @@ export class DaemonTerminalManager extends EventEmitter {
 	}
 
 	private async listExistingDaemonSessions(): Promise<ListSessionsResponse> {
+		// `listSessionsIfRunning()` returns null only when no daemon/socket exists.
+		// Probe contention and other failures bubble up so callers can choose whether
+		// to retry, fall back, or fail closed.
 		const response = await this.client.listSessionsIfRunning();
 		return response ?? { sessions: [] };
 	}
@@ -861,9 +864,7 @@ export class DaemonTerminalManager extends EventEmitter {
 	}
 
 	async forceKillAll(): Promise<void> {
-		const response = await this.listExistingDaemonSessions().catch(() => ({
-			sessions: [],
-		}));
+		const response = await this.listExistingDaemonSessions();
 		const sessionIds = response.sessions.map((s) => s.sessionId);
 
 		for (const session of response.sessions) {
@@ -884,6 +885,8 @@ export class DaemonTerminalManager extends EventEmitter {
 
 		await this.historyManager.forceCloseAll();
 
+		// Skip the daemon RPC when the probe proves there are no live sessions to kill.
+		// Revisit this if killAll ever grows daemon-side cleanup responsibilities.
 		if (sessionIds.length > 0) {
 			await this.client.killAll({});
 		}

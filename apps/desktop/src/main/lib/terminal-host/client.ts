@@ -259,34 +259,40 @@ export class TerminalHostClient extends EventEmitter {
 
 	/**
 	 * Try to connect and authenticate to an existing daemon without spawning.
-	 * Returns true if successfully connected and authenticated, false if no daemon running.
+	 * Returns true if successfully connected and authenticated, false only when
+	 * there is definitively no daemon/socket to connect to.
 	 * This is useful for cleanup operations that should only act on existing daemons.
 	 */
 	async tryConnectAndAuthenticate(): Promise<boolean> {
 		// Already connected and authenticated (control socket is sufficient here)
 		if (this.controlSocket && this.controlAuthenticated) return true;
 
-		// Don't interfere with an in-progress connection
 		if (this.connectionState === ConnectionState.CONNECTING) {
-			return false;
+			return this.waitForExistingDaemonProbe();
 		}
 
 		this.connectionState = ConnectionState.CONNECTING;
 
 		try {
+			const socketPathExisted = existsSync(SOCKET_PATH);
 			const connected = await this.tryConnectControl();
 			if (!connected) {
 				this.resetConnectionState({ emitDisconnected: false });
-				return false;
+				if (!socketPathExisted && !existsSync(SOCKET_PATH)) {
+					return false;
+				}
+				throw new Error(
+					"Existing terminal daemon probe failed while a socket path was present",
+				);
 			}
 
 			const token = this.readAuthToken();
 			await this.authenticateControl({ token });
 			this.connectionState = ConnectionState.CONNECTED; // control-only
 			return true;
-		} catch (_error) {
+		} catch (error) {
 			this.resetConnectionState({ emitDisconnected: false });
-			return false;
+			throw error;
 		}
 	}
 
@@ -303,7 +309,38 @@ export class TerminalHostClient extends EventEmitter {
 				...session,
 				pid: session.pid ?? null,
 			})),
-		};
+			};
+	}
+
+	private async waitForExistingDaemonProbe(): Promise<boolean> {
+		const startTime = Date.now();
+		const WAIT_TIMEOUT_MS = 10_000;
+
+		while (this.connectionState === ConnectionState.CONNECTING) {
+			if (this.controlSocket && this.controlAuthenticated) {
+				return true;
+			}
+
+			if (Date.now() - startTime > WAIT_TIMEOUT_MS) {
+				throw new Error(
+					"Timeout waiting for an existing terminal daemon probe to finish",
+				);
+			}
+
+			await this.sleep(100);
+		}
+
+		if (this.controlSocket && this.controlAuthenticated) {
+			return true;
+		}
+
+		if (!existsSync(SOCKET_PATH)) {
+			return false;
+		}
+
+		throw new Error(
+			"Existing terminal daemon probe finished without an authenticated control connection",
+		);
 	}
 
 	/**
