@@ -18,6 +18,7 @@ import { mapPriorityFromLinear } from "@superset/trpc/integrations/linear";
 import { and, eq, sql } from "drizzle-orm";
 import { env } from "@/env";
 import { syncWorkflowStates } from "../jobs/initial-sync/syncWorkflowStates";
+import { shouldSkipTaskEcho } from "./shouldSkipTaskEcho";
 
 const webhookClient = new LinearWebhookClient(env.LINEAR_WEBHOOK_SECRET);
 
@@ -139,54 +140,27 @@ async function processIssueEvent(
 			console.log(
 				`[webhook] Status not found for state ${issue.state.id}, syncing workflow states...`,
 			);
-			try {
-				const client = new LinearClient({
-					accessToken: connection.accessToken,
-				});
-				await syncWorkflowStates({
-					client,
-					organizationId: connection.organizationId,
-				});
+			const client = new LinearClient({
+				accessToken: connection.accessToken,
+			});
+			await syncWorkflowStates({
+				client,
+				organizationId: connection.organizationId,
+			});
 
-				taskStatus = await db.query.taskStatuses.findFirst({
-					where: and(
-						eq(taskStatuses.organizationId, connection.organizationId),
-						eq(taskStatuses.externalProvider, "linear"),
-						eq(taskStatuses.externalId, issue.state.id),
-					),
-				});
-			} catch (syncError) {
-				console.error("[webhook] Failed to sync workflow states:", syncError);
-			}
+			taskStatus = await db.query.taskStatuses.findFirst({
+				where: and(
+					eq(taskStatuses.organizationId, connection.organizationId),
+					eq(taskStatuses.externalProvider, "linear"),
+					eq(taskStatuses.externalId, issue.state.id),
+				),
+			});
 
 			if (!taskStatus) {
 				console.warn(
 					`[webhook] Status still not found for state ${issue.state.id} after workflow sync, skipping`,
 				);
 				return "skipped";
-			}
-		}
-
-		// Skip echo: if the task was recently pushed to Linear, don't overwrite with the echo webhook
-		const ECHO_WINDOW_MS = 10_000;
-		if (payload.action === "update") {
-			const existingTask = await db.query.tasks.findFirst({
-				where: and(
-					eq(tasks.organizationId, connection.organizationId),
-					eq(tasks.externalProvider, "linear"),
-					eq(tasks.externalId, issue.id),
-				),
-				columns: { lastSyncedAt: true },
-			});
-
-			if (existingTask?.lastSyncedAt) {
-				const timeSinceSync = Date.now() - existingTask.lastSyncedAt.getTime();
-				if (timeSinceSync < ECHO_WINDOW_MS) {
-					console.log(
-						`[webhook] Skipping echo for issue ${issue.id} (synced ${timeSinceSync}ms ago)`,
-					);
-					return "processed";
-				}
 			}
 		}
 
@@ -237,6 +211,43 @@ async function processIssueEvent(
 			externalKey: issue.identifier,
 			externalUrl: issue.url,
 		};
+
+		if (payload.action === "update") {
+			const existingTask = await db.query.tasks.findFirst({
+				where: and(
+					eq(tasks.organizationId, connection.organizationId),
+					eq(tasks.externalProvider, "linear"),
+					eq(tasks.externalId, issue.id),
+				),
+				columns: {
+					lastSyncedAt: true,
+					title: true,
+					description: true,
+					statusId: true,
+					priority: true,
+					assigneeId: true,
+					assigneeExternalId: true,
+					estimate: true,
+					dueDate: true,
+				},
+			});
+
+			const lastSyncedAt = existingTask?.lastSyncedAt ?? null;
+			if (
+				existingTask &&
+				lastSyncedAt &&
+				shouldSkipTaskEcho({
+					existingTask,
+					incomingTaskData: taskData,
+				})
+			) {
+				const timeSinceSync = Date.now() - lastSyncedAt.getTime();
+				console.log(
+					`[webhook] Skipping echo for issue ${issue.id} (synced ${timeSinceSync}ms ago and task already matches incoming state)`,
+				);
+				return "processed";
+			}
+		}
 
 		await db
 			.insert(tasks)

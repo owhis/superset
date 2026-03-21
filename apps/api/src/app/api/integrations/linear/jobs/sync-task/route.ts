@@ -16,6 +16,7 @@ import { Receiver } from "@upstash/qstash";
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import { env } from "@/env";
+import { resolveLinearStateMatch } from "./resolveLinearStateMatch";
 
 const receiver = new Receiver({
 	currentSigningKey: env.QSTASH_CURRENT_SIGNING_KEY,
@@ -53,33 +54,45 @@ async function findLinearState(
 	statusType?: string | null,
 ): Promise<string | undefined> {
 	const team = await client.team(teamId);
-	const states = await team.states();
-
-	// 1. Direct ID match (fastest — works when status is from the same team)
-	if (statusExternalId) {
-		const idMatch = states.nodes.find(
-			(s: WorkflowState) => s.id === statusExternalId,
-		);
-		if (idMatch) return idMatch.id;
+	let connection = await team.states();
+	const allStates = [...connection.nodes];
+	while (connection.pageInfo.hasNextPage) {
+		connection = await connection.fetchNext();
+		allStates.push(...connection.nodes);
 	}
 
-	// 2. Name match (handles cross-team scenarios)
-	const nameMatch = states.nodes.find(
-		(s: WorkflowState) => s.name.toLowerCase() === statusName.toLowerCase(),
+	const match = resolveLinearStateMatch(
+		allStates.map((state: WorkflowState) => ({
+			id: state.id,
+			name: state.name,
+			type: state.type,
+		})),
+		{
+			statusName,
+			statusExternalId,
+			statusType,
+		},
 	);
-	if (nameMatch) return nameMatch.id;
 
-	// 3. Type match as last resort (finds any state of the same type)
-	if (statusType) {
-		const typeMatch = states.nodes.find(
-			(s: WorkflowState) => s.type === statusType,
-		);
-		if (typeMatch) {
+	if (
+		match.matchedBy === "externalId" ||
+		match.matchedBy === "name" ||
+		match.matchedBy === "uniqueType"
+	) {
+		if (match.matchedBy === "uniqueType") {
 			console.warn(
-				`[sync-task] Status "${statusName}" not found by name in team ${teamId}, falling back to type match: "${typeMatch.name}"`,
+				`[sync-task] Status "${statusName}" not found in team ${teamId}; falling back to unique ${statusType} state "${match.stateName}"`,
 			);
-			return typeMatch.id;
 		}
+
+		return match.stateId;
+	}
+
+	if (match.matchedBy === "ambiguousType") {
+		console.warn(
+			`[sync-task] Refusing ambiguous ${statusType} fallback for "${statusName}" in team ${teamId}; candidates: ${match.candidateNames.join(", ")}`,
+		);
+		return undefined;
 	}
 
 	console.warn(
