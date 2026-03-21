@@ -93,6 +93,8 @@ export interface CreateSessionParams {
 	paneId: string;
 	tabId: string;
 	workspaceId: string;
+	/** Stable identifier for the current attach attempt. */
+	requestId?: string;
 	workspaceName?: string;
 	workspacePath?: string;
 	rootPath?: string;

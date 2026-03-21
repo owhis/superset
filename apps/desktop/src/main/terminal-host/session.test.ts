@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from "bun:test";
 import type { ChildProcess } from "node:child_process";
 import { EventEmitter } from "node:events";
 import path from "node:path";
+import { TERMINAL_ATTACH_CANCELED_MESSAGE } from "../lib/terminal/errors";
 import {
 	createFrameHeader,
 	PtySubprocessFrameDecoder,
@@ -125,5 +126,40 @@ describe("Terminal Host Session shell args", () => {
 		expect(spawnPayload?.args?.[0]).toMatch(/^-[l]?c$/);
 		const argsStr = spawnPayload?.args?.join(" ") ?? "";
 		expect(argsStr).toContain("echo hello && exit 1");
+	});
+
+	it("detaches and aborts attach when the signal is already canceled", async () => {
+		const session = new Session({
+			sessionId: "session-attach-canceled",
+			workspaceId: "workspace-1",
+			paneId: "pane-1",
+			tabId: "tab-1",
+			cols: 80,
+			rows: 24,
+			cwd: "/tmp",
+			shell: "/bin/bash",
+			spawnProcess: (command: string, args: readonly string[], _options) => {
+				spawnCalls.push({ command, args: [...args] });
+				return fakeChildProcess as unknown as ChildProcess;
+			},
+		});
+
+		session.spawn({
+			cwd: "/tmp",
+			cols: 80,
+			rows: 24,
+			env: { PATH: "/usr/bin" },
+		});
+
+		const controller = new AbortController();
+		controller.abort();
+
+		await expect(
+			session.attach(
+				{} as unknown as import("node:net").Socket,
+				controller.signal,
+			),
+		).rejects.toThrow(TERMINAL_ATTACH_CANCELED_MESSAGE);
+		expect(session.clientCount).toBe(0);
 	});
 });

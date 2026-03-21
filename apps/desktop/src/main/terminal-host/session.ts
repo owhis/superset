@@ -17,6 +17,10 @@ import {
 	getShellArgs,
 } from "../lib/agent-setup/shell-wrappers";
 import { buildSafeEnv } from "../lib/terminal/env";
+import {
+	isTerminalAttachCanceledError,
+	TerminalAttachCanceledError,
+} from "../lib/terminal/errors";
 import { HeadlessEmulator } from "../lib/terminal-host/headless-emulator";
 import type {
 	CreateOrAttachRequest,
@@ -76,6 +80,38 @@ type SpawnProcess = (
 	args: readonly string[],
 	options: Parameters<typeof spawn>[2],
 ) => ChildProcess;
+
+function throwIfAborted(signal?: AbortSignal): void {
+	if (signal?.aborted) {
+		throw new TerminalAttachCanceledError();
+	}
+}
+
+function raceWithAbort<T>(
+	promise: Promise<T>,
+	signal?: AbortSignal,
+): Promise<T> {
+	if (!signal) return promise;
+	if (signal.aborted) {
+		return Promise.reject(new TerminalAttachCanceledError());
+	}
+
+	return new Promise<T>((resolve, reject) => {
+		const onAbort = () => {
+			reject(new TerminalAttachCanceledError());
+		};
+		signal.addEventListener("abort", onAbort, { once: true });
+		promise
+			.then((value) => {
+				signal.removeEventListener("abort", onAbort);
+				resolve(value);
+			})
+			.catch((error) => {
+				signal.removeEventListener("abort", onAbort);
+				reject(error);
+			});
+	});
+}
 
 // =============================================================================
 // Types
@@ -767,10 +803,14 @@ export class Session {
 	/**
 	 * Attach a client to this session
 	 */
-	async attach(socket: Socket): Promise<TerminalSnapshot> {
+	async attach(
+		socket: Socket,
+		signal?: AbortSignal,
+	): Promise<TerminalSnapshot> {
 		if (this.disposed) {
 			throw new Error("Session disposed");
 		}
+		throwIfAborted(signal);
 
 		this.attachedClients.set(socket, {
 			socket,
@@ -781,17 +821,28 @@ export class Session {
 		// Use snapshot boundary flush for consistent state with continuous output.
 		// This ensures we capture all data received BEFORE attach was called,
 		// even if new data continues to arrive during the flush.
-		const reachedBoundary = await this.flushToSnapshotBoundary(
-			ATTACH_FLUSH_TIMEOUT_MS,
-		);
-
-		if (!reachedBoundary) {
-			console.warn(
-				`[Session ${this.sessionId}] Attach flush timeout after ${ATTACH_FLUSH_TIMEOUT_MS}ms`,
+		try {
+			const reachedBoundary = await raceWithAbort(
+				this.flushToSnapshotBoundary(ATTACH_FLUSH_TIMEOUT_MS),
+				signal,
 			);
-		}
 
-		return this.emulator.getSnapshotAsync();
+			if (!reachedBoundary) {
+				console.warn(
+					`[Session ${this.sessionId}] Attach flush timeout after ${ATTACH_FLUSH_TIMEOUT_MS}ms`,
+				);
+			}
+
+			await raceWithAbort(this.emulator.flush(), signal);
+			throwIfAborted(signal);
+			return this.emulator.getSnapshot();
+		} catch (error) {
+			if (isTerminalAttachCanceledError(error)) {
+				this.detach(socket);
+				throw error;
+			}
+			throw error;
+		}
 	}
 
 	/**

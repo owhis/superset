@@ -24,6 +24,7 @@ import { coldRestoreState, pendingDetaches } from "../state";
 import type {
 	CreateOrAttachMutate,
 	CreateOrAttachResult,
+	TerminalCancelCreateOrAttachMutate,
 	TerminalClearScrollbackMutate,
 	TerminalDetachMutate,
 	TerminalResizeMutate,
@@ -43,6 +44,11 @@ type UnregisterCallback = (paneId: string) => void;
 
 const attachInFlightByPane = new Map<string, number>();
 const attachWaitersByPane = new Map<string, Set<() => void>>();
+const TERMINAL_ATTACH_CANCELED_MESSAGE = "TERMINAL_ATTACH_CANCELED";
+
+function isTerminalAttachCanceledMessage(message?: string): boolean {
+	return message?.includes(TERMINAL_ATTACH_CANCELED_MESSAGE) ?? false;
+}
 
 function markAttachInFlight(paneId: string, attachId: number): void {
 	attachInFlightByPane.set(paneId, attachId);
@@ -116,6 +122,7 @@ export interface UseTerminalLifecycleOptions {
 	writeRef: MutableRefObject<TerminalWriteMutate>;
 	resizeRef: MutableRefObject<TerminalResizeMutate>;
 	detachRef: MutableRefObject<TerminalDetachMutate>;
+	cancelCreateOrAttachRef: MutableRefObject<TerminalCancelCreateOrAttachMutate>;
 	clearScrollbackRef: MutableRefObject<TerminalClearScrollbackMutate>;
 	isStreamReadyRef: MutableRefObject<boolean>;
 	didFirstRenderRef: MutableRefObject<boolean>;
@@ -180,6 +187,7 @@ export function useTerminalLifecycle({
 	writeRef,
 	resizeRef,
 	detachRef,
+	cancelCreateOrAttachRef,
 	clearScrollbackRef,
 	isStreamReadyRef,
 	didFirstRenderRef,
@@ -232,6 +240,7 @@ export function useTerminalLifecycle({
 		let attachCanceled = false;
 		let attachSequence = 0;
 		let activeAttachId = 0;
+		let activeAttachRequestId: string | null = null;
 		let cancelAttachWait: (() => void) | null = null;
 
 		const {
@@ -294,6 +303,12 @@ export function useTerminalLifecycle({
 			maybeApplyInitialState();
 		}, FIRST_RENDER_RESTORE_FALLBACK_MS);
 
+		const nextAttachRequestId = () => `${paneId}:${++attachSequence}`;
+		const cancelAttachRequest = (requestId: string | null) => {
+			if (!requestId) return;
+			cancelCreateOrAttachRef.current({ paneId, requestId });
+		};
+
 		const restartTerminalSession = (options?: {
 			command?: string;
 			forceRestart?: boolean;
@@ -311,9 +326,13 @@ export function useTerminalLifecycle({
 					setPaneWorkspaceRunState(paneId, "running");
 				}
 				const attach = () => {
+					const requestId = nextAttachRequestId();
+					cancelAttachRequest(activeAttachRequestId);
+					activeAttachRequestId = requestId;
 					createOrAttachRef.current(
 						{
 							paneId,
+							requestId,
 							tabId: tabIdRef.current,
 							workspaceId,
 							cols: xterm.cols,
@@ -324,12 +343,24 @@ export function useTerminalLifecycle({
 						},
 						{
 							onSuccess: (result) => {
+								if (activeAttachRequestId !== requestId) {
+									resolve();
+									return;
+								}
 								setConnectionError(null);
 								pendingInitialStateRef.current = result;
 								maybeApplyInitialState();
 								resolve();
 							},
 							onError: (error) => {
+								if (activeAttachRequestId !== requestId) {
+									resolve();
+									return;
+								}
+								if (isTerminalAttachCanceledMessage(error.message)) {
+									resolve();
+									return;
+								}
 								console.error("[Terminal] Failed to restart:", error);
 								if (workspaceRun) {
 									setPaneWorkspaceRunState(paneId, "stopped-by-exit");
@@ -340,6 +371,11 @@ export function useTerminalLifecycle({
 								isStreamReadyRef.current = true;
 								flushPendingEvents();
 								reject(error);
+							},
+							onSettled: () => {
+								if (activeAttachRequestId === requestId) {
+									activeAttachRequestId = null;
+								}
 							},
 						},
 					);
@@ -445,7 +481,10 @@ export function useTerminalLifecycle({
 						return;
 					}
 
-					activeAttachId = ++attachSequence;
+					const requestId = nextAttachRequestId();
+					cancelAttachRequest(activeAttachRequestId);
+					activeAttachRequestId = requestId;
+					activeAttachId = attachSequence;
 					const attachId = activeAttachId;
 					const isAttachActive = () =>
 						!isUnmounted && !attachCanceled && attachId === activeAttachId;
@@ -463,6 +502,7 @@ export function useTerminalLifecycle({
 					createOrAttachRef.current(
 						{
 							paneId,
+							requestId,
 							tabId: tabIdRef.current,
 							workspaceId,
 							cols: xterm.cols,
@@ -476,6 +516,7 @@ export function useTerminalLifecycle({
 						{
 							onSuccess: (result) => {
 								if (!isAttachActive()) return;
+								if (activeAttachRequestId !== requestId) return;
 								setConnectionError(null);
 								clearPaneInitialDataRef.current(paneId);
 
@@ -515,6 +556,10 @@ export function useTerminalLifecycle({
 							},
 							onError: (error) => {
 								if (!isAttachActive()) return;
+								if (activeAttachRequestId !== requestId) return;
+								if (isTerminalAttachCanceledMessage(error.message)) {
+									return;
+								}
 								const workspaceRun = getPaneWorkspaceRun(paneId);
 								if (error.message?.includes("TERMINAL_SESSION_KILLED")) {
 									if (workspaceRun) {
@@ -537,7 +582,12 @@ export function useTerminalLifecycle({
 								isStreamReadyRef.current = true;
 								flushPendingEvents();
 							},
-							onSettled: () => finishAttach(),
+							onSettled: () => {
+								if (activeAttachRequestId === requestId) {
+									activeAttachRequestId = null;
+								}
+								finishAttach();
+							},
 						},
 					);
 				};
@@ -734,6 +784,8 @@ export function useTerminalLifecycle({
 			cancelInitialAttach();
 			isUnmounted = true;
 			attachCanceled = true;
+			cancelAttachRequest(activeAttachRequestId);
+			activeAttachRequestId = null;
 			const cleanupAttachId = activeAttachId || undefined;
 			activeAttachId = 0;
 			if (cancelAttachWait) {

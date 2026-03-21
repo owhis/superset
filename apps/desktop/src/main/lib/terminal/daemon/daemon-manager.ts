@@ -11,7 +11,7 @@ import {
 } from "../../terminal-host/client";
 import type { ListSessionsResponse } from "../../terminal-host/types";
 import { buildTerminalEnv, getDefaultShell } from "../env";
-import { TerminalKilledError } from "../errors";
+import { TerminalAttachCanceledError, TerminalKilledError } from "../errors";
 import { portManager } from "../port-manager";
 import type { CreateSessionParams, SessionResult } from "../types";
 import {
@@ -25,10 +25,47 @@ import { HistoryManager } from "./history-manager";
 import { PrioritySemaphore } from "./priority-semaphore";
 import type { ColdRestoreInfo, SessionInfo } from "./types";
 
+interface PendingCreateOrAttach {
+	requestId: string;
+	abortController: AbortController;
+	promise: Promise<SessionResult>;
+}
+
+function throwIfAborted(signal: AbortSignal): void {
+	if (signal.aborted) {
+		throw new TerminalAttachCanceledError();
+	}
+}
+
+function raceWithAbort<T>(
+	promise: Promise<T>,
+	signal: AbortSignal,
+): Promise<T> {
+	if (signal.aborted) {
+		return Promise.reject(new TerminalAttachCanceledError());
+	}
+
+	return new Promise<T>((resolve, reject) => {
+		const onAbort = () => {
+			reject(new TerminalAttachCanceledError());
+		};
+		signal.addEventListener("abort", onAbort, { once: true });
+		promise
+			.then((value) => {
+				signal.removeEventListener("abort", onAbort);
+				resolve(value);
+			})
+			.catch((error) => {
+				signal.removeEventListener("abort", onAbort);
+				reject(error);
+			});
+	});
+}
+
 export class DaemonTerminalManager extends EventEmitter {
 	private client!: TerminalHostClient;
 	private sessions = new Map<string, SessionInfo>();
-	private pendingSessions = new Map<string, Promise<SessionResult>>();
+	private pendingSessions = new Map<string, PendingCreateOrAttach>();
 	private killedSessionTombstones = new Map<string, number>();
 	private createOrAttachLimiter = new PrioritySemaphore(
 		CREATE_OR_ATTACH_CONCURRENCY,
@@ -280,18 +317,45 @@ export class DaemonTerminalManager extends EventEmitter {
 			}
 		}
 
+		const requestId = params.requestId ?? `${paneId}:${Date.now()}`;
 		const pending = this.pendingSessions.get(paneId);
 		if (pending) {
-			return pending;
+			if (pending.requestId === requestId) {
+				return pending.promise;
+			}
+			pending.abortController.abort();
+			this.pendingSessions.delete(paneId);
 		}
 
-		const creationPromise = this.doCreateOrAttach(params);
-		this.pendingSessions.set(paneId, creationPromise);
+		const abortController = new AbortController();
+		const promise = this.doCreateOrAttach(
+			{ ...params, requestId },
+			abortController.signal,
+		);
+		const entry: PendingCreateOrAttach = {
+			requestId,
+			abortController,
+			promise,
+		};
+		this.pendingSessions.set(paneId, entry);
 
 		try {
-			return await creationPromise;
+			return await entry.promise;
 		} finally {
-			this.pendingSessions.delete(paneId);
+			if (this.pendingSessions.get(paneId) === entry) {
+				this.pendingSessions.delete(paneId);
+			}
+		}
+	}
+
+	cancelCreateOrAttach(params: { paneId: string; requestId: string }): void {
+		const pending = this.pendingSessions.get(params.paneId);
+		if (!pending || pending.requestId !== params.requestId) {
+			return;
+		}
+		pending.abortController.abort();
+		if (this.pendingSessions.get(params.paneId) === pending) {
+			this.pendingSessions.delete(params.paneId);
 		}
 	}
 
@@ -306,9 +370,11 @@ export class DaemonTerminalManager extends EventEmitter {
 
 	private async doCreateOrAttach(
 		params: CreateSessionParams,
+		signal: AbortSignal,
 	): Promise<SessionResult> {
 		const releaseCreateOrAttach = await this.createOrAttachLimiter.acquire(
 			this.getCreateOrAttachPriority(params),
+			signal,
 		);
 		const {
 			paneId,
@@ -326,9 +392,11 @@ export class DaemonTerminalManager extends EventEmitter {
 		} = params;
 
 		try {
+			throwIfAborted(signal);
 			if (!skipColdRestore) {
 				const stickyRestore = this.coldRestoreInfo.get(paneId);
 				if (stickyRestore) {
+					throwIfAborted(signal);
 					return {
 						isNew: false,
 						scrollback: stickyRestore.scrollback,
@@ -353,6 +421,7 @@ export class DaemonTerminalManager extends EventEmitter {
 			}
 
 			await this.ensureDaemonSessionIdsHydrated();
+			throwIfAborted(signal);
 			const daemonHasSession = this.daemonAliveSessionIds.has(paneId);
 
 			if (!daemonHasSession && !skipColdRestore) {
@@ -363,12 +432,14 @@ export class DaemonTerminalManager extends EventEmitter {
 					rows,
 				});
 				if (coldRestoreResult) {
+					throwIfAborted(signal);
 					return coldRestoreResult;
 				}
 			}
 
 			if (!daemonHasSession && skipColdRestore) {
 				await this.historyManager.cleanupHistory(paneId, workspaceId);
+				throwIfAborted(signal);
 			}
 
 			const shell = getDefaultShell();
@@ -393,8 +464,9 @@ export class DaemonTerminalManager extends EventEmitter {
 				});
 			}
 
-			const response = await this.client.createOrAttach({
+			const daemonRequest = this.client.createOrAttach({
 				sessionId: paneId,
+				requestId: params.requestId,
 				paneId,
 				tabId,
 				workspaceId,
@@ -408,6 +480,22 @@ export class DaemonTerminalManager extends EventEmitter {
 				shell,
 				command,
 			});
+			daemonRequest.catch(() => {});
+			const cancelDaemonRequest = () => {
+				if (!params.requestId) return;
+				void this.client
+					.cancelCreateOrAttach({
+						sessionId: paneId,
+						requestId: params.requestId,
+					})
+					.catch(() => {});
+			};
+			signal.addEventListener("abort", cancelDaemonRequest, { once: true });
+			const response = await raceWithAbort(daemonRequest, signal).finally(
+				() => {
+					signal.removeEventListener("abort", cancelDaemonRequest);
+				},
+			);
 
 			this.daemonAliveSessionIds.add(paneId);
 

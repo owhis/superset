@@ -29,6 +29,7 @@ import { join } from "node:path";
 import { app } from "electron";
 import { SUPERSET_DIR_NAME } from "shared/constants";
 import {
+	type CancelCreateOrAttachRequest,
 	type ClearScrollbackRequest,
 	type CreateOrAttachRequest,
 	type CreateOrAttachResponse,
@@ -1296,6 +1297,24 @@ export class TerminalHostClient extends EventEmitter {
 		);
 		// Version skew: older daemons may not return pid - normalize undefined → null
 		return { ...response, pid: response.pid ?? null };
+	}
+
+	/**
+	 * Cancel an in-flight createOrAttach request if the daemon is already connected.
+	 * This is best-effort and intentionally does not spawn or reconnect the daemon.
+	 */
+	async cancelCreateOrAttach(
+		request: CancelCreateOrAttachRequest,
+	): Promise<EmptyResponse> {
+		if (
+			this.connectionState !== ConnectionState.CONNECTED ||
+			!this.controlSocket ||
+			!this.controlAuthenticated
+		) {
+			return { success: true };
+		}
+
+		return this.sendRequest<EmptyResponse>("cancelCreateOrAttach", request);
 	}
 
 	/**

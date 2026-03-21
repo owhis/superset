@@ -10,6 +10,12 @@ import type {
 } from "../types";
 import { scrollToBottom } from "../utils";
 
+const TERMINAL_ATTACH_CANCELED_MESSAGE = "TERMINAL_ATTACH_CANCELED";
+
+function isTerminalAttachCanceledMessage(message?: string): boolean {
+	return message?.includes(TERMINAL_ATTACH_CANCELED_MESSAGE) ?? false;
+}
+
 export interface UseTerminalColdRestoreOptions {
 	paneId: string;
 	tabId: string;
@@ -132,6 +138,9 @@ export function useTerminalColdRestore({
 					}
 				},
 				onError: (error: { message?: string }) => {
+					if (isTerminalAttachCanceledMessage(error.message)) {
+						return;
+					}
 					if (error.message?.includes("TERMINAL_SESSION_KILLED")) {
 						wasKilledByUserRef.current = true;
 						isExitedRef.current = true;
@@ -219,6 +228,9 @@ export function useTerminalColdRestore({
 					}, 0);
 				},
 				onError: (error: { message?: string }) => {
+					if (isTerminalAttachCanceledMessage(error.message)) {
+						return;
+					}
 					console.error("[Terminal] Failed to start shell:", error);
 					setConnectionError(error.message || "Failed to start shell");
 					setIsRestoredMode(false);
