@@ -225,7 +225,7 @@ export async function fetchGitHubPRComments({
 
 		const inFlight = getInFlightPullRequestComments(cacheKey);
 		if (inFlight) {
-			return inFlight;
+			return await inFlight;
 		}
 
 		const promise = (async () => {
@@ -243,7 +243,7 @@ export async function fetchGitHubPRComments({
 		})();
 
 		setInFlightPullRequestComments(cacheKey, promise);
-		return promise;
+		return await promise;
 	} catch {
 		return [];
 	}

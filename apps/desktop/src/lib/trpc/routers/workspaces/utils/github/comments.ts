@@ -165,7 +165,7 @@ export async function fetchPullRequestComments({
 	repoNameWithOwner: string;
 	pullRequestNumber: number;
 }): Promise<PullRequestComment[]> {
-	const [reviewComments, conversationComments] = await Promise.all([
+	const [reviewResult, conversationResult] = await Promise.allSettled([
 		fetchReviewCommentsForPullRequest(
 			worktreePath,
 			repoNameWithOwner,
@@ -177,6 +177,25 @@ export async function fetchPullRequestComments({
 			pullRequestNumber,
 		),
 	]);
+
+	const reviewComments =
+		reviewResult.status === "fulfilled" ? reviewResult.value : [];
+	const conversationComments =
+		conversationResult.status === "fulfilled" ? conversationResult.value : [];
+
+	if (reviewResult.status === "rejected") {
+		console.warn(
+			"[GitHub] Failed to fetch pull request review comments:",
+			reviewResult.reason,
+		);
+	}
+
+	if (conversationResult.status === "rejected") {
+		console.warn(
+			"[GitHub] Failed to fetch pull request conversation comments:",
+			conversationResult.reason,
+		);
+	}
 
 	return mergePullRequestComments(reviewComments, conversationComments);
 }

@@ -53,7 +53,7 @@ function setCachedValue<T>(
 	ttlMs: number,
 	maxEntries: number,
 ): void {
-	if (cache.size >= maxEntries) {
+	if (!cache.has(cacheKey) && cache.size >= maxEntries) {
 		cache.clear();
 	}
 
