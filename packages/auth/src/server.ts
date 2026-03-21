@@ -32,6 +32,10 @@ import { acceptInvitationEndpoint } from "./lib/accept-invitation-endpoint";
 import { generateMagicTokenForInvite } from "./lib/generate-magic-token";
 import { invitationRateLimit } from "./lib/rate-limit";
 import { resend } from "./lib/resend";
+import {
+	resolveSessionOrganizationState,
+	type SessionOrganizationContext,
+} from "./lib/resolve-session-organization-state";
 import { stripeClient } from "./stripe";
 import { formatPrice, getOrganizationOwners } from "./utils";
 
@@ -46,57 +50,6 @@ const desktopDevOrigins =
 				`http://127.0.0.1:${desktopDevPort}`,
 			]
 		: [];
-
-type SessionOrganizationContext = {
-	id?: string;
-	activeOrganizationId?: string | null;
-};
-
-async function resolveSessionOrganizationState({
-	userId,
-	session,
-}: {
-	userId?: string | null;
-	session?: SessionOrganizationContext | null;
-}) {
-	let activeOrganizationId = session?.activeOrganizationId ?? null;
-	if (!userId) {
-		return {
-			activeOrganizationId,
-			allMemberships: [],
-			membership: undefined,
-		};
-	}
-
-	const allMemberships = await db.query.members.findMany({
-		where: eq(members.userId, userId),
-		orderBy: desc(members.createdAt),
-	});
-
-	const membership =
-		(activeOrganizationId
-			? allMemberships.find(
-					(item) => item.organizationId === activeOrganizationId,
-				)
-			: undefined) ?? allMemberships[0];
-
-	const nextActiveOrganizationId = membership?.organizationId ?? null;
-	if (nextActiveOrganizationId !== activeOrganizationId) {
-		activeOrganizationId = nextActiveOrganizationId;
-		if (session?.id) {
-			await db
-				.update(authSchema.sessions)
-				.set({ activeOrganizationId })
-				.where(eq(authSchema.sessions.id, session.id));
-		}
-	}
-
-	return {
-		activeOrganizationId,
-		allMemberships,
-		membership,
-	};
-}
 
 export const auth = betterAuth({
 	baseURL: env.NEXT_PUBLIC_API_URL,
