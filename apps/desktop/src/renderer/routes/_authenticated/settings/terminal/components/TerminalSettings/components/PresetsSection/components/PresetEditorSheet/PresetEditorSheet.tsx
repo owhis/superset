@@ -341,7 +341,7 @@ export function PresetEditorSheet({
 								)}
 							</div>
 
-							<div className="space-y-3 rounded-md border border-border p-3">
+							<div className="space-y-3">
 								<LabelWithTooltip
 									label="Auto-run"
 									className="text-sm font-medium"
