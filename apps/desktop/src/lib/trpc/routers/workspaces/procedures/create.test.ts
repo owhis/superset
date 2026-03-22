@@ -72,7 +72,7 @@ describe("Workspace creation with external worktree auto-import", () => {
 		mainRepoPath = createTestRepo("main-repo");
 		seedCommit(mainRepoPath, "initial commit");
 
-			// Create project in DB
+		// Create project in DB
 		const project = localDb
 			.insert(projects)
 			.values({
@@ -83,9 +83,7 @@ describe("Workspace creation with external worktree auto-import", () => {
 			})
 			.returning()
 			.get();
-		console.log("[TEST] Inserted project:", project);
 		projectId = project.id;
-		console.log("[TEST] Set projectId to:", projectId);
 
 		// Create external worktree
 		externalWorktreePath = join(TEST_DIR, "external-worktree");
@@ -115,15 +113,6 @@ describe("Workspace creation with external worktree auto-import", () => {
 			"feature-external",
 			externalWorktreePath,
 		);
-
-		// Verify project exists in DB
-		const projectCheck = localDb
-			.select()
-			.from(projects)
-			.where(eq(projects.id, projectId))
-			.get();
-		expect(projectCheck).toBeDefined();
-		expect(projectCheck?.id).toBe(projectId);
 
 		// Import the utility function
 		const { createWorkspaceFromExternalWorktree } = await import(
@@ -231,7 +220,6 @@ describe("Workspace creation with external worktree auto-import", () => {
 		expect(existsSync(externalWorktreePath)).toBe(true);
 		expect(existsSync(join(externalWorktreePath, "test.txt"))).toBe(true);
 	});
-
 });
 
 describe("External worktree import via openExternalWorktree", () => {
