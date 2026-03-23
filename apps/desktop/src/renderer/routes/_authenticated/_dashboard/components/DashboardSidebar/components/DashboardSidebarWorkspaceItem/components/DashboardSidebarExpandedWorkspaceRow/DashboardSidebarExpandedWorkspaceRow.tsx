@@ -1,10 +1,11 @@
 import { Tooltip, TooltipContent, TooltipTrigger } from "@superset/ui/tooltip";
 import { cn } from "@superset/ui/utils";
-import { type ComponentPropsWithoutRef, forwardRef } from "react";
+import { type ComponentPropsWithoutRef, forwardRef, useMemo } from "react";
 import { HiMiniXMark } from "react-icons/hi2";
 import { RenameInput } from "renderer/screens/main/components/WorkspaceSidebar/RenameInput";
 import type { DashboardSidebarWorkspace } from "../../../../types";
 import type { WorkspaceRowMockData } from "../../utils";
+import { getCreationStatusText } from "../../utils/getCreationStatusText";
 import { DashboardSidebarWorkspaceDiffStats } from "../DashboardSidebarWorkspaceDiffStats";
 import { DashboardSidebarWorkspaceIcon } from "../DashboardSidebarWorkspaceIcon";
 import { DashboardSidebarWorkspaceStatusBadge } from "../DashboardSidebarWorkspaceStatusBadge";
@@ -54,26 +55,23 @@ export const DashboardSidebarExpandedWorkspaceRow = forwardRef<
 			name,
 			branch,
 			pullRequest,
-			creationStatus = null,
+			creationStatus,
 		} = workspace;
 		const showBranchSubtitle = !!name && name !== branch;
 		const showSubtitle = showBranchSubtitle || !!pullRequest;
 		const showsStandaloneActiveStripe = accentColor == null;
 
-		const creationStatusText =
-			creationStatus === "preparing"
-				? "Preparing..."
-				: creationStatus === "generating-branch"
-					? "Generating..."
-					: creationStatus === "creating"
-						? "Creating..."
-						: null;
+		const creationStatusText = useMemo(
+			() => getCreationStatusText(creationStatus),
+			[creationStatus],
+		);
 
 		return (
-			// biome-ignore lint/a11y/useSemanticElements: Mirrors the legacy sidebar row UI, which includes nested action buttons.
+			// biome-ignore lint/a11y/noStaticElementInteractions: Mirrors the legacy sidebar row UI, which includes nested action buttons.
 			<div
-				role="button"
-				tabIndex={onClick ? 0 : -1}
+				role={onClick ? "button" : undefined}
+				tabIndex={onClick ? 0 : undefined}
+				aria-disabled={creationStatus ? true : undefined}
 				ref={ref}
 				onClick={onClick}
 				onKeyDown={(event) => {

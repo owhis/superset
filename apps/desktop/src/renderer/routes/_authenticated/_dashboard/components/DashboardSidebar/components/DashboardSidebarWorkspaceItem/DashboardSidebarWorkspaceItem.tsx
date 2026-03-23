@@ -27,7 +27,7 @@ export function DashboardSidebarWorkspaceItem({
 		hostType,
 		name,
 		branch,
-		creationStatus = null,
+		creationStatus,
 	} = workspace;
 	const mockData = getWorkspaceRowMocks(id);
 	const {
@@ -55,7 +55,6 @@ export function DashboardSidebarWorkspaceItem({
 	});
 
 	const isCreating = !!creationStatus;
-	const disableInteractions = isCreating;
 
 	if (isCollapsed) {
 		const content = (
@@ -71,17 +70,20 @@ export function DashboardSidebarWorkspaceItem({
 				<DashboardSidebarCollapsedWorkspaceButton
 					hostType={hostType}
 					isActive={isActive}
-					onClick={disableInteractions ? undefined : handleClick}
+					onClick={isCreating ? undefined : handleClick}
 					workspaceStatus={mockData.workspaceStatus}
 					creationStatus={creationStatus}
-					disabled={disableInteractions}
+					disabled={isCreating}
+					aria-label={
+						creationStatus ? `Creating workspace: ${name}` : undefined
+					}
 				/>
 			</div>
 		);
 
 		return (
 			<>
-				{disableInteractions ? (
+				{isCreating ? (
 					content
 				) : (
 					<DashboardSidebarWorkspaceContextMenu
@@ -109,14 +111,16 @@ export function DashboardSidebarWorkspaceItem({
 					</DashboardSidebarWorkspaceContextMenu>
 				)}
 
-				<DashboardSidebarDeleteDialog
-					open={isDeleteDialogOpen}
-					onOpenChange={setIsDeleteDialogOpen}
-					onConfirm={handleDelete}
-					title={`Delete "${name || branch}"?`}
-					description="This will permanently delete the workspace."
-					isPending={isDeleting}
-				/>
+				{!isCreating && (
+					<DashboardSidebarDeleteDialog
+						open={isDeleteDialogOpen}
+						onOpenChange={setIsDeleteDialogOpen}
+						onConfirm={handleDelete}
+						title={`Delete "${name || branch}"?`}
+						description="This will permanently delete the workspace."
+						isPending={isDeleting}
+					/>
+				)}
 			</>
 		);
 	}
@@ -129,8 +133,8 @@ export function DashboardSidebarWorkspaceItem({
 			renameValue={renameValue}
 			shortcutLabel={shortcutLabel}
 			mockData={mockData}
-			onClick={disableInteractions ? undefined : handleClick}
-			onDoubleClick={disableInteractions ? undefined : startRename}
+			onClick={isCreating ? undefined : handleClick}
+			onDoubleClick={isCreating ? undefined : startRename}
 			onDeleteClick={() => setIsDeleteDialogOpen(true)}
 			onRenameValueChange={setRenameValue}
 			onSubmitRename={submitRename}
@@ -140,7 +144,7 @@ export function DashboardSidebarWorkspaceItem({
 
 	return (
 		<>
-			{disableInteractions ? (
+			{isCreating ? (
 				expandedContent
 			) : (
 				<DashboardSidebarWorkspaceContextMenu
@@ -168,14 +172,16 @@ export function DashboardSidebarWorkspaceItem({
 				</DashboardSidebarWorkspaceContextMenu>
 			)}
 
-			<DashboardSidebarDeleteDialog
-				open={isDeleteDialogOpen}
-				onOpenChange={setIsDeleteDialogOpen}
-				onConfirm={handleDelete}
-				title={`Delete "${name || branch}"?`}
-				description="This will permanently delete the workspace."
-				isPending={isDeleting}
-			/>
+			{!isCreating && (
+				<DashboardSidebarDeleteDialog
+					open={isDeleteDialogOpen}
+					onOpenChange={setIsDeleteDialogOpen}
+					onConfirm={handleDelete}
+					title={`Delete "${name || branch}"?`}
+					description="This will permanently delete the workspace."
+					isPending={isDeleting}
+				/>
+			)}
 		</>
 	);
 }

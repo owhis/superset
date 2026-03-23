@@ -17,6 +17,9 @@ import type {
 	DashboardSidebarWorkspace,
 } from "../../types";
 
+// Pending workspaces are always rendered at the end of the project's workspace list
+const PENDING_WORKSPACE_TAB_ORDER = Number.MAX_SAFE_INTEGER;
+
 export function useDashboardSidebarData() {
 	const { data: session } = authClient.useSession();
 	const collections = useCollections();
@@ -234,7 +237,6 @@ export function useDashboardSidebarData() {
 				behindCount: null,
 				createdAt: workspace.createdAt,
 				updatedAt: workspace.updatedAt,
-				creationStatus: null,
 			};
 
 			if (workspace.sectionId) {
@@ -258,13 +260,18 @@ export function useDashboardSidebarData() {
 		}
 
 		// Inject pending workspace if it exists
-		if (pendingWorkspace) {
+		if (pendingWorkspace && deviceInfo?.deviceId) {
 			const project = projectsById.get(pendingWorkspace.projectId);
-			if (project) {
+			if (!project) {
+				// Log warning if pending workspace references non-existent project
+				console.warn(
+					`Pending workspace ${pendingWorkspace.id} references non-existent project ${pendingWorkspace.projectId}`,
+				);
+			} else {
 				const pendingItem: DashboardSidebarWorkspace = {
 					id: pendingWorkspace.id,
 					projectId: pendingWorkspace.projectId,
-					deviceId: deviceInfo?.deviceId ?? "",
+					deviceId: deviceInfo.deviceId,
 					hostType: "local-device",
 					accentColor: null,
 					name: pendingWorkspace.name,
@@ -284,7 +291,7 @@ export function useDashboardSidebarData() {
 				};
 
 				project.childEntries.push({
-					tabOrder: Number.MAX_SAFE_INTEGER,
+					tabOrder: PENDING_WORKSPACE_TAB_ORDER,
 					child: {
 						type: "workspace",
 						workspace: pendingItem,
