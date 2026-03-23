@@ -73,11 +73,15 @@ export function HostServiceProvider({ children }: { children: ReactNode }) {
 	const services = useMemo(() => {
 		const map = new Map<string, OrgService>();
 
-		const addOrg = (orgId: string, port: number) => {
+		const addOrg = (
+			orgId: string,
+			port: number,
+			sessionToken?: string | null,
+		) => {
 			map.set(orgId, {
 				port,
 				url: `http://127.0.0.1:${port}`,
-				client: getHostServiceClient(port),
+				client: getHostServiceClient(port, sessionToken),
 			});
 		};
 
@@ -86,7 +90,7 @@ export function HostServiceProvider({ children }: { children: ReactNode }) {
 				organizationId: orgId,
 			});
 			if (cached?.port) {
-				addOrg(orgId, cached.port);
+				addOrg(orgId, cached.port, cached.sessionToken);
 			}
 		}
 
@@ -96,7 +100,11 @@ export function HostServiceProvider({ children }: { children: ReactNode }) {
 			activePortData?.port &&
 			!map.has(activeOrganizationId)
 		) {
-			addOrg(activeOrganizationId, activePortData.port);
+			addOrg(
+				activeOrganizationId,
+				activePortData.port,
+				activePortData.sessionToken,
+			);
 		}
 
 		return map;

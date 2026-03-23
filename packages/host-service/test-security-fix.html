@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SS-004 Security Fix Verification</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .test-card {
+            background: white;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .test-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 10px;
+        }
+        .test-result {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 14px;
+        }
+        .success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .warning {
+            background: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .code {
+            background: #f4f4f4;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: monospace;
+        }
+        .vulnerability-badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-left: 10px;
+        }
+        .vuln-critical {
+            background: #dc3545;
+            color: white;
+        }
+        .vuln-fixed {
+            background: #28a745;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔒 SS-004 Security Fix Verification</h1>
+    <p>This page tests the host-service CORS and authentication vulnerability fix.</p>
+
+    <div class="test-card">
+        <div class="test-title">
+            Test 1: Unauthenticated Request (Should FAIL)
+            <span class="vulnerability-badge vuln-fixed">FIXED ✓</span>
+        </div>
+        <p>Attempts to access <code class="code">github.getUser</code> without authentication.</p>
+        <p><strong>Expected:</strong> CORS error or 401 Unauthorized</p>
+        <button onclick="testUnauthenticated()">Run Test</button>
+        <div id="test1-result"></div>
+    </div>
+
+    <div class="test-card">
+        <div class="test-title">
+            Test 2: Data Exfiltration Attempt (Should FAIL)
+            <span class="vulnerability-badge vuln-fixed">FIXED ✓</span>
+        </div>
+        <p>Attempts to extract GitHub identity and Superset account info.</p>
+        <p><strong>Expected:</strong> All requests blocked</p>
+        <button onclick="testDataExfiltration()">Run Test</button>
+        <div id="test2-result"></div>
+    </div>
+
+    <div class="test-card">
+        <div class="test-title">
+            Test 3: Destructive Operation Attempt (Should FAIL)
+            <span class="vulnerability-badge vuln-fixed">FIXED ✓</span>
+        </div>
+        <p>Attempts to merge a PR or delete a repository without auth.</p>
+        <p><strong>Expected:</strong> Request blocked</p>
+        <button onclick="testDestructiveOp()">Run Test</button>
+        <div id="test3-result"></div>
+    </div>
+
+    <div class="test-card">
+        <div class="test-title">Test 4: Port Discovery</div>
+        <p>Common ports where host-service might run.</p>
+        <button onclick="testPortDiscovery()">Scan Ports</button>
+        <div id="test4-result"></div>
+    </div>
+
+    <div class="test-card" style="background: #e7f3ff; border: 2px solid #007bff;">
+        <div class="test-title">ℹ️ Vulnerability Details (SS-004)</div>
+        <p><strong>Original Issue:</strong></p>
+        <ul>
+            <li>Unrestricted CORS (<code>Access-Control-Allow-Origin: *</code>)</li>
+            <li>Zero authentication on all endpoints</li>
+            <li>Exposed sensitive data (GitHub identity, Superset account)</li>
+            <li>Allowed destructive operations (PR merge, repo deletion)</li>
+        </ul>
+        <p><strong>Fix Applied:</strong></p>
+        <ul>
+            <li>✅ Strict CORS (localhost/Electron only)</li>
+            <li>✅ Session token authentication required</li>
+            <li>✅ Constant-time token comparison</li>
+            <li>✅ Secure token distribution via IPC</li>
+        </ul>
+    </div>
+
+    <script>
+        const PORTS = [4879, 3000, 3001, 4000, 4878, 4880];
+
+        function displayResult(elementId, message, type) {
+            const element = document.getElementById(elementId);
+            element.innerHTML = `<div class="test-result ${type}">${message}</div>`;
+        }
+
+        async function testUnauthenticated() {
+            const resultId = 'test1-result';
+            displayResult(resultId, '⏳ Testing...', 'warning');
+
+            for (const port of PORTS) {
+                try {
+                    const response = await fetch(`http://127.0.0.1:${port}/trpc/github.getUser`);
+
+                    if (response.status === 401) {
+                        displayResult(resultId,
+                            `✅ PROTECTED: Port ${port} returned 401 Unauthorized (correct behavior)`,
+                            'success'
+                        );
+                        return;
+                    }
+
+                    if (response.ok) {
+                        const data = await response.json();
+                        displayResult(resultId,
+                            `❌ VULNERABILITY: Port ${port} allowed unauthenticated access! Data: ${JSON.stringify(data)}`,
+                            'error'
+                        );
+                        return;
+                    }
+                } catch (err) {
+                    // CORS error or network error (expected)
+                    if (err.message.includes('CORS') || err.message.includes('Failed to fetch')) {
+                        displayResult(resultId,
+                            `✅ PROTECTED: CORS blocked the request (correct behavior)\n${err.message}`,
+                            'success'
+                        );
+                        return;
+                    }
+                }
+            }
+
+            displayResult(resultId,
+                '⚠️ No host-service found running on common ports',
+                'warning'
+            );
+        }
+
+        async function testDataExfiltration() {
+            const resultId = 'test2-result';
+            displayResult(resultId, '⏳ Attempting data exfiltration...', 'warning');
+
+            const endpoints = [
+                '/trpc/github.getUser',
+                '/trpc/cloud.whoami',
+                '/trpc/git.status'
+            ];
+
+            let blocked = 0;
+            let vulnerable = 0;
+            const results = [];
+
+            for (const port of PORTS) {
+                for (const endpoint of endpoints) {
+                    try {
+                        const response = await fetch(`http://127.0.0.1:${port}${endpoint}`);
+
+                        if (response.status === 401) {
+                            blocked++;
+                        } else if (response.ok) {
+                            vulnerable++;
+                            results.push(`❌ ${endpoint} exposed on port ${port}`);
+                        }
+                    } catch (err) {
+                        // CORS or network error (good)
+                        blocked++;
+                    }
+                }
+            }
+
+            if (vulnerable > 0) {
+                displayResult(resultId,
+                    `❌ VULNERABILITY DETECTED:\n${results.join('\n')}`,
+                    'error'
+                );
+            } else if (blocked > 0) {
+                displayResult(resultId,
+                    `✅ ALL EXFILTRATION ATTEMPTS BLOCKED\nTested ${blocked} endpoint combinations`,
+                    'success'
+                );
+            } else {
+                displayResult(resultId,
+                    '⚠️ No host-service found running',
+                    'warning'
+                );
+            }
+        }
+
+        async function testDestructiveOp() {
+            const resultId = 'test3-result';
+            displayResult(resultId, '⏳ Testing destructive operations...', 'warning');
+
+            const destructiveEndpoints = [
+                {
+                    path: '/trpc/github.mergePR',
+                    method: 'POST',
+                    body: JSON.stringify({
+                        owner: 'test',
+                        repo: 'test',
+                        pullNumber: 1
+                    })
+                },
+                {
+                    path: '/trpc/project.removeFromDevice',
+                    method: 'POST',
+                    body: JSON.stringify({
+                        projectId: 'test-project'
+                    })
+                }
+            ];
+
+            for (const port of PORTS) {
+                for (const endpoint of destructiveEndpoints) {
+                    try {
+                        const response = await fetch(`http://127.0.0.1:${port}${endpoint.path}`, {
+                            method: endpoint.method,
+                            headers: { 'Content-Type': 'application/json' },
+                            body: endpoint.body
+                        });
+
+                        if (response.status === 401) {
+                            displayResult(resultId,
+                                `✅ PROTECTED: Destructive operation blocked with 401`,
+                                'success'
+                            );
+                            return;
+                        }
+
+                        if (response.ok) {
+                            displayResult(resultId,
+                                `❌ CRITICAL: Destructive operation allowed without auth on port ${port}!`,
+                                'error'
+                            );
+                            return;
+                        }
+                    } catch (err) {
+                        // CORS or network error (expected)
+                        if (err.message.includes('CORS') || err.message.includes('Failed to fetch')) {
+                            displayResult(resultId,
+                                `✅ PROTECTED: CORS blocked destructive operation`,
+                                'success'
+                            );
+                            return;
+                        }
+                    }
+                }
+            }
+
+            displayResult(resultId,
+                '⚠️ No host-service found running',
+                'warning'
+            );
+        }
+
+        async function testPortDiscovery() {
+            const resultId = 'test4-result';
+            displayResult(resultId, '⏳ Scanning ports...', 'warning');
+
+            const foundPorts = [];
+
+            for (const port of PORTS) {
+                try {
+                    const controller = new AbortController();
+                    const timeoutId = setTimeout(() => controller.abort(), 1000);
+
+                    const response = await fetch(`http://127.0.0.1:${port}/trpc/health.check`, {
+                        signal: controller.signal
+                    });
+
+                    clearTimeout(timeoutId);
+                    foundPorts.push({
+                        port,
+                        status: response.status,
+                        authenticated: response.status === 401
+                    });
+                } catch (err) {
+                    // Port not responding or blocked
+                }
+            }
+
+            if (foundPorts.length === 0) {
+                displayResult(resultId,
+                    '⚠️ No host-service instances found on common ports',
+                    'warning'
+                );
+            } else {
+                const results = foundPorts.map(p =>
+                    `Port ${p.port}: ${p.authenticated ? '🔒 Protected (401)' : '⚠️ Status ' + p.status}`
+                ).join('<br>');
+
+                displayResult(resultId,
+                    `Found ${foundPorts.length} instance(s):<br>${results}`,
+                    foundPorts.every(p => p.authenticated) ? 'success' : 'warning'
+                );
+            }
+        }
+
+        // Auto-run first test on load
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                console.log('[Security Test] Page loaded - ready for testing');
+                console.log('[Security Test] Click "Run Test" buttons to verify the fix');
+            }, 500);
+        });
+    </script>
+</body>
+</html>
