@@ -8,6 +8,7 @@ import { electronTrpc } from "renderer/lib/electron-trpc";
 import { useDashboardSidebarState } from "renderer/routes/_authenticated/hooks/useDashboardSidebarState";
 import { useCollections } from "renderer/routes/_authenticated/providers/CollectionsProvider";
 import { useHostService } from "renderer/routes/_authenticated/providers/HostServiceProvider";
+import { usePendingWorkspace } from "renderer/stores/new-workspace-modal";
 import { MOCK_ORG_ID } from "shared/constants";
 import type {
 	DashboardSidebarProject,
@@ -22,6 +23,7 @@ export function useDashboardSidebarData() {
 	const { services } = useHostService();
 	const { toggleProjectCollapsed } = useDashboardSidebarState();
 	const { data: deviceInfo } = electronTrpc.auth.getDeviceInfo.useQuery();
+	const pendingWorkspace = usePendingWorkspace();
 	const activeOrganizationId = env.SKIP_ENV_VALIDATION
 		? MOCK_ORG_ID
 		: (session?.session?.activeOrganizationId ?? null);
@@ -232,6 +234,7 @@ export function useDashboardSidebarData() {
 				behindCount: null,
 				createdAt: workspace.createdAt,
 				updatedAt: workspace.updatedAt,
+				creationStatus: null,
 			};
 
 			if (workspace.sectionId) {
@@ -254,6 +257,42 @@ export function useDashboardSidebarData() {
 			});
 		}
 
+		// Inject pending workspace if it exists
+		if (pendingWorkspace) {
+			const project = projectsById.get(pendingWorkspace.projectId);
+			if (project) {
+				const pendingItem: DashboardSidebarWorkspace = {
+					id: pendingWorkspace.id,
+					projectId: pendingWorkspace.projectId,
+					deviceId: deviceInfo?.deviceId ?? "",
+					hostType: "local-device",
+					accentColor: null,
+					name: pendingWorkspace.name,
+					branch: "",
+					pullRequest: null,
+					repoUrl:
+						project.githubOwner && project.githubRepoName
+							? `https://github.com/${project.githubOwner}/${project.githubRepoName}`
+							: null,
+					branchExistsOnRemote: false,
+					previewUrl: null,
+					needsRebase: null,
+					behindCount: null,
+					createdAt: new Date(),
+					updatedAt: new Date(),
+					creationStatus: pendingWorkspace.status,
+				};
+
+				project.childEntries.push({
+					tabOrder: Number.MAX_SAFE_INTEGER,
+					child: {
+						type: "workspace",
+						workspace: pendingItem,
+					},
+				});
+			}
+		}
+
 		return sidebarProjects.flatMap((project) => {
 			const resolvedProject = projectsById.get(project.id);
 			if (!resolvedProject) return [];
@@ -270,6 +309,7 @@ export function useDashboardSidebarData() {
 	}, [
 		deviceInfo?.deviceId,
 		localPullRequestsByWorkspaceId,
+		pendingWorkspace,
 		sidebarProjects,
 		sidebarSections,
 		sidebarWorkspaces,

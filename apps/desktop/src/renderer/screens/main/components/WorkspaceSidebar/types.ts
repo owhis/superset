@@ -7,6 +7,7 @@ export interface SidebarWorkspace {
 	name: string;
 	tabOrder: number;
 	isUnread: boolean;
+	creationStatus?: "preparing" | "generating-branch" | "creating" | null;
 }
 
 export interface DragItem {
