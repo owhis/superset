@@ -177,20 +177,24 @@ export function PromptGroup({
 		setBaseBranchOpen(false);
 	};
 
+	const handleKeyDown = (e: React.KeyboardEvent) => {
+		if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+			e.preventDefault();
+			handleCreate();
+		}
+	};
+
 	return (
-		<div className="px-4 py-4 space-y-3">
+		<fieldset
+			className="px-4 py-4 space-y-3 border-none m-0"
+			onKeyDown={handleKeyDown}
+		>
 			<Textarea
 				ref={textareaRef}
 				className="min-h-24 max-h-48 text-sm resize-y field-sizing-fixed"
 				placeholder="What do you want to do?"
 				value={prompt}
 				onChange={(e) => updateDraft({ prompt: e.target.value })}
-				onKeyDown={(e) => {
-					if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
-						e.preventDefault();
-						handleCreate();
-					}
-				}}
 			/>
 
 			{hasLocalProject && (
@@ -235,6 +239,6 @@ export function PromptGroup({
 					</Kbd>
 				</KbdGroup>
 			</Button>
-		</div>
+		</fieldset>
 	);
 }

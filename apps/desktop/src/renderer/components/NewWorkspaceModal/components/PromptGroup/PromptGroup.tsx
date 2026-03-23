@@ -1147,8 +1147,18 @@ ${sanitizeText(truncatedBody)}`;
 		updateDraft({ linkedPR: null });
 	};
 
+	const handleKeyDown = (e: React.KeyboardEvent) => {
+		if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+			e.preventDefault();
+			void handleCreate();
+		}
+	};
+
 	return (
-		<div className="p-3 space-y-2">
+		<fieldset
+			className="p-3 space-y-2 border-none m-0"
+			onKeyDown={handleKeyDown}
+		>
 			<div className="flex items-center">
 				<Input
 					className="border-none bg-transparent text-base font-medium px-0 h-auto focus-visible:ring-0 placeholder:text-muted-foreground/40 min-w-0 flex-1"
@@ -1261,12 +1271,6 @@ ${sanitizeText(truncatedBody)}`;
 					className="min-h-10"
 					value={prompt}
 					onChange={(e) => updateDraft({ prompt: e.target.value })}
-					onKeyDown={(e) => {
-						if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
-							e.preventDefault();
-							void handleCreate();
-						}
-					}}
 				/>
 				<PromptInputFooter>
 					<PromptInputTools className="gap-1.5">
@@ -1391,6 +1395,6 @@ ${sanitizeText(truncatedBody)}`;
 					{modKey}+↵ to create
 				</span>
 			</div>
-		</div>
+		</fieldset>
 	);
 }
