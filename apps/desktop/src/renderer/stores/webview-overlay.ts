@@ -20,6 +20,7 @@ import { useTabsStore } from "renderer/stores/tabs/store";
 interface WebviewEntry {
 	webview: Electron.WebviewTag;
 	wrapper: HTMLDivElement;
+	chromeRoot: HTMLDivElement;
 	webContentsId: number | null;
 	faviconUrl: string | undefined;
 }
@@ -89,11 +90,21 @@ export function getOrCreateWebview(
 	webview.style.height = "100%";
 	webview.style.border = "none";
 
+	// Browser UI overlays render into this layer so they stay above the webview
+	// even though the actual webview element lives in the global overlay.
+	const chromeRoot = document.createElement("div");
+	chromeRoot.style.position = "absolute";
+	chromeRoot.style.inset = "0";
+	chromeRoot.style.pointerEvents = "none";
+	chromeRoot.style.zIndex = "1";
+
 	wrapper.appendChild(webview);
+	wrapper.appendChild(chromeRoot);
 
 	const entry: WebviewEntry = {
 		webview,
 		wrapper,
+		chromeRoot,
 		webContentsId: null,
 		faviconUrl: undefined,
 	};
@@ -116,7 +127,6 @@ export function destroyWebview(paneId: string): void {
 	webviews.delete(paneId);
 	electronTrpcClient.browser.unregister.mutate({ paneId }).catch(() => {});
 }
-
 
 // ---------------------------------------------------------------------------
 // Event handlers (permanent — not tied to React lifecycle)

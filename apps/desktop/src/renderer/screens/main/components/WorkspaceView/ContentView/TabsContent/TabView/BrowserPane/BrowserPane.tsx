@@ -1,6 +1,7 @@
 import { Tooltip, TooltipContent, TooltipTrigger } from "@superset/ui/tooltip";
 import { GlobeIcon } from "lucide-react";
 import { useCallback } from "react";
+import { createPortal } from "react-dom";
 import { TbDeviceDesktop } from "react-icons/tb";
 import type { MosaicBranch } from "react-mosaic-component";
 import { useTabsStore } from "renderer/stores/tabs/store";
@@ -45,6 +46,7 @@ export function BrowserPane({
 
 	const {
 		slotRef,
+		chromeRoot,
 		goBack,
 		goForward,
 		reload,
@@ -57,82 +59,91 @@ export function BrowserPane({
 		openDevToolsPane(tabId, paneId, path);
 	}, [openDevToolsPane, tabId, paneId, path]);
 
-	return (
-		<BasePaneWindow
-			paneId={paneId}
-			path={path}
-			tabId={tabId}
-			splitPaneAuto={splitPaneAuto}
-			removePane={removePane}
-			setFocusedPane={setFocusedPane}
-			renderToolbar={(handlers) => (
-				<div className="flex h-full w-full items-center justify-between min-w-0">
-					<BrowserToolbar
-						currentUrl={currentUrl}
-						pageTitle={pageTitle}
-						isLoading={isLoading}
-						canGoBack={canGoBack}
-						canGoForward={canGoForward}
-						onGoBack={goBack}
-						onGoForward={goForward}
-						onReload={reload}
-						onNavigate={navigateTo}
-					/>
-					<div className="flex items-center shrink-0">
-						<div className="mx-1.5 h-3.5 w-px bg-muted-foreground/60" />
-						<PaneToolbarActions
-							splitOrientation={handlers.splitOrientation}
-							onSplitPane={handlers.onSplitPane}
-							onClosePane={handlers.onClosePane}
-							closeHotkeyId="CLOSE_TERMINAL"
-							leadingActions={
-								<>
-									<Tooltip>
-										<TooltipTrigger asChild>
-											<button
-												type="button"
-												onClick={handleOpenDevTools}
-												className="rounded p-0.5 text-muted-foreground/60 transition-colors hover:text-muted-foreground"
-											>
-												<TbDeviceDesktop className="size-3.5" />
-											</button>
-										</TooltipTrigger>
-										<TooltipContent side="bottom" showArrow={false}>
-											Open DevTools
-										</TooltipContent>
-									</Tooltip>
-									<BrowserOverflowMenu paneId={paneId} hasPage={!isBlankPage} />
-								</>
-							}
-						/>
-					</div>
+	const browserChrome =
+		loadError && !isLoading ? (
+			<div className="pointer-events-auto">
+				<BrowserErrorOverlay error={loadError} onRetry={reload} />
+			</div>
+		) : isBlankPage && !isLoading && !loadError ? (
+			<div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-background">
+				<GlobeIcon className="size-10 text-muted-foreground/30" />
+				<div className="text-center">
+					<p className="text-sm font-medium text-muted-foreground/50">
+						Browser
+					</p>
+					<p className="mt-1 text-xs text-muted-foreground/30">
+						Enter a URL above, or instruct an agent to navigate
+						<br />
+						and use the browser
+					</p>
 				</div>
-			)}
-		>
-			<div className="relative flex flex-1 h-full pointer-events-none">
-				{/* Transparent slot — the overlay positions the real webview behind this */}
-				<div ref={slotRef} className="w-full h-full" style={{ flex: 1 }} />
-				{loadError && !isLoading && (
-					<div className="pointer-events-auto">
-						<BrowserErrorOverlay error={loadError} onRetry={reload} />
-					</div>
-				)}
-				{isBlankPage && !isLoading && !loadError && (
-					<div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-background">
-						<GlobeIcon className="size-10 text-muted-foreground/30" />
-						<div className="text-center">
-							<p className="text-sm font-medium text-muted-foreground/50">
-								Browser
-							</p>
-							<p className="mt-1 text-xs text-muted-foreground/30">
-								Enter a URL above, or instruct an agent to navigate
-								<br />
-								and use the browser
-							</p>
+			</div>
+		) : null;
+
+	return (
+		<>
+			<BasePaneWindow
+				paneId={paneId}
+				path={path}
+				tabId={tabId}
+				splitPaneAuto={splitPaneAuto}
+				removePane={removePane}
+				setFocusedPane={setFocusedPane}
+				renderToolbar={(handlers) => (
+					<div className="flex h-full w-full items-center justify-between min-w-0">
+						<BrowserToolbar
+							currentUrl={currentUrl}
+							pageTitle={pageTitle}
+							isLoading={isLoading}
+							canGoBack={canGoBack}
+							canGoForward={canGoForward}
+							onGoBack={goBack}
+							onGoForward={goForward}
+							onReload={reload}
+							onNavigate={navigateTo}
+						/>
+						<div className="flex items-center shrink-0">
+							<div className="mx-1.5 h-3.5 w-px bg-muted-foreground/60" />
+							<PaneToolbarActions
+								splitOrientation={handlers.splitOrientation}
+								onSplitPane={handlers.onSplitPane}
+								onClosePane={handlers.onClosePane}
+								closeHotkeyId="CLOSE_TERMINAL"
+								leadingActions={
+									<>
+										<Tooltip>
+											<TooltipTrigger asChild>
+												<button
+													type="button"
+													onClick={handleOpenDevTools}
+													className="rounded p-0.5 text-muted-foreground/60 transition-colors hover:text-muted-foreground"
+												>
+													<TbDeviceDesktop className="size-3.5" />
+												</button>
+											</TooltipTrigger>
+											<TooltipContent side="bottom" showArrow={false}>
+												Open DevTools
+											</TooltipContent>
+										</Tooltip>
+										<BrowserOverflowMenu
+											paneId={paneId}
+											hasPage={!isBlankPage}
+										/>
+									</>
+								}
+							/>
 						</div>
 					</div>
 				)}
-			</div>
-		</BasePaneWindow>
+			>
+				<div className="relative flex flex-1 h-full pointer-events-none">
+					{/* Transparent slot — the overlay positions the real webview here */}
+					<div ref={slotRef} className="h-full w-full" style={{ flex: 1 }} />
+				</div>
+			</BasePaneWindow>
+			{chromeRoot && browserChrome
+				? createPortal(browserChrome, chromeRoot)
+				: null}
+		</>
 	);
 }

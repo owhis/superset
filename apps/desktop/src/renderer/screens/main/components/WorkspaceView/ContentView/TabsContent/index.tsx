@@ -1,9 +1,10 @@
 import type { ExternalApp } from "@superset/local-db";
 import { cn } from "@superset/ui/utils";
 import { useParams } from "@tanstack/react-router";
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import { useTabsStore } from "renderer/stores/tabs/store";
 import { resolveActiveTabIdForWorkspace } from "renderer/stores/tabs/utils";
+import { syncAllPositions } from "renderer/stores/webview-overlay";
 import { EmptyTabView } from "./EmptyTabView";
 import { TabView } from "./TabView";
 import { getTabsToRender } from "./utils/getTabsToRender";
@@ -33,6 +34,7 @@ export function TabsContent({
 		workspaceId: null,
 		tabId: null,
 	});
+	const previousOverlaySyncKeyRef = useRef<string | null>(null);
 
 	const activeTabId = useMemo(() => {
 		if (!activeWorkspaceId) return null;
@@ -59,6 +61,21 @@ export function TabsContent({
 			}),
 		[activeTabId, allTabs, panes],
 	);
+	const renderedTabIds = useMemo(
+		() => tabsToRender.map((tab) => tab.id).join("|"),
+		[tabsToRender],
+	);
+	const overlaySyncKey = `${activeWorkspaceId ?? ""}:${activeTabId ?? ""}:${renderedTabIds}`;
+
+	// Tab/workspace activation changes only toggle CSS visibility, so force an
+	// immediate overlay sync after React commits the new active content.
+	useLayoutEffect(() => {
+		if (previousOverlaySyncKeyRef.current === overlaySyncKey) {
+			return;
+		}
+		previousOverlaySyncKeyRef.current = overlaySyncKey;
+		syncAllPositions();
+	}, [overlaySyncKey]);
 
 	useEffect(() => {
 		const nextWorkspaceId = activeWorkspaceId ?? null;
