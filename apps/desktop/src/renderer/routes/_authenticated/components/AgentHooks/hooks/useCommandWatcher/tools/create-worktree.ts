@@ -11,12 +11,12 @@ const workspaceInputSchema = z
 	.object({
 		name: z.string().optional(),
 		branchName: z.string().optional(),
-		baseBranch: z.string().optional(),
+		compareBaseBranch: z.string().optional(),
 		sourceWorkspaceId: z.string().optional(),
 	})
-	.refine((data) => !(data.baseBranch && data.sourceWorkspaceId), {
+	.refine((data) => !(data.compareBaseBranch && data.sourceWorkspaceId), {
 		message:
-			"Cannot specify both baseBranch and sourceWorkspaceId. Use one or the other.",
+			"Cannot specify both compareBaseBranch and sourceWorkspaceId. Use one or the other.",
 	});
 
 const schema = z.object({
@@ -62,7 +62,7 @@ async function execute(
 				projectId,
 				name: input.name,
 				branchName: input.branchName,
-				baseBranch: input.baseBranch,
+				compareBaseBranch: input.compareBaseBranch,
 				sourceWorkspaceId: input.sourceWorkspaceId,
 			});
 

@@ -182,7 +182,7 @@ async function handleNewWorktree({
 	});
 
 	const knownBranches = await getKnownBranchesSafe(project.mainRepoPath);
-	const baseBranch = resolveWorkspaceBaseBranch({
+	const compareBaseBranch = resolveWorkspaceBaseBranch({
 		workspaceBaseBranch: project.workspaceBaseBranch,
 		defaultBranch: project.defaultBranch,
 		knownBranches,
@@ -194,7 +194,7 @@ async function handleNewWorktree({
 			projectId: project.id,
 			path: worktreePath,
 			branch: localBranchName,
-			baseBranch,
+			baseBranch: compareBaseBranch,
 			gitStatus: null,
 			createdBySuperset: true,
 		})
@@ -214,7 +214,7 @@ async function handleNewWorktree({
 		workspace_id: workspace.id,
 		project_id: project.id,
 		branch: localBranchName,
-		base_branch: baseBranch,
+		base_branch: compareBaseBranch,
 		source: "pr",
 		pr_number: prInfo.number,
 		is_fork: prInfo.isCrossRepository,
@@ -223,7 +223,7 @@ async function handleNewWorktree({
 	await setBranchBaseConfig({
 		repoPath: project.mainRepoPath,
 		branch: localBranchName,
-		baseBranch,
+		compareBaseBranch,
 		isExplicit: false,
 	});
 
@@ -266,15 +266,18 @@ export const createCreateProcedures = () => {
 						name: z.string().optional(),
 						prompt: z.string().optional(),
 						branchName: z.string().optional(),
-						baseBranch: z.string().optional(),
+						compareBaseBranch: z.string().optional(),
 						sourceWorkspaceId: z.string().optional(),
 						useExistingBranch: z.boolean().optional(),
 						applyPrefix: z.boolean().optional().default(true),
 					})
-					.refine((data) => !(data.baseBranch && data.sourceWorkspaceId), {
-						message:
-							"Cannot specify both baseBranch and sourceWorkspaceId. Use one or the other.",
-					})
+					.refine(
+						(data) => !(data.compareBaseBranch && data.sourceWorkspaceId),
+						{
+							message:
+								"Cannot specify both compareBaseBranch and sourceWorkspaceId. Use one or the other.",
+						},
+					)
 					.refine(
 						(data) => !(data.useExistingBranch && data.sourceWorkspaceId),
 						{
@@ -292,6 +295,7 @@ export const createCreateProcedures = () => {
 				if (!project) {
 					throw new Error(`Project ${input.projectId} not found`);
 				}
+				const requestedCompareBaseBranch = input.compareBaseBranch;
 
 				const sourceWorkspace = input.sourceWorkspaceId
 					? getWorkspace(input.sourceWorkspaceId)
@@ -452,8 +456,8 @@ export const createCreateProcedures = () => {
 
 				const worktreePath = resolveWorktreePath(project, branch);
 
-				const targetBranch = resolveWorkspaceBaseBranch({
-					explicitBaseBranch: input.baseBranch,
+				const compareBaseBranch = resolveWorkspaceBaseBranch({
+					explicitBaseBranch: requestedCompareBaseBranch,
 					workspaceBaseBranch:
 						sourceWorktree?.baseBranch ?? project.workspaceBaseBranch,
 					defaultBranch: project.defaultBranch,
@@ -466,7 +470,7 @@ export const createCreateProcedures = () => {
 						projectId: input.projectId,
 						path: worktreePath,
 						branch,
-						baseBranch: targetBranch,
+						baseBranch: compareBaseBranch,
 						gitStatus: null,
 						createdBySuperset: true,
 					})
@@ -496,15 +500,15 @@ export const createCreateProcedures = () => {
 					workspace_id: workspace.id,
 					project_id: project.id,
 					branch: branch,
-					base_branch: targetBranch,
+					base_branch: compareBaseBranch,
 					use_existing_branch: input.useExistingBranch ?? false,
 				});
 
 				await setBranchBaseConfig({
 					repoPath: project.mainRepoPath,
 					branch,
-					baseBranch: targetBranch,
-					isExplicit: Boolean(input.baseBranch?.trim()),
+					compareBaseBranch,
+					isExplicit: Boolean(requestedCompareBaseBranch?.trim()),
 				});
 
 				workspaceInitManager.startJob(workspace.id, input.projectId);
@@ -810,7 +814,7 @@ export const createCreateProcedures = () => {
 					throw new Error(`Project ${input.projectId} not found`);
 				}
 				const knownBranches = await getKnownBranchesSafe(project.mainRepoPath);
-				const baseBranch = resolveWorkspaceBaseBranch({
+				const compareBaseBranch = resolveWorkspaceBaseBranch({
 					workspaceBaseBranch: project.workspaceBaseBranch,
 					defaultBranch: project.defaultBranch,
 					knownBranches,
@@ -884,7 +888,7 @@ export const createCreateProcedures = () => {
 							projectId: input.projectId,
 							path: ext.path,
 							branch,
-							baseBranch,
+							baseBranch: compareBaseBranch,
 							gitStatus: {
 								branch,
 								needsRebase: false,
@@ -913,7 +917,7 @@ export const createCreateProcedures = () => {
 					await setBranchBaseConfig({
 						repoPath: project.mainRepoPath,
 						branch,
-						baseBranch,
+						compareBaseBranch,
 						isExplicit: false,
 					});
 
