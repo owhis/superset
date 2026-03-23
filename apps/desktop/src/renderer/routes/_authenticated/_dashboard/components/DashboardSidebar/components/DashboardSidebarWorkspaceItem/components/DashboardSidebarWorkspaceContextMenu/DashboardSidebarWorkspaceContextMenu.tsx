@@ -32,6 +32,7 @@ interface DashboardSidebarWorkspaceContextMenuProps {
 	hoverCardContent?: React.ReactNode;
 	projectId: string;
 	onHoverCardOpen?: () => void;
+	onClose?: () => void;
 	onCreateSection: () => void;
 	onMoveToSection: (sectionId: string | null) => void;
 	onOpenInFinder: () => void;
@@ -46,6 +47,7 @@ export function DashboardSidebarWorkspaceContextMenu({
 	projectId,
 	onHoverCardOpen,
 	hoverCardContent,
+	onClose,
 	onCreateSection,
 	onMoveToSection,
 	onOpenInFinder,
@@ -112,6 +114,15 @@ export function DashboardSidebarWorkspaceContextMenu({
 					))}
 				</ContextMenuSubContent>
 			</ContextMenuSub>
+			{onClose && (
+				<>
+					<ContextMenuSeparator />
+					<ContextMenuItem onSelect={onClose}>
+						<LuX className="size-4 mr-2" />
+						Close Workspace
+					</ContextMenuItem>
+				</>
+			)}
 			<ContextMenuSeparator />
 			<ContextMenuItem
 				onSelect={onRemoveFromSidebar}

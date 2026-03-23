@@ -24,6 +24,7 @@ import {
 	LuFolderPlus,
 	LuMinus,
 	LuPencil,
+	LuX,
 } from "react-icons/lu";
 import {
 	useCreateSectionFromWorkspaces,
@@ -46,6 +47,7 @@ interface WorkspaceContextMenuProps {
 	onRename: () => void;
 	onOpenInFinder: () => void;
 	onCopyPath: () => void;
+	onClose?: () => void;
 	onSetUnread: (isUnread: boolean) => void;
 	onResetStatus: () => void;
 	children: React.ReactNode;
@@ -59,6 +61,7 @@ export function WorkspaceContextMenu({
 	isUnread,
 	workspaceStatus,
 	sections,
+	onClose,
 	onRename,
 	onOpenInFinder,
 	onCopyPath,
@@ -172,6 +175,15 @@ export function WorkspaceContextMenu({
 					<LuBellOff className="size-4 mr-2" strokeWidth={STROKE_WIDTH} />
 					Clear Status
 				</ContextMenuItem>
+			)}
+			{onClose && (
+				<>
+					<ContextMenuSeparator />
+					<ContextMenuItem onSelect={onClose}>
+						<LuX className="size-4 mr-2" strokeWidth={STROKE_WIDTH} />
+						Close Workspace
+					</ContextMenuItem>
+				</>
 			)}
 		</>
 	);

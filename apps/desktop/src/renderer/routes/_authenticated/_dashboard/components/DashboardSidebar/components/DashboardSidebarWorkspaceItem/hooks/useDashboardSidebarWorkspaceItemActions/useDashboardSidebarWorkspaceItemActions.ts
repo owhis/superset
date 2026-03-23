@@ -89,6 +89,20 @@ export function useDashboardSidebarWorkspaceItemActions({
 		moveWorkspaceToSection(workspaceId, projectId, newSectionId);
 	};
 
+	const handleClose = async () => {
+		try {
+			removeWorkspaceFromSidebar(workspaceId);
+			toast.success("Workspace closed");
+			if (isActive) {
+				navigate({ to: "/" });
+			}
+		} catch (error) {
+			toast.error(
+				`Failed to close: ${error instanceof Error ? error.message : "Unknown error"}`,
+			);
+		}
+	};
+
 	const handleOpenInFinder = () => {
 		toast.info("Open in Finder is coming soon");
 	};
@@ -100,6 +114,7 @@ export function useDashboardSidebarWorkspaceItemActions({
 	return {
 		cancelRename,
 		handleClick,
+		handleClose,
 		handleCopyPath,
 		handleCreateSection,
 		handleDelete,

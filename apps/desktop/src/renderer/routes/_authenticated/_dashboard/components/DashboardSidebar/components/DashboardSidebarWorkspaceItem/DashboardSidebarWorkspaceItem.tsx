@@ -32,6 +32,7 @@ export function DashboardSidebarWorkspaceItem({
 	const {
 		cancelRename,
 		handleClick,
+		handleClose,
 		handleCopyPath,
 		handleCreateSection,
 		handleDelete,
@@ -124,6 +125,7 @@ export function DashboardSidebarWorkspaceItem({
 				onMoveToSection={(targetSectionId) =>
 					moveWorkspaceToSection(id, projectId, targetSectionId)
 				}
+				onClose={handleClose}
 				onOpenInFinder={handleOpenInFinder}
 				onCopyPath={handleCopyPath}
 				onRemoveFromSidebar={() => removeWorkspaceFromSidebar(id)}

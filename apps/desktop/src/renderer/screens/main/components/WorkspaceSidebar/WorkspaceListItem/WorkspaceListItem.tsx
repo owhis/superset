@@ -452,6 +452,7 @@ export function WorkspaceListItem({
 				isUnread={isUnread}
 				workspaceStatus={workspaceStatus}
 				sections={sections}
+				onClose={isBranchWorkspace ? undefined : handleDeleteClick}
 				onRename={rename.startRename}
 				onOpenInFinder={handleOpenInFinder}
 				onCopyPath={handleCopyPath}
