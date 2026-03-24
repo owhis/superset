@@ -7,13 +7,11 @@ import { env } from "@/env";
 interface AcceptInvitationButtonProps {
 	invitationId: string;
 	token: string;
-	email: string;
 }
 
 export function AcceptInvitationButton({
 	invitationId,
 	token,
-	email,
 }: AcceptInvitationButtonProps) {
 	const [isProcessing, setIsProcessing] = useState(false);
 	const [error, setError] = useState<string | null>(null);
@@ -56,7 +54,7 @@ export function AcceptInvitationButton({
 	return (
 		<>
 			<Button onClick={handleContinue} size="lg" disabled={isProcessing}>
-				{isProcessing ? "Processing..." : `Continue as ${email}`}
+				{isProcessing ? "Processing..." : "Accept invitation"}
 			</Button>
 
 			{error && <p className="text-sm text-destructive">{error}</p>}

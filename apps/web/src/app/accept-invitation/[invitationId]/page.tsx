@@ -16,16 +16,23 @@ export default async function AcceptInvitationPage({
 }: PageProps) {
 	const { invitationId } = await params;
 	const { token } = await searchParams;
-
-	// Fetch invitation using tRPC
 	const trpc = await api();
+
 	let invitation: Awaited<
-		ReturnType<typeof trpc.organization.getInvitation.query>
+		ReturnType<typeof trpc.organization.getInvitationPreview.query>
 	> | null;
-	try {
-		invitation = await trpc.organization.getInvitation.query(invitationId);
-	} catch (_error) {
+
+	if (!token) {
 		invitation = null;
+	} else {
+		try {
+			invitation = await trpc.organization.getInvitationPreview.query({
+				invitationId,
+				token,
+			});
+		} catch (_error) {
+			invitation = null;
+		}
 	}
 
 	// Show error if invitation invalid/expired/not found or missing token
@@ -87,11 +94,7 @@ export default async function AcceptInvitationPage({
 				</div>
 
 				{/* Continue as button - atomic auth + accept */}
-				<AcceptInvitationButton
-					invitationId={invitationId}
-					token={token}
-					email={invitation.email}
-				/>
+				<AcceptInvitationButton invitationId={invitationId} token={token} />
 			</div>
 		</div>
 	);
