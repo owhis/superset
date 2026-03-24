@@ -71,7 +71,7 @@ export function DashboardSidebarWorkspaceItem({
 					hostType={hostType}
 					isActive={isActive}
 					onClick={isCreating ? undefined : handleClick}
-					workspaceStatus={mockData.workspaceStatus}
+					workspaceStatus={isCreating ? null : mockData.workspaceStatus}
 					creationStatus={creationStatus}
 					disabled={isCreating}
 					aria-label={
@@ -132,7 +132,7 @@ export function DashboardSidebarWorkspaceItem({
 			isRenaming={isRenaming}
 			renameValue={renameValue}
 			shortcutLabel={shortcutLabel}
-			mockData={mockData}
+			mockData={isCreating ? { ...mockData, workspaceStatus: null } : mockData}
 			onClick={isCreating ? undefined : handleClick}
 			onDoubleClick={isCreating ? undefined : startRename}
 			onDeleteClick={() => setIsDeleteDialogOpen(true)}
