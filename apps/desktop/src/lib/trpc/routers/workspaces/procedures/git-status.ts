@@ -163,6 +163,20 @@ export const createGitStatusProcedures = () => {
 					return null;
 				}
 
+				// Check if we have cached data that's still fresh
+				const CACHE_DURATION = 30_000; // 30 seconds
+				const cachedStatus = worktree.githubStatus;
+				const now = Date.now();
+
+				if (
+					cachedStatus?.lastRefreshed &&
+					now - cachedStatus.lastRefreshed < CACHE_DURATION
+				) {
+					// Cache is still fresh, return it
+					return cachedStatus;
+				}
+
+				// Cache is stale or missing, fetch fresh data
 				const freshStatus = await fetchGitHubPRStatus(worktree.path);
 
 				if (freshStatus) {
