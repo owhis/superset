@@ -45,10 +45,8 @@ export interface McpRequestDeps {
 
 function getBearerToken(req: Request): string | undefined {
 	const authorization = req.headers.get("authorization");
-
-	return authorization?.startsWith("Bearer ")
-		? authorization.slice(7)
-		: undefined;
+	const match = authorization?.match(/^Bearer\s+(.+)$/i);
+	return match?.[1];
 }
 
 export function isApiKeyBearerToken(token: string): boolean {

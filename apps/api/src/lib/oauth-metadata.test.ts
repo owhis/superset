@@ -18,6 +18,17 @@ describe("oauth metadata helpers", () => {
 		expect(getRequestOrigin(request)).toBe("https://api.superset.sh");
 	});
 
+	it("uses the first forwarded host and proto values when proxies append lists", () => {
+		const request = new Request("http://internal/api/agent/mcp", {
+			headers: {
+				"x-forwarded-host": "api.superset.sh, internal.example",
+				"x-forwarded-proto": "https, http",
+			},
+		});
+
+		expect(getRequestOrigin(request)).toBe("https://api.superset.sh");
+	});
+
 	it("builds a path-specific protected resource metadata URL", () => {
 		const request = new Request("https://api.superset.sh/api/agent/mcp");
 

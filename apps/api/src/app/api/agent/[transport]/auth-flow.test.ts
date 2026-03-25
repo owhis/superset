@@ -78,6 +78,20 @@ describe("MCP auth flow", () => {
 		expect(deps.sessionSpy).toHaveBeenCalledTimes(0);
 	});
 
+	it("accepts case-insensitive bearer auth schemes", async () => {
+		const deps = createDeps();
+
+		const authInfo = await verifyToken(
+			createRequest({ authorization: "bearer sk_live_invalid" }),
+			deps,
+		);
+
+		expect(authInfo).toBeUndefined();
+		expect(deps.apiKeySpy).toHaveBeenCalledTimes(1);
+		expect(deps.oauthSpy).toHaveBeenCalledTimes(0);
+		expect(deps.sessionSpy).toHaveBeenCalledTimes(0);
+	});
+
 	it("accepts valid API keys", async () => {
 		const deps = createDeps({
 			authApi: {

@@ -5,11 +5,20 @@ export interface ProtectedResourceMetadataOptions {
 	scopesSupported?: string[];
 }
 
+function getFirstForwardedValue(value: string | null): string | undefined {
+	return value
+		?.split(",")
+		.map((part) => part.trim())
+		.find(Boolean);
+}
+
 export function getRequestOrigin(req: Request): string {
 	const requestUrl = new URL(req.url);
-	const host = req.headers.get("x-forwarded-host") ?? requestUrl.host;
+	const host =
+		getFirstForwardedValue(req.headers.get("x-forwarded-host")) ??
+		requestUrl.host;
 	const proto =
-		req.headers.get("x-forwarded-proto") ??
+		getFirstForwardedValue(req.headers.get("x-forwarded-proto")) ??
 		requestUrl.protocol.replace(":", "");
 
 	return `${proto}://${host}`;
