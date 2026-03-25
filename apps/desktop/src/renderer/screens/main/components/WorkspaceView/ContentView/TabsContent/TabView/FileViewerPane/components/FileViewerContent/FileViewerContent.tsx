@@ -12,6 +12,10 @@ import {
 import { LightDiffViewer } from "renderer/screens/main/components/WorkspaceView/ChangesContent/components/LightDiffViewer";
 import type { CodeEditorAdapter } from "renderer/screens/main/components/WorkspaceView/ContentView/components";
 import { CodeEditor } from "renderer/screens/main/components/WorkspaceView/components/CodeEditor";
+import {
+	getScrollPosition,
+	saveScrollPosition,
+} from "renderer/stores/editor-state/scrollPositionRegistry";
 import type { Tab } from "renderer/stores/tabs/types";
 import type { DiffViewMode } from "shared/changes-types";
 import { detectLanguage } from "shared/detect-language";
@@ -103,6 +107,7 @@ interface TextSearchState {
 interface FileViewerContentProps {
 	viewMode: FileViewerMode;
 	filePath: string;
+	documentKey: string;
 	isLoadingRaw: boolean;
 	isLoadingImage?: boolean;
 	isLoadingDiff: boolean;
@@ -138,6 +143,7 @@ interface FileViewerContentProps {
 export function FileViewerContent({
 	viewMode,
 	filePath,
+	documentKey,
 	isLoadingRaw,
 	isLoadingImage,
 	isLoadingDiff,
@@ -170,6 +176,45 @@ export function FileViewerContent({
 	markdownSearch,
 }: FileViewerContentProps) {
 	const isImage = isImageFile(filePath);
+
+	// Persist diff container scroll position across unmount/remount
+	const diffScrollKey = `${documentKey}::diff`;
+	// biome-ignore lint/correctness/useExhaustiveDependencies: restore/save once per active lifecycle
+	useEffect(() => {
+		if (viewMode !== "diff") return;
+		const el = diffContainerRef.current;
+		if (!el) return;
+
+		const saved = getScrollPosition(diffScrollKey);
+		if (saved) {
+			el.scrollTop = saved.scrollTop;
+			el.scrollLeft = saved.scrollLeft;
+		}
+
+		return () => {
+			saveScrollPosition(diffScrollKey, el.scrollTop, el.scrollLeft);
+		};
+	}, [viewMode, diffScrollKey]);
+
+	// Persist markdown container scroll position across unmount/remount
+	const markdownScrollKey = `${documentKey}::rendered`;
+	const isRenderedMarkdown = viewMode === "rendered" && !isImage;
+	// biome-ignore lint/correctness/useExhaustiveDependencies: restore/save once per active lifecycle
+	useEffect(() => {
+		if (!isRenderedMarkdown) return;
+		const el = markdownContainerRef.current;
+		if (!el) return;
+
+		const saved = getScrollPosition(markdownScrollKey);
+		if (saved) {
+			el.scrollTop = saved.scrollTop;
+			el.scrollLeft = saved.scrollLeft;
+		}
+
+		return () => {
+			saveScrollPosition(markdownScrollKey, el.scrollTop, el.scrollLeft);
+		};
+	}, [isRenderedMarkdown, markdownScrollKey]);
 
 	useScrollToFirstDiffChange({
 		containerRef: diffContainerRef,
@@ -490,6 +535,7 @@ export function FileViewerContent({
 					onChange={onContentChange}
 					onSave={onSaveFile}
 					editorRef={editorRef}
+					documentKey={documentKey}
 					fillHeight
 				/>
 			</div>

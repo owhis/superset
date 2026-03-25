@@ -27,6 +27,10 @@ import { type MutableRefObject, useEffect, useRef } from "react";
 import { electronTrpc } from "renderer/lib/electron-trpc";
 import type { CodeEditorAdapter } from "renderer/screens/main/components/WorkspaceView/ContentView/components";
 import { getCodeSyntaxHighlighting } from "renderer/screens/main/components/WorkspaceView/utils/code-theme";
+import {
+	getScrollPosition,
+	saveScrollPosition,
+} from "renderer/stores/editor-state/scrollPositionRegistry";
 import { useResolvedTheme } from "renderer/stores/theme";
 import { createCodeMirrorTheme } from "./createCodeMirrorTheme";
 import { loadLanguageSupport } from "./loadLanguageSupport";
@@ -40,6 +44,8 @@ interface CodeEditorProps {
 	editorRef?: MutableRefObject<CodeEditorAdapter | null>;
 	onChange?: (value: string) => void;
 	onSave?: () => void;
+	/** When provided, scroll position is persisted across unmount/remount cycles. */
+	documentKey?: string;
 }
 
 function createCodeMirrorAdapter(view: EditorView): CodeEditorAdapter {
@@ -169,6 +175,7 @@ export function CodeEditor({
 	editorRef,
 	onChange,
 	onSave,
+	documentKey,
 }: CodeEditorProps) {
 	const containerRef = useRef<HTMLDivElement | null>(null);
 	const viewRef = useRef<EditorView | null>(null);
@@ -188,6 +195,9 @@ export function CodeEditor({
 	const editorFontFamily = fontSettings?.editorFontFamily ?? undefined;
 	const editorFontSize = fontSettings?.editorFontSize ?? undefined;
 	const activeTheme = useResolvedTheme();
+
+	const documentKeyRef = useRef(documentKey);
+	documentKeyRef.current = documentKey;
 
 	onChangeRef.current = onChange;
 	onSaveRef.current = onSave;
@@ -269,7 +279,26 @@ export function CodeEditor({
 			editorRef.current = adapter;
 		}
 
+		// Restore scroll position if previously saved
+		if (documentKeyRef.current) {
+			const saved = getScrollPosition(documentKeyRef.current);
+			if (saved) {
+				requestAnimationFrame(() => {
+					view.scrollDOM.scrollTop = saved.scrollTop;
+					view.scrollDOM.scrollLeft = saved.scrollLeft;
+				});
+			}
+		}
+
 		return () => {
+			// Save scroll position before destroying the view
+			if (documentKeyRef.current) {
+				saveScrollPosition(
+					documentKeyRef.current,
+					view.scrollDOM.scrollTop,
+					view.scrollDOM.scrollLeft,
+				);
+			}
 			if (editorRef?.current === adapter) {
 				editorRef.current = null;
 			}
