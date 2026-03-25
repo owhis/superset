@@ -59,14 +59,28 @@ describe("getGitHubStatusQueryPolicy", () => {
 		).toEqual({
 			enabled: true,
 			refetchInterval: false,
-			refetchOnWindowFocus: true,
-			staleTime: 30_000,
+			refetchOnWindowFocus: false,
+			staleTime: 300_000,
 		});
 	});
 
-	test("keeps passive hover surfaces cheap", () => {
+	test("keeps hover-card surfaces lazy without focus refresh", () => {
 		expect(
 			getGitHubStatusQueryPolicy("workspace-hover-card", {
+				hasWorkspaceId: true,
+				isActive: true,
+			}),
+		).toEqual({
+			enabled: true,
+			refetchInterval: false,
+			refetchOnWindowFocus: false,
+			staleTime: 300_000,
+		});
+	});
+
+	test("keeps workspace list items cheaper than full-page PR surfaces", () => {
+		expect(
+			getGitHubStatusQueryPolicy("workspace-list-item", {
 				hasWorkspaceId: true,
 				isActive: true,
 			}),
@@ -88,7 +102,7 @@ describe("getGitHubStatusQueryPolicy", () => {
 			enabled: false,
 			refetchInterval: false,
 			refetchOnWindowFocus: false,
-			staleTime: 30_000,
+			staleTime: 300_000,
 		});
 	});
 });

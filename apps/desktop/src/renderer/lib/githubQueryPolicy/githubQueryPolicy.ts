@@ -1,6 +1,7 @@
-const PASSIVE_GITHUB_STATUS_STALE_TIME_MS = 30_000;
 const ACTIVE_GITHUB_STATUS_STALE_TIME_MS = 10_000;
 const ACTIVE_GITHUB_STATUS_REFETCH_INTERVAL_MS = 10_000;
+const WORKSPACE_LIST_ITEM_GITHUB_STATUS_STALE_TIME_MS = 30_000;
+const PASSIVE_GITHUB_STATUS_STALE_TIME_MS = 5 * 60 * 1000;
 const GITHUB_PR_COMMENTS_STALE_TIME_MS = 30_000;
 const GITHUB_PR_COMMENTS_REFETCH_INTERVAL_MS = 30_000;
 
@@ -60,11 +61,17 @@ export function getGitHubStatusQueryPolicy(
 			return {
 				enabled: isEnabled,
 				refetchInterval: false,
-				refetchOnWindowFocus: isEnabled,
+				refetchOnWindowFocus: false,
 				staleTime: PASSIVE_GITHUB_STATUS_STALE_TIME_MS,
 			};
-		case "workspace-hover-card":
 		case "workspace-list-item":
+			return {
+				enabled: isEnabled,
+				refetchInterval: false,
+				refetchOnWindowFocus: false,
+				staleTime: WORKSPACE_LIST_ITEM_GITHUB_STATUS_STALE_TIME_MS,
+			};
+		case "workspace-hover-card":
 		case "workspace-row":
 			return {
 				enabled: isEnabled,
