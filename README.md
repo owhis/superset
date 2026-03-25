@@ -32,6 +32,7 @@ Superset orchestrates CLI-based coding agents across isolated git worktrees, wit
 - **Isolate each task** in its own git worktree so agents don't interfere with each other
 - **Monitor all your agents** from one place and get notified when they need attention
 - **Review and edit changes quickly** with the built-in diff viewer and editor
+- **Test in isolation** with dedicated branches for validation and experimentation
 - **Open any workspace where you need it** with one-click handoff to your editor or terminal
 
 Wait less, ship more.
