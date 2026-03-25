@@ -495,7 +495,7 @@ function CompareBaseBranchPickerInline({
 														<PlusIcon className="size-3.5 mr-1" />
 														Create
 														<span className="ml-1 text-[10px] opacity-70">
-															{modKey}↵
+															{modKey}+↵
 														</span>
 													</>
 												) : (
