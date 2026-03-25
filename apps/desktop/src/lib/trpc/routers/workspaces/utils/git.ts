@@ -216,9 +216,19 @@ function parsePortelainStatus(stdout: string): StatusResult {
 				branchInfo.startsWith("No commits yet on ") ||
 				branchInfo.startsWith("Initial commit on ")
 			) {
-				// Extract branch name from the end
-				const parts = branchInfo.split(" ");
-				current = parts[parts.length - 1] || null;
+				const prefix = branchInfo.startsWith("No commits yet on ")
+					? "No commits yet on "
+					: "Initial commit on ";
+				const rest = branchInfo.slice(prefix.length);
+
+				// Parse tracking info if present (e.g., "branch...origin/branch [gone]")
+				const trackingMatch = rest.match(/^(.+?)\.\.\.(.+?)(?:\s|$)/);
+				if (trackingMatch) {
+					current = trackingMatch[1];
+					tracking = trackingMatch[2].split(" ")[0] || null;
+				} else {
+					current = rest.split(" ")[0] || null;
+				}
 			} else {
 				// Check for tracking info: "branch...origin/branch [ahead 1, behind 2]"
 				const trackingMatch = branchInfo.match(/^(.+?)\.\.\.(.+?)(?:\s|$)/);
