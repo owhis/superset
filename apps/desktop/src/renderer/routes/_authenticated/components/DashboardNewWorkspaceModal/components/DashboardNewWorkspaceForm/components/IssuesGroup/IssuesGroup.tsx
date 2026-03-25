@@ -1,3 +1,4 @@
+import { parseLinearIssueIdentifier } from "@superset/shared";
 import { Avatar } from "@superset/ui/atoms/Avatar";
 import { Button } from "@superset/ui/button";
 import { CommandEmpty, CommandGroup, CommandItem } from "@superset/ui/command";
@@ -5,12 +6,14 @@ import { toast } from "@superset/ui/sonner";
 import { eq, isNull } from "@tanstack/db";
 import { useLiveQuery } from "@tanstack/react-db";
 import { useNavigate } from "@tanstack/react-router";
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { GoArrowUpRight } from "react-icons/go";
 import { HiOutlineUserCircle } from "react-icons/hi2";
 import { SiLinear } from "react-icons/si";
 import { GATED_FEATURES, usePaywall } from "renderer/components/Paywall";
 import { useDebouncedValue } from "renderer/hooks/useDebouncedValue";
+import { apiTrpcClient } from "renderer/lib/api-trpc-client";
+import { authClient } from "renderer/lib/auth-client";
 import { getSlugColumnWidth } from "renderer/lib/slug-width";
 import type { WorkspaceHostTarget } from "renderer/lib/v2-workspace-host";
 import {
@@ -36,6 +39,8 @@ export function IssuesGroup({ projectId, hostTarget }: IssuesGroupProps) {
 	const { createWorkspace } = useCreateDashboardWorkspace();
 	const { draft, closeAndResetDraft, runAsyncAction } =
 		useDashboardNewWorkspaceDraft();
+	const { data: session } = authClient.useSession();
+	const activeOrganizationId = session?.session?.activeOrganizationId;
 
 	const { data: integrations } = useLiveQuery(
 		(q) =>
@@ -51,6 +56,18 @@ export function IssuesGroup({ projectId, hostTarget }: IssuesGroupProps) {
 
 	const isLinearConnected =
 		integrations?.some((i) => i.provider === "linear") ?? false;
+
+	// State for fetched Linear issue
+	const [fetchedIssue, setFetchedIssue] = useState<{
+		id: string;
+		identifier: string;
+		title: string;
+		url: string;
+		description?: string;
+		state?: { name: string };
+	} | null>(null);
+	const [isFetchingIssue, setIsFetchingIssue] = useState(false);
+	const [fetchError, setFetchError] = useState<string | null>(null);
 
 	const { data } = useLiveQuery(
 		(q) =>
@@ -95,15 +112,93 @@ export function IssuesGroup({ projectId, hostTarget }: IssuesGroupProps) {
 	const debouncedQuery = useDebouncedValue(draft.issuesQuery, 150);
 	const { search } = useHybridSearch(sortedTasks);
 
+	// Detect Linear URL and fetch issue
+	useEffect(() => {
+		const query = debouncedQuery.trim();
+
+		// Reset state when query changes
+		setFetchedIssue(null);
+		setFetchError(null);
+
+		if (!query || !isLinearConnected || !activeOrganizationId) {
+			return;
+		}
+
+		const issueIdentifier = parseLinearIssueIdentifier(query);
+		if (!issueIdentifier) {
+			return;
+		}
+
+		// Check if issue is already synced locally
+		const alreadySynced = tasks.some((t) => t.slug === issueIdentifier);
+		if (alreadySynced) {
+			return;
+		}
+
+		setIsFetchingIssue(true);
+
+		apiTrpcClient.integration.linear.fetchIssue
+			.query({
+				organizationId: activeOrganizationId,
+				issueIdentifier,
+			})
+			.then((result) => {
+				if ("error" in result) {
+					if (result.error === "LINEAR_NOT_CONNECTED") {
+						setFetchError("Linear is not connected");
+					} else if (result.error === "ISSUE_NOT_FOUND") {
+						setFetchError("Issue not found");
+					} else {
+						setFetchError("Failed to fetch issue");
+					}
+				} else if ("data" in result) {
+					setFetchedIssue(result.data);
+				}
+			})
+			.catch((err) => {
+				console.error("Failed to fetch Linear issue:", err);
+				setFetchError("Failed to fetch issue");
+			})
+			.finally(() => {
+				setIsFetchingIssue(false);
+			});
+	}, [debouncedQuery, isLinearConnected, activeOrganizationId, tasks]);
+
 	const visibleTasks = useMemo(() => {
 		const query = debouncedQuery.trim();
-		if (!query) {
-			return sortedTasks.slice(0, 100);
+		let results = sortedTasks;
+
+		if (query) {
+			results = search(query)
+				.slice(0, 100)
+				.map((result) => result.item);
+		} else {
+			results = sortedTasks.slice(0, 100);
 		}
-		return search(query)
-			.slice(0, 100)
-			.map((result) => result.item);
-	}, [debouncedQuery, sortedTasks, search]);
+
+		// Prepend fetched issue if it exists and doesn't conflict with local tasks
+		if (fetchedIssue && !tasks.some((t) => t.slug === fetchedIssue.identifier)) {
+			return [
+				{
+					id: `fetched-${fetchedIssue.id}`,
+					slug: fetchedIssue.identifier,
+					title: fetchedIssue.title,
+					externalUrl: fetchedIssue.url,
+					status: {
+						name: fetchedIssue.state?.name ?? "Todo",
+						type: "todo",
+						color: "#808080",
+						progressPercent: null,
+					},
+					assignee: null,
+					isFetched: true,
+				} as typeof results[0] & { isFetched: boolean },
+				...results,
+			];
+		}
+
+		return results;
+	}, [debouncedQuery, sortedTasks, search, fetchedIssue, tasks]);
 
 	const slugWidth = useMemo(
 		() => getSlugColumnWidth(visibleTasks.map((t) => t.slug)),
@@ -138,74 +233,99 @@ export function IssuesGroup({ projectId, hostTarget }: IssuesGroupProps) {
 
 	return (
 		<CommandGroup>
-			<CommandEmpty>No issues found.</CommandEmpty>
-			{visibleTasks.map((task) => (
-				<CommandItem
-					key={task.id}
-					onSelect={() => {
-						if (!projectId) {
-							toast.error("Select a project first");
-							return;
-						}
-						const existingId = workspaceByBranch.get(task.slug.toLowerCase());
-						if (existingId) {
-							closeAndResetDraft();
-							navigateToV2Workspace(existingId, navigate);
-							return;
-						}
-						void runAsyncAction(
-							createWorkspace({
-								projectId,
-								name: task.title,
-								branch: task.slug.toLowerCase(),
-								hostTarget,
-							}),
-							{
-								loading: "Creating workspace...",
-								success: "Workspace created",
-								error: (err) =>
-									err instanceof Error
-										? err.message
-										: "Failed to create workspace",
-							},
-						);
-					}}
-					className="group h-12"
-				>
-					{workspaceByBranch.has(task.slug.toLowerCase()) ? (
-						<GoArrowUpRight className="size-4 shrink-0 text-muted-foreground" />
-					) : (
-						<StatusIcon
-							type={task.status.type as StatusType}
-							color={task.status.color}
-							progress={task.status.progressPercent ?? undefined}
-							className="size-4 shrink-0"
-						/>
-					)}
-					<span
-						className="text-muted-foreground shrink-0 text-xs tabular-nums truncate"
-						style={{ width: slugWidth }}
+			<CommandEmpty>
+				{isFetchingIssue ? (
+					<div className="flex items-center gap-2 text-muted-foreground text-sm">
+						<div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current" />
+						Fetching issue from Linear...
+					</div>
+				) : fetchError ? (
+					<div className="text-muted-foreground text-sm">{fetchError}</div>
+				) : (
+					"No issues found."
+				)}
+			</CommandEmpty>
+			{visibleTasks.map((task) => {
+				const isFetched = "isFetched" in task && task.isFetched;
+				return (
+					<CommandItem
+						key={task.id}
+						onSelect={() => {
+							if (!projectId) {
+								toast.error("Select a project first");
+								return;
+							}
+							const existingId = workspaceByBranch.get(task.slug.toLowerCase());
+							if (existingId) {
+								closeAndResetDraft();
+								navigateToV2Workspace(existingId, navigate);
+								return;
+							}
+							void runAsyncAction(
+								createWorkspace({
+									projectId,
+									name: task.title,
+									branch: task.slug.toLowerCase(),
+									hostTarget,
+								}),
+								{
+									loading: "Creating workspace...",
+									success: "Workspace created",
+									error: (err) =>
+										err instanceof Error
+											? err.message
+											: "Failed to create workspace",
+								},
+							);
+						}}
+						className="group h-12"
 					>
-						{task.slug}
-					</span>
-					<span className="truncate flex-1">{task.title}</span>
-					<span className="shrink-0 group-data-[selected=true]:hidden">
-						{task.assignee ? (
-							<Avatar
-								size="xs"
-								fullName={task.assignee.name}
-								image={task.assignee.image}
-							/>
+						{workspaceByBranch.has(task.slug.toLowerCase()) ? (
+							<GoArrowUpRight className="size-4 shrink-0 text-muted-foreground" />
 						) : (
-							<HiOutlineUserCircle className="size-5 text-muted-foreground" />
+							<StatusIcon
+								type={task.status.type as StatusType}
+								color={task.status.color}
+								progress={task.status.progressPercent ?? undefined}
+								className="size-4 shrink-0"
+							/>
 						)}
-					</span>
-					<span className="text-xs text-muted-foreground shrink-0 hidden group-data-[selected=true]:inline">
-						{workspaceByBranch.has(task.slug.toLowerCase()) ? "Open" : "Create"}{" "}
-						↵
-					</span>
-				</CommandItem>
-			))}
+						<span
+							className="text-muted-foreground shrink-0 text-xs tabular-nums truncate"
+							style={{ width: slugWidth }}
+						>
+							{task.slug}
+						</span>
+						<span className="truncate flex-1">
+							<>
+								{task.title}
+								{isFetched && (
+									<span className="ml-2 text-xs text-muted-foreground opacity-70">
+										(from Linear)
+									</span>
+								)}
+							</>
+						</span>
+						<span className="shrink-0 group-data-[selected=true]:hidden">
+							{task.assignee ? (
+								<Avatar
+									size="xs"
+									fullName={task.assignee.name}
+									image={task.assignee.image}
+								/>
+							) : (
+								<HiOutlineUserCircle className="size-5 text-muted-foreground" />
+							)}
+						</span>
+						<span className="text-xs text-muted-foreground shrink-0 hidden group-data-[selected=true]:inline">
+							{workspaceByBranch.has(task.slug.toLowerCase())
+								? "Open"
+								: "Create"}{" "}
+							↵
+						</span>
+					</CommandItem>
+				);
+			})}
 		</CommandGroup>
 	);
 }

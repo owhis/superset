@@ -155,4 +155,64 @@ export const linearRouter = {
 
 			return { success: true };
 		}),
+
+	fetchIssue: protectedProcedure
+		.input(
+			z.object({
+				organizationId: z.uuid(),
+				issueIdentifier: z.string(),
+			}),
+		)
+		.query(async ({ ctx, input }) => {
+			await verifyOrgMembership(ctx.session.user.id, input.organizationId);
+
+			const client = await getLinearClient(input.organizationId);
+			if (!client) {
+				return { error: "LINEAR_NOT_CONNECTED" };
+			}
+
+			try {
+				// Parse identifier into team key and number (e.g., "SUPER-387" -> team: "SUPER", number: 387)
+				const [teamKey, numberStr] = input.issueIdentifier.split("-");
+				if (!teamKey || !numberStr) {
+					return { error: "INVALID_IDENTIFIER" };
+				}
+
+				const number = Number.parseInt(numberStr, 10);
+				if (Number.isNaN(number)) {
+					return { error: "INVALID_IDENTIFIER" };
+				}
+
+				// Fetch issues by number - Linear SDK supports filtering by number
+				const issues = await client.issues({
+					filter: {
+						number: {
+							eq: number,
+						},
+					},
+				});
+
+				// Find the issue that matches both team and number
+				const issue = issues.nodes.find((i) => i.identifier === input.issueIdentifier);
+				if (!issue) {
+					return { error: "ISSUE_NOT_FOUND" };
+				}
+
+				const state = await issue.state;
+
+				return {
+					data: {
+						id: issue.id,
+						identifier: issue.identifier,
+						title: issue.title,
+						url: issue.url,
+						description: issue.description ?? undefined,
+						state: state ? { name: state.name } : undefined,
+					},
+				};
+			} catch (error) {
+				console.error("Error fetching Linear issue:", error);
+				return { error: "FETCH_FAILED" };
+			}
+		}),
 } satisfies TRPCRouterRecord;

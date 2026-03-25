@@ -43,6 +43,10 @@
 		"./claude-command": {
 			"types": "./src/claude-command.ts",
 			"default": "./src/claude-command.ts"
+		},
+		".": {
+			"types": "./src/linear-url-parser.ts",
+			"default": "./src/linear-url-parser.ts"
 		}
 	},
 	"scripts": {
