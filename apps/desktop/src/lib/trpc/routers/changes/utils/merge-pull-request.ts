@@ -1,3 +1,4 @@
+import { getCurrentBranch } from "../../workspaces/utils/git";
 import { execGitWithShellPath } from "../../workspaces/utils/git-client";
 import {
 	getPRForBranch,
@@ -36,14 +37,13 @@ export async function mergePullRequest({
 
 	let pr: Awaited<ReturnType<typeof getPRForBranch>> = null;
 	try {
-		const [{ stdout: branchOutput }, { stdout: headOutput }] =
-			await Promise.all([
-				execGitWithShellPath(["rev-parse", "--abbrev-ref", "HEAD"], {
-					cwd: worktreePath,
-				}),
-				execGitWithShellPath(["rev-parse", "HEAD"], { cwd: worktreePath }),
-			]);
-		const localBranch = branchOutput.trim();
+		const [localBranch, { stdout: headOutput }] = await Promise.all([
+			getCurrentBranch(worktreePath),
+			execGitWithShellPath(["rev-parse", "HEAD"], { cwd: worktreePath }),
+		]);
+		if (!localBranch) {
+			return runMerge(legacyMergeArgs);
+		}
 		const headSha = headOutput.trim();
 
 		pr = await getPRForBranch(worktreePath, localBranch, repoContext, headSha);

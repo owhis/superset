@@ -24,6 +24,22 @@ import {
 const BRANCH_SYNC_INTERVAL_MS = 10_000;
 const PROJECT_REFRESH_INTERVAL_MS = 15_000;
 
+async function getCurrentBranchName(git: Awaited<ReturnType<GitFactory>>) {
+	try {
+		const branch = await git.raw(["symbolic-ref", "--short", "HEAD"]);
+		const trimmed = branch.trim();
+		return trimmed || null;
+	} catch {
+		try {
+			const branch = await git.revparse(["--abbrev-ref", "HEAD"]);
+			const trimmed = branch.trim();
+			return trimmed && trimmed !== "HEAD" ? trimmed : null;
+		} catch {
+			return null;
+		}
+	}
+}
+
 type RepoProvider = "github";
 
 export interface PullRequestStateSnapshot {
@@ -165,11 +181,13 @@ export class PullRequestRuntimeManager {
 		for (const workspace of allWorkspaces) {
 			try {
 				const git = await this.git(workspace.worktreePath);
-				const [rawBranch, rawHeadSha] = await Promise.all([
-					git.revparse(["--abbrev-ref", "HEAD"]),
+				const [branch, rawHeadSha] = await Promise.all([
+					getCurrentBranchName(git),
 					git.revparse(["HEAD"]),
 				]);
-				const branch = rawBranch.trim();
+				if (!branch) {
+					continue;
+				}
 				const headSha = rawHeadSha.trim();
 
 				if (branch === workspace.branch && headSha === workspace.headSha) {

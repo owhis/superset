@@ -1,5 +1,5 @@
 import type { GitHubStatus, PullRequestComment } from "@superset/local-db";
-import { branchExistsOnRemote } from "../git";
+import { branchExistsOnRemote, getCurrentBranch } from "../git";
 import { execGitWithShellPath } from "../git-client";
 import { execWithShellEnv } from "../shell-env";
 import { parseUpstreamRef } from "../upstream-ref";
@@ -44,15 +44,15 @@ async function resolvePullRequestCommentsTarget(
 		return null;
 	}
 
-	const [branchResult, shaResult] = await Promise.all([
-		execGitWithShellPath(["rev-parse", "--abbrev-ref", "HEAD"], {
-			cwd: worktreePath,
-		}),
+	const [branchName, shaResult] = await Promise.all([
+		getCurrentBranch(worktreePath),
 		execGitWithShellPath(["rev-parse", "HEAD"], {
 			cwd: worktreePath,
 		}),
 	]);
-	const branchName = branchResult.stdout.trim();
+	if (!branchName) {
+		return null;
+	}
 	const headSha = shaResult.stdout.trim();
 	const prInfo = await getPRForBranch(
 		worktreePath,
@@ -93,16 +93,16 @@ async function refreshGitHubPRStatus(
 			return null;
 		}
 
-		const [branchResult, shaResult, upstreamResult] = await Promise.all([
-			execGitWithShellPath(["rev-parse", "--abbrev-ref", "HEAD"], {
-				cwd: worktreePath,
-			}),
+		const [branchName, shaResult, upstreamResult] = await Promise.all([
+			getCurrentBranch(worktreePath),
 			execGitWithShellPath(["rev-parse", "HEAD"], { cwd: worktreePath }),
 			execGitWithShellPath(["rev-parse", "--abbrev-ref", "@{upstream}"], {
 				cwd: worktreePath,
 			}).catch(() => ({ stdout: "", stderr: "" })),
 		]);
-		const branchName = branchResult.stdout.trim();
+		if (!branchName) {
+			return null;
+		}
 		const headSha = shaResult.stdout.trim();
 		const parsedUpstreamRef = parseUpstreamRef(upstreamResult.stdout.trim());
 		const trackingRemote = parsedUpstreamRef?.remoteName ?? "origin";

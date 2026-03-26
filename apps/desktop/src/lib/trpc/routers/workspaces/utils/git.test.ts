@@ -15,6 +15,7 @@ import {
 	createWorktree,
 	getCurrentBranch,
 	hasUnpushedCommits,
+	parsePorcelainStatusV2,
 	parsePrUrl,
 } from "./git";
 
@@ -501,6 +502,70 @@ describe("getCurrentBranch", () => {
 				rmSync(repoPath, { recursive: true, force: true });
 			}
 		}
+	});
+});
+
+describe("parsePorcelainStatusV2", () => {
+	test("parses branch headers for unborn branches with upstream tracking", () => {
+		const status = parsePorcelainStatusV2(
+			[
+				"# branch.oid (initial)",
+				"# branch.head feature/gone-fix",
+				"# branch.upstream origin/feature/gone-fix",
+				"# branch.ab +0 -0",
+				"? path with spaces.txt",
+			].join("\0"),
+		);
+
+		expect(status.current).toBe("feature/gone-fix");
+		expect(status.tracking).toBe("origin/feature/gone-fix");
+		expect(status.ahead).toBe(0);
+		expect(status.behind).toBe(0);
+		expect(status.not_added).toEqual(["path with spaces.txt"]);
+		expect(status.files).toEqual([
+			{
+				path: "path with spaces.txt",
+				from: "path with spaces.txt",
+				index: "?",
+				working_dir: "?",
+			},
+		]);
+	});
+
+	test("parses rename and modified entries from porcelain v2 output", () => {
+		const status = parsePorcelainStatusV2(
+			[
+				"# branch.oid abcdef1234567890",
+				"# branch.head feature/rename",
+				"# branch.upstream origin/feature/rename",
+				"# branch.ab +2 -3",
+				"2 R. N... 100644 100644 100644 43dd47ea691c90a5fa7827892c70241913351963 43dd47ea691c90a5fa7827892c70241913351963 R100 new.txt",
+				"old.txt",
+				"1 .M N... 100644 100644 100644 43dd47ea691c90a5fa7827892c70241913351963 43dd47ea691c90a5fa7827892c70241913351963 edited.txt",
+			].join("\0"),
+		);
+
+		expect(status.current).toBe("feature/rename");
+		expect(status.tracking).toBe("origin/feature/rename");
+		expect(status.ahead).toBe(2);
+		expect(status.behind).toBe(3);
+		expect(status.renamed).toEqual([{ from: "old.txt", to: "new.txt" }]);
+		expect(status.files).toEqual([
+			{
+				path: "new.txt",
+				from: "old.txt",
+				index: "R",
+				working_dir: " ",
+			},
+			{
+				path: "edited.txt",
+				from: "edited.txt",
+				index: " ",
+				working_dir: "M",
+			},
+		]);
+		expect(status.staged).toEqual(["new.txt"]);
+		expect(status.modified).toEqual(["edited.txt"]);
 	});
 });
 
