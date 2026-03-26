@@ -146,6 +146,7 @@ export interface UseTerminalLifecycleOptions {
 	>;
 	unregisterPasteCallbackRef: MutableRefObject<UnregisterCallback>;
 	defaultRestartCommandRef: MutableRefObject<string | undefined>;
+	onStatusLineChangeRef: MutableRefObject<(text: string) => void>;
 }
 
 export interface UseTerminalLifecycleReturn {
@@ -207,6 +208,7 @@ export function useTerminalLifecycle({
 	registerPasteCallbackRef,
 	unregisterPasteCallbackRef,
 	defaultRestartCommandRef,
+	onStatusLineChangeRef,
 }: UseTerminalLifecycleOptions): UseTerminalLifecycleReturn {
 	const [xtermInstance, setXtermInstance] = useState<XTerm | null>(null);
 	const restartTerminalRef = useRef<
@@ -683,6 +685,7 @@ export function useTerminalLifecycle({
 				setPaneNameRef.current(paneId, title);
 				renameUnnamedWorkspaceRef.current(title);
 			}
+			onStatusLineChangeRef.current(title);
 		});
 
 		const handleClear = () => {

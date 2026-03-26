@@ -27,6 +27,7 @@ import {
 	useTerminalStream,
 } from "./hooks";
 import { ScrollToBottomButton } from "./ScrollToBottomButton";
+import { StatusLine } from "./StatusLine";
 import { TerminalSearch } from "./TerminalSearch";
 import type {
 	TerminalExitReason,
@@ -91,6 +92,10 @@ export const Terminal = ({ paneId, tabId, workspaceId }: TerminalProps) => {
 		null,
 	);
 	const wasKilledByUserRef = useRef(false);
+	const [statusLineText, setStatusLineText] = useState<string | null>(null);
+	const onStatusLineChangeRef = useRef((text: string) =>
+		setStatusLineText(text || null),
+	);
 	const pendingEventsRef = useRef<TerminalStreamEvent[]>([]);
 	const commandBufferRef = useRef("");
 	const tabIdRef = useRef(tabId);
@@ -370,6 +375,7 @@ export const Terminal = ({ paneId, tabId, workspaceId }: TerminalProps) => {
 		registerPasteCallbackRef,
 		unregisterPasteCallbackRef,
 		defaultRestartCommandRef,
+		onStatusLineChangeRef,
 	});
 
 	const registerRestartCallback = useTerminalCallbacksStore(
@@ -447,7 +453,7 @@ export const Terminal = ({ paneId, tabId, workspaceId }: TerminalProps) => {
 	return (
 		<div
 			role="application"
-			className="relative h-full w-full overflow-hidden"
+			className="relative flex h-full w-full flex-col overflow-hidden"
 			style={{ backgroundColor: terminalBg }}
 			onDragOver={handleDragOver}
 			onDrop={handleDrop}
@@ -464,9 +470,10 @@ export const Terminal = ({ paneId, tabId, workspaceId }: TerminalProps) => {
 				!isWorkspaceRunPane && (
 					<SessionKilledOverlay onRestart={restartTerminal} />
 				)}
-			<div className="h-full w-full p-2">
+			<div className="min-h-0 flex-1 p-2">
 				<div ref={terminalRef} className="h-full w-full" />
 			</div>
+			<StatusLine text={statusLineText} backgroundColor={terminalBg} />
 		</div>
 	);
 };
