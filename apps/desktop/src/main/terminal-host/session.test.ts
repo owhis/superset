@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from "bun:test";
+import { afterEach, beforeEach, describe, expect, it, mock } from "bun:test";
 import type { ChildProcess } from "node:child_process";
 import { EventEmitter } from "node:events";
 import path from "node:path";
@@ -217,5 +217,140 @@ describe("Terminal Host Session shell args", () => {
 		).broadcastEvent("data", { type: "data", data: "hello" });
 
 		expect(writes.some((message) => message.includes('"hello"'))).toBe(true);
+	});
+});
+
+describe("Backpressure warning rate limiting (#$ISSUE_NUMBER)", () => {
+	let warnSpy: ReturnType<typeof mock>;
+	const originalWarn = console.warn;
+
+	beforeEach(() => {
+		warnSpy = mock((..._args: unknown[]) => {});
+		console.warn = warnSpy as typeof console.warn;
+	});
+
+	afterEach(() => {
+		console.warn = originalWarn;
+	});
+
+	function createSessionWithBackpressuredSocket() {
+		const session = new Session({
+			sessionId: "session-backpressure",
+			workspaceId: "workspace-1",
+			paneId: "pane-1",
+			tabId: "tab-1",
+			cols: 80,
+			rows: 24,
+			cwd: "/tmp",
+			shell: "/bin/bash",
+		});
+
+		// Create a fake socket whose write() always returns false (buffer full)
+		const socket = {
+			write(_message: string) {
+				return false;
+			},
+			once(_event: string, _cb: () => void) {
+				// never drain — keeps backpressure active
+			},
+		} as unknown as import("node:net").Socket;
+
+		// Directly add the socket as an attached client
+		const attachedClients = (
+			session as unknown as {
+				attachedClients: Map<
+					import("node:net").Socket,
+					{ socket: import("node:net").Socket }
+				>;
+			}
+		).attachedClients;
+		attachedClients.set(socket, { socket });
+
+		return { session, socket };
+	}
+
+	it("emits a warning on the first backpressure event", () => {
+		const { session } = createSessionWithBackpressuredSocket();
+
+		(
+			session as unknown as {
+				broadcastEvent: (
+					eventType: string,
+					payload: { type: "data"; data: string },
+				) => void;
+			}
+		).broadcastEvent("data", { type: "data", data: "x" });
+
+		const backpressureWarns = (warnSpy.mock.calls as unknown[][]).filter(
+			(call) =>
+				typeof call[0] === "string" &&
+				call[0].includes("Client socket buffer full"),
+		);
+		expect(backpressureWarns.length).toBe(1);
+	});
+
+	it("suppresses repeated warnings within the rate-limit window", () => {
+		const { session } = createSessionWithBackpressuredSocket();
+		const broadcast = (
+			session as unknown as {
+				broadcastEvent: (
+					eventType: string,
+					payload: { type: "data"; data: string },
+				) => void;
+			}
+		).broadcastEvent.bind(session);
+
+		// Fire many backpressure events in rapid succession
+		for (let i = 0; i < 1000; i++) {
+			broadcast("data", { type: "data", data: `chunk-${i}` });
+		}
+
+		const backpressureWarns = (warnSpy.mock.calls as unknown[][]).filter(
+			(call) =>
+				typeof call[0] === "string" &&
+				call[0].includes("Client socket buffer full"),
+		);
+
+		// Should emit exactly 1 warning (the initial one), not 1000
+		expect(backpressureWarns.length).toBe(1);
+	});
+
+	it("includes suppressed count when warning resumes after interval", () => {
+		const { session } = createSessionWithBackpressuredSocket();
+		const broadcast = (
+			session as unknown as {
+				broadcastEvent: (
+					eventType: string,
+					payload: { type: "data"; data: string },
+				) => void;
+			}
+		).broadcastEvent.bind(session);
+
+		// First call emits immediately
+		broadcast("data", { type: "data", data: "first" });
+
+		// Suppress a batch
+		for (let i = 0; i < 50; i++) {
+			broadcast("data", { type: "data", data: `suppressed-${i}` });
+		}
+
+		// Advance the internal timestamp past the rate-limit window
+		(
+			session as unknown as { backpressureWarnLastAt: number }
+		).backpressureWarnLastAt = Date.now() - 10_000;
+
+		// Next call should emit with suppressed count
+		broadcast("data", { type: "data", data: "after-interval" });
+
+		const backpressureWarns = (warnSpy.mock.calls as unknown[][]).filter(
+			(call) =>
+				typeof call[0] === "string" &&
+				call[0].includes("Client socket buffer full"),
+		);
+
+		expect(backpressureWarns.length).toBe(2);
+		const lastWarn = backpressureWarns[1]?.[0] as string;
+		expect(lastWarn).toContain("suppressed");
+		expect(lastWarn).toContain("50");
 	});
 });
