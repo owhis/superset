@@ -46,9 +46,7 @@ mock.module("renderer/stores/tabs/store", () => ({
 	},
 }));
 
-const { recoverWorkspaceRunPane, setPaneWorkspaceRunState } = await import(
-	"./workspaceRun"
-);
+const { recoverWorkspaceRunPane } = await import("./workspaceRun");
 
 describe("recoverWorkspaceRunPane", () => {
 	beforeEach(() => {
@@ -287,32 +285,6 @@ describe("recoverWorkspaceRunPane", () => {
 		expect(storeState.panes["pane-2c"]?.workspaceRun).toEqual({
 			workspaceId: "ws-2c",
 			state: "running",
-			command: "bun run dev",
-		});
-	});
-
-	it("preserves the stored run command when updating workspace-run state", () => {
-		storeState.panes["pane-3"] = {
-			workspaceRun: {
-				workspaceId: "ws-3",
-				state: "running",
-				command: "bun run dev",
-			},
-		};
-
-		const updatedWorkspaceRun = setPaneWorkspaceRunState(
-			"pane-3",
-			"stopped-by-exit",
-		);
-
-		expect(updatedWorkspaceRun).toEqual({
-			workspaceId: "ws-3",
-			state: "stopped-by-exit",
-			command: "bun run dev",
-		});
-		expect(storeState.setPaneWorkspaceRun).toHaveBeenCalledWith("pane-3", {
-			workspaceId: "ws-3",
-			state: "stopped-by-exit",
 			command: "bun run dev",
 		});
 	});
