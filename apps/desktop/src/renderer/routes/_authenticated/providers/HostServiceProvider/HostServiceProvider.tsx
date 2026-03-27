@@ -9,11 +9,11 @@ import {
 import { env } from "renderer/env.renderer";
 import { authClient } from "renderer/lib/auth-client";
 import { electronTrpc } from "renderer/lib/electron-trpc";
+import { setHostServiceSecret } from "renderer/lib/host-service-auth";
 import {
 	getHostServiceClient,
 	type HostServiceClient,
 } from "renderer/lib/host-service-client";
-import { setHostServiceSecret } from "renderer/lib/host-service-auth";
 import { MOCK_ORG_ID } from "shared/constants";
 import { useCollections } from "../CollectionsProvider";
 

@@ -7,12 +7,12 @@ export {
 } from "./filesystem";
 export type { ApiAuthProvider } from "./providers/auth";
 export { DeviceKeyApiAuthProvider, JwtApiAuthProvider } from "./providers/auth";
-export type { HostAuthProvider } from "./providers/host-auth";
-export { PskHostAuthProvider } from "./providers/host-auth";
 export {
 	CloudGitCredentialProvider,
 	LocalGitCredentialProvider,
 } from "./providers/git";
+export type { HostAuthProvider } from "./providers/host-auth";
+export { PskHostAuthProvider } from "./providers/host-auth";
 export type { ModelProviderRuntimeResolver } from "./providers/model-providers";
 export {
 	CloudModelProvider,

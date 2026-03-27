@@ -10,8 +10,8 @@ import { createApiClient } from "./api";
 import { createDb } from "./db";
 import { registerWorkspaceFilesystemEventsRoute } from "./filesystem";
 import type { ApiAuthProvider } from "./providers/auth";
-import type { HostAuthProvider } from "./providers/host-auth";
 import { LocalGitCredentialProvider } from "./providers/git";
+import type { HostAuthProvider } from "./providers/host-auth";
 import {
 	LocalModelProvider,
 	type ModelProviderRuntimeResolver,

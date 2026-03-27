@@ -28,9 +28,11 @@ export const chatRouter = router({
 			return ctx.runtime.chat.getDisplayState(input);
 		}),
 
-	listMessages: protectedProcedure.input(sessionInput).query(({ ctx, input }) => {
-		return ctx.runtime.chat.listMessages(input);
-	}),
+	listMessages: protectedProcedure
+		.input(sessionInput)
+		.query(({ ctx, input }) => {
+			return ctx.runtime.chat.listMessages(input);
+		}),
 
 	sendMessage: protectedProcedure
 		.input(
