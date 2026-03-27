@@ -91,18 +91,14 @@ export function createApp(options?: CreateAppOptions): CreateAppResult {
 		}),
 	);
 
-	// Auth guard for WebSocket routes (must be registered before route handlers)
 	if (options?.hostAuth) {
-		const hostAuth = options.hostAuth;
+		const { hostAuth } = options;
 		const wsAuth: MiddlewareHandler = async (c, next) => {
-			const headerValid = await hostAuth.validate(c.req.raw);
-			const queryToken = c.req.query("token");
-			const queryValid = queryToken
-				? await hostAuth.validateToken(queryToken)
-				: false;
-			if (!headerValid && !queryValid) {
-				return c.json({ error: "Unauthorized" }, 401);
-			}
+			const token = c.req.query("token");
+			const authorized =
+				(await hostAuth.validate(c.req.raw)) ||
+				(token && (await hostAuth.validateToken(token)));
+			if (!authorized) return c.json({ error: "Unauthorized" }, 401);
 			return next();
 		};
 		app.use("/terminal/*", wsAuth);

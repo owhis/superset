@@ -22,7 +22,6 @@ export interface WorkspaceClientContextValue {
 	subscribeToWorkspaceFsEvents: (
 		input: WorkspaceFsSubscriptionInput,
 	) => () => void;
-	/** Get a WS auth token (for ?token= on upgrade URLs). */
 	getWsToken: () => string | null;
 }
 
@@ -30,9 +29,7 @@ interface WorkspaceClientProviderProps {
 	cacheKey: string;
 	hostUrl: string;
 	children: ReactNode;
-	/** Lazy headers callback — evaluated on each tRPC request. */
 	headers?: () => Record<string, string>;
-	/** Token for WebSocket upgrade requests (appended as ?token=). */
 	wsToken?: () => string | null;
 }
 
