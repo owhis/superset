@@ -250,12 +250,13 @@ export function FilesView() {
 
 	const refreshVisibleDirectories = useCallback(() => {
 		entryCacheRef.current.clear();
-		tree.getItemInstance("root")?.invalidateChildrenIds();
 		for (const item of tree.getItems()) {
+			void item.invalidateItemData();
 			if (item.getItemData()?.isDirectory) {
 				item.invalidateChildrenIds();
 			}
 		}
+		tree.getItemInstance("root")?.invalidateChildrenIds();
 		void trpcUtils.filesystem.searchFiles.invalidate();
 	}, [tree, trpcUtils]);
 
@@ -267,7 +268,13 @@ export function FilesView() {
 			}
 
 			if (directoryPath === currentRoot) {
-				tree.getItemInstance("root")?.invalidateChildrenIds();
+				const rootItem = tree.getItemInstance("root");
+				if (rootItem) {
+					for (const child of rootItem.getChildren()) {
+						void child.invalidateItemData();
+					}
+					rootItem.invalidateChildrenIds();
+				}
 				return;
 			}
 
@@ -278,7 +285,12 @@ export function FilesView() {
 						item.getItemData()?.isDirectory &&
 						item.getItemData()?.path === directoryPath,
 				);
-			directoryItem?.invalidateChildrenIds();
+			if (directoryItem) {
+				for (const child of directoryItem.getChildren()) {
+					void child.invalidateItemData();
+				}
+				directoryItem.invalidateChildrenIds();
+			}
 		},
 		[tree],
 	);
@@ -391,7 +403,13 @@ export function FilesView() {
 							)
 							?.getId();
 				if (itemId) {
-					await tree.getItemInstance(itemId)?.invalidateChildrenIds();
+					const parentItem = tree.getItemInstance(itemId);
+					if (parentItem) {
+						for (const child of parentItem.getChildren()) {
+							void child.invalidateItemData();
+						}
+						await parentItem.invalidateChildrenIds();
+					}
 				}
 			},
 		});

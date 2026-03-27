@@ -423,7 +423,7 @@ export function useFileTree({
 
 			updateState((current) => {
 				let nextState = current;
-				if (event.kind === "delete" && event.isDirectory) {
+				if (event.kind === "delete") {
 					nextState = deleteSubtree(current, event.absolutePath);
 				}
 
