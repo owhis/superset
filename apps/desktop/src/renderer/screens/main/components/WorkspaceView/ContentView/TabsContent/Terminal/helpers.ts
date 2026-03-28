@@ -515,9 +515,32 @@ export function setupPasteHandler(
 }
 
 /**
+ * Check if the Kitty keyboard protocol is currently active in the terminal.
+ * When active, modified keys like Shift+Enter should be forwarded to the PTY
+ * so xterm.js can encode them using the CSI u format (e.g. \x1b[13;2u).
+ */
+function isKittyKeyboardActive(xterm: XTerm): boolean {
+	try {
+		// Access internal state: xterm._core.coreService.kittyKeyboard.flags
+		// flags > 0 means a program has activated the Kitty keyboard protocol
+		const core = (xterm as unknown as Record<string, unknown>)._core as
+			| {
+					coreService?: {
+						kittyKeyboard?: { flags: number };
+					};
+			  }
+			| undefined;
+		return (core?.coreService?.kittyKeyboard?.flags ?? 0) > 0;
+	} catch {
+		return false;
+	}
+}
+
+/**
  * Setup keyboard handling for xterm including:
  * - Shortcut forwarding: App hotkeys bubble to document where useAppHotkey listens
  * - Shift+Enter: Sends ESC+CR sequence (to avoid \ appearing in Claude Code while keeping line continuation behavior)
+ *   When the Kitty keyboard protocol is active, Shift+Enter is passed through to the PTY instead.
  * - Clear terminal: Uses the configured clear shortcut
  *
  * Returns a cleanup function to remove the handler.
@@ -540,6 +563,12 @@ export function setupKeyboardHandler(
 			!event.altKey;
 
 		if (isShiftEnter) {
+			// When the Kitty keyboard protocol is active, let xterm.js handle
+			// Shift+Enter so it gets encoded as CSI 13;2u for the PTY.
+			// This allows apps like Claude Code and pi to receive the key.
+			if (isKittyKeyboardActive(xterm)) {
+				return true;
+			}
 			if (event.type === "keydown" && options.onShiftEnter) {
 				event.preventDefault();
 				options.onShiftEnter();

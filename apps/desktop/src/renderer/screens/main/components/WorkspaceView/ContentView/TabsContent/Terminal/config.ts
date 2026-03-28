@@ -48,6 +48,13 @@ export const TERMINAL_OPTIONS: ITerminalOptions = {
 	scrollbar: {
 		showScrollbar: false,
 	},
+	// Allow terminal programs to use the Kitty keyboard protocol (CSI u encoding).
+	// When a program activates the protocol, xterm.js encodes modified keys
+	// (e.g. Shift+Enter as \x1b[13;2u) so applications like Claude Code and pi
+	// can distinguish them from plain Enter.
+	vtExtensions: {
+		kittyKeyboard: true,
+	},
 };
 
 export const RESIZE_DEBOUNCE_MS = 150;

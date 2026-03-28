@@ -138,6 +138,73 @@ describe("setupKeyboardHandler", () => {
 		globalThis.navigator = originalNavigator;
 	});
 
+	it("intercepts Shift+Enter when Kitty keyboard protocol is NOT active", () => {
+		const captured: { handler: ((event: KeyboardEvent) => boolean) | null } = {
+			handler: null,
+		};
+		const xterm = {
+			attachCustomKeyEventHandler: (
+				next: (event: KeyboardEvent) => boolean,
+			) => {
+				captured.handler = next;
+			},
+			// No _core → kitty keyboard not active
+		};
+
+		const onShiftEnter = mock(() => {});
+		setupKeyboardHandler(xterm as unknown as XTerm, { onShiftEnter });
+
+		const result = captured.handler?.({
+			type: "keydown",
+			key: "Enter",
+			shiftKey: true,
+			metaKey: false,
+			ctrlKey: false,
+			altKey: false,
+			preventDefault: mock(() => {}),
+		} as unknown as KeyboardEvent);
+
+		expect(result).toBe(false);
+		expect(onShiftEnter).toHaveBeenCalled();
+	});
+
+	it("passes Shift+Enter through when Kitty keyboard protocol is active (#2970)", () => {
+		const captured: { handler: ((event: KeyboardEvent) => boolean) | null } = {
+			handler: null,
+		};
+		const xterm = {
+			attachCustomKeyEventHandler: (
+				next: (event: KeyboardEvent) => boolean,
+			) => {
+				captured.handler = next;
+			},
+			// Simulate Kitty keyboard protocol active (flags > 0)
+			_core: {
+				coreService: {
+					kittyKeyboard: { flags: 1 },
+				},
+			},
+		};
+
+		const onShiftEnter = mock(() => {});
+		setupKeyboardHandler(xterm as unknown as XTerm, { onShiftEnter });
+
+		const result = captured.handler?.({
+			type: "keydown",
+			key: "Enter",
+			shiftKey: true,
+			metaKey: false,
+			ctrlKey: false,
+			altKey: false,
+			preventDefault: mock(() => {}),
+		} as unknown as KeyboardEvent);
+
+		// Should return true to let xterm.js encode the key as CSI 13;2u
+		expect(result).toBe(true);
+		// onShiftEnter should NOT be called when Kitty protocol is active
+		expect(onShiftEnter).not.toHaveBeenCalled();
+	});
+
 	it("maps Option+Left/Right to Meta+B/F on macOS", () => {
 		// @ts-expect-error - mocking navigator for tests
 		globalThis.navigator = { platform: "MacIntel" };
