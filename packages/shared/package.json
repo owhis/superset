@@ -40,6 +40,10 @@
 			"types": "./src/task-slug.ts",
 			"default": "./src/task-slug.ts"
 		},
+		"./public-api-url": {
+			"types": "./src/public-api-url.ts",
+			"default": "./src/public-api-url.ts"
+		},
 		"./claude-command": {
 			"types": "./src/claude-command.ts",
 			"default": "./src/claude-command.ts"

@@ -1,6 +1,7 @@
 import { LinearClient } from "@linear/sdk";
 import { db } from "@superset/db/client";
 import { integrationConnections, members } from "@superset/db/schema";
+import { resolvePublicApiUrl } from "@superset/shared/public-api-url";
 import { Client } from "@upstash/qstash";
 import { and, eq } from "drizzle-orm";
 
@@ -10,6 +11,10 @@ import { verifySignedState } from "@/lib/oauth-state";
 const qstash = new Client({ token: env.QSTASH_TOKEN });
 
 export async function GET(request: Request) {
+	const linearPublicApiUrl = resolvePublicApiUrl({
+		defaultApiUrl: env.NEXT_PUBLIC_API_URL,
+		overrideApiUrl: env.LINEAR_PUBLIC_API_URL,
+	});
 	const url = new URL(request.url);
 	const code = url.searchParams.get("code");
 	const state = url.searchParams.get("state");
@@ -114,7 +119,7 @@ export async function GET(request: Request) {
 
 	try {
 		await qstash.publishJSON({
-			url: `${env.NEXT_PUBLIC_API_URL}/api/integrations/linear/jobs/initial-sync`,
+			url: `${linearPublicApiUrl}/api/integrations/linear/jobs/initial-sync`,
 			body: { organizationId, creatorUserId: userId },
 			retries: 3,
 		});

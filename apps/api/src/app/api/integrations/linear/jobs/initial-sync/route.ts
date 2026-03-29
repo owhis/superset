@@ -7,6 +7,7 @@ import {
 	tasks,
 	users,
 } from "@superset/db/schema";
+import { resolvePublicApiUrl } from "@superset/shared/public-api-url";
 import { Receiver } from "@upstash/qstash";
 import { and, eq, inArray, isNull } from "drizzle-orm";
 import chunk from "lodash.chunk";
@@ -28,6 +29,10 @@ const payloadSchema = z.object({
 });
 
 export async function POST(request: Request) {
+	const linearPublicApiUrl = resolvePublicApiUrl({
+		defaultApiUrl: env.NEXT_PUBLIC_API_URL,
+		overrideApiUrl: env.LINEAR_PUBLIC_API_URL,
+	});
 	const body = await request.text();
 	const signature = request.headers.get("upstash-signature");
 
@@ -42,7 +47,7 @@ export async function POST(request: Request) {
 		const isValid = await receiver.verify({
 			body,
 			signature,
-			url: `${env.NEXT_PUBLIC_API_URL}/api/integrations/linear/jobs/initial-sync`,
+			url: `${linearPublicApiUrl}/api/integrations/linear/jobs/initial-sync`,
 		});
 
 		if (!isValid) {

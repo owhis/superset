@@ -17,6 +17,8 @@
 	"private": true,
 	"scripts": {
 		"dev": "turbo run dev dev:caddy --filter=@superset/api --filter=@superset/web --filter=@superset/desktop --filter=electric-proxy --filter=//",
+		"dev:linear": "dotenv -e .env -- ./scripts/dev-linear.sh",
+		"dev:linear:tunnel": "dotenv -e .env -- ./scripts/dev-linear.sh --tunnel-only",
 		"dev:all": "turbo dev",
 		"dev:caddy": "dotenv -- caddy run --config Caddyfile",
 		"dev:docs": "turbo dev --filter=@superset/docs",

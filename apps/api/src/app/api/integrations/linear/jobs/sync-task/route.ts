@@ -8,6 +8,7 @@ import {
 	tasks,
 	users,
 } from "@superset/db/schema";
+import { resolvePublicApiUrl } from "@superset/shared/public-api-url";
 import {
 	getLinearClient,
 	mapPriorityToLinear,
@@ -244,6 +245,10 @@ async function syncTaskToLinear(
 }
 
 export async function POST(request: Request) {
+	const linearPublicApiUrl = resolvePublicApiUrl({
+		defaultApiUrl: env.NEXT_PUBLIC_API_URL,
+		overrideApiUrl: env.LINEAR_PUBLIC_API_URL,
+	});
 	const body = await request.text();
 	const signature = request.headers.get("upstash-signature");
 
@@ -255,7 +260,7 @@ export async function POST(request: Request) {
 		const isValid = await receiver.verify({
 			body,
 			signature,
-			url: `${env.NEXT_PUBLIC_API_URL}/api/integrations/linear/jobs/sync-task`,
+			url: `${linearPublicApiUrl}/api/integrations/linear/jobs/sync-task`,
 		});
 
 		if (!isValid) {
