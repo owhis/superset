@@ -273,6 +273,7 @@ export function ReviewPanel({
 			);
 
 			return (
+				// biome-ignore lint/a11y/useSemanticElements: div needed for complex layout with nested interactive elements
 				<div
 					key={comment.id}
 					className="group flex items-start gap-1 rounded-sm px-1.5 py-1 transition-colors hover:bg-accent/50 cursor-pointer"
