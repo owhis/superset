@@ -5,6 +5,7 @@ import { BIN_DIR } from "./paths";
 export const WRAPPER_MARKER = "# Superset agent-wrapper v1";
 export const SUPERSET_MANAGED_BINARIES = [
 	"claude",
+	"amp",
 	"codex",
 	"droid",
 	"opencode",

@@ -5,6 +5,7 @@ import {
 
 export const AGENT_TYPES = [
 	"claude",
+	"amp",
 	"codex",
 	"gemini",
 	"mastracode",
@@ -18,6 +19,7 @@ export type AgentType = (typeof AGENT_TYPES)[number];
 
 export const AGENT_LABELS: Record<AgentType, string> = {
 	claude: "Claude",
+	amp: "Amp",
 	codex: "Codex",
 	gemini: "Gemini",
 	mastracode: "Mastracode",
@@ -29,6 +31,7 @@ export const AGENT_LABELS: Record<AgentType, string> = {
 
 export const AGENT_PRESET_COMMANDS: Record<AgentType, string[]> = {
 	claude: ["claude --dangerously-skip-permissions"],
+	amp: ["amp"],
 	codex: [
 		'codex -c model_reasoning_effort="high" --dangerously-bypass-approvals-and-sandbox -c model_reasoning_summary="detailed" -c model_supports_reasoning_summaries=true',
 	],
@@ -43,6 +46,7 @@ export const AGENT_PRESET_COMMANDS: Record<AgentType, string[]> = {
 export const AGENT_PRESET_DESCRIPTIONS: Record<AgentType, string> = {
 	claude:
 		"Anthropic's coding agent for reading code, editing files, and running terminal workflows.",
+	amp: "Amp's coding agent for terminal-first coding, subagents, and task work.",
 	codex:
 		"OpenAI's coding agent for reading, modifying, and running code across tasks.",
 	gemini:
@@ -68,6 +72,9 @@ export const AGENT_PROMPT_COMMANDS: Record<
 > = {
 	claude: {
 		command: AGENT_PRESET_COMMANDS.claude[0] ?? "claude",
+	},
+	amp: {
+		command: "amp -x",
 	},
 	codex: {
 		command: `${AGENT_PRESET_COMMANDS.codex[0] ?? "codex"} --`,

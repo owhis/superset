@@ -114,10 +114,77 @@ describe("getMcpOverview", () => {
 		]);
 	});
 
+	it("reads servers from .amp/settings.json when present", () => {
+		const cwd = createTempDirectory();
+		mkdirSync(join(cwd, ".amp"), { recursive: true });
+		writeFileSync(
+			join(cwd, ".amp", "settings.json"),
+			JSON.stringify({
+				"amp.mcpServers": {
+					ampRemote: {
+						url: "https://amp.example.com/mcp",
+					},
+					ampLocalDisabled: {
+						command: "bun",
+						args: ["run", "mcp.ts"],
+						enabled: false,
+					},
+				},
+			}),
+			"utf-8",
+		);
+
+		const result = getMcpOverview(cwd);
+		expect(result.sourcePath).toBe(join(cwd, ".amp", "settings.json"));
+		expect(result.servers).toEqual([
+			{
+				name: "ampLocalDisabled",
+				state: "disabled",
+				transport: "local",
+				target: "bun run mcp.ts",
+			},
+			{
+				name: "ampRemote",
+				state: "enabled",
+				transport: "remote",
+				target: "https://amp.example.com/mcp",
+			},
+		]);
+	});
+
 	it("falls back to .mcp.json when .mastracode/mcp.json is invalid", () => {
 		const cwd = createTempDirectory();
 		mkdirSync(join(cwd, ".mastracode"), { recursive: true });
 		writeFileSync(join(cwd, ".mastracode", "mcp.json"), "{ invalid", "utf-8");
+		writeFileSync(
+			join(cwd, ".mcp.json"),
+			JSON.stringify({
+				mcpServers: {
+					fallbackRemote: {
+						type: "http",
+						url: "https://fallback.example.com/mcp",
+					},
+				},
+			}),
+			"utf-8",
+		);
+
+		const result = getMcpOverview(cwd);
+		expect(result.sourcePath).toBe(join(cwd, ".mcp.json"));
+		expect(result.servers).toEqual([
+			{
+				name: "fallbackRemote",
+				state: "enabled",
+				transport: "remote",
+				target: "https://fallback.example.com/mcp",
+			},
+		]);
+	});
+
+	it("falls back to .mcp.json when .amp/settings.json is invalid", () => {
+		const cwd = createTempDirectory();
+		mkdirSync(join(cwd, ".amp"), { recursive: true });
+		writeFileSync(join(cwd, ".amp", "settings.json"), "{ invalid", "utf-8");
 		writeFileSync(
 			join(cwd, ".mcp.json"),
 			JSON.stringify({

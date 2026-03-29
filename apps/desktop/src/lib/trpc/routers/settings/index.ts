@@ -145,6 +145,7 @@ function getResolvedAgentPresets() {
 
 const DEFAULT_PRESET_AGENTS = [
 	"claude",
+	"amp",
 	"codex",
 	"copilot",
 	"mastracode",

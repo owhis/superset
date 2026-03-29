@@ -27,6 +27,16 @@ describe("buildAgentPromptCommand", () => {
 		);
 	});
 
+	it("uses Amp execute mode for prompt launches", () => {
+		const command = buildAgentPromptCommand({
+			prompt: "hello",
+			randomId: "amp-1234",
+			agent: "amp",
+		});
+
+		expect(command).toStartWith("amp -x \"$(cat <<'SUPERSET_PROMPT_amp1234'");
+	});
+
 	it("uses pi interactive mode for prompt launches", () => {
 		const command = buildAgentPromptCommand({
 			prompt: "hello",

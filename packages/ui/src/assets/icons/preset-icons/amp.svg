@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none">
+  <path
+    d="M12 2.5 20.5 21h-3.7l-1.8-4.4H9L7.2 21H3.5L12 2.5Zm0 6.4-2 4.7h4L12 8.9Z"
+    fill="url(#amp-gradient)"
+  />
+  <defs>
+    <linearGradient id="amp-gradient" x1="4.5" y1="19.5" x2="18.5" y2="5" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#F97316" />
+      <stop offset="1" stop-color="#FB7185" />
+    </linearGradient>
+  </defs>
+</svg>

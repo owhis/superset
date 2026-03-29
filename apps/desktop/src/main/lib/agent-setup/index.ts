@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import {
 	cleanupGlobalOpenCodePlugin,
+	createAmpWrapper,
 	createClaudeSettingsJson,
 	createClaudeWrapper,
 	createCodexHooksJson,
@@ -48,6 +49,7 @@ export function setupAgentHooks(): void {
 	cleanupGlobalOpenCodePlugin();
 
 	createNotifyScript();
+	createAmpWrapper();
 	createClaudeSettingsJson();
 	createClaudeWrapper();
 	createCodexHooksJson();
