@@ -15,6 +15,7 @@ import {
 	DropdownMenuTrigger,
 } from "@superset/ui/dropdown-menu";
 import { useIsMobile } from "@superset/ui/hooks/use-mobile";
+import { toast } from "@superset/ui/sonner";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check, ChevronDown, LogOut } from "lucide-react";
 import Link from "next/link";
@@ -36,6 +37,7 @@ export function AgentsHeader() {
 	const queryClient = useQueryClient();
 	const isMobile = useIsMobile();
 	const [drawerOpen, setDrawerOpen] = useState(false);
+	const [dropdownOpen, setDropdownOpen] = useState(false);
 
 	const { data: organizations } = useQuery(
 		trpc.user.myOrganizations.queryOptions(),
@@ -49,22 +51,79 @@ export function AgentsHeader() {
 
 	const displayName = activeOrganization?.name ?? "Organization";
 
+	const handleActionError = (message: string, error: unknown) => {
+		console.error(`[AgentsHeader] ${message}`, error);
+		toast.error(message);
+	};
+
 	const handleSignOut = async () => {
-		await authClient.signOut();
-		router.push("/sign-in");
+		try {
+			await authClient.signOut();
+			return true;
+		} catch (error) {
+			handleActionError("Failed to log out. Please try again.", error);
+			return false;
+		}
 	};
 
 	const handleSwitchOrganization = async (organizationId: string) => {
-		await authClient.organization.setActive({ organizationId });
-		queryClient.invalidateQueries();
-		router.refresh();
+		if (organizationId === activeOrganizationId) {
+			return true;
+		}
+
+		try {
+			await authClient.organization.setActive({ organizationId });
+			await queryClient.invalidateQueries();
+			router.refresh();
+			return true;
+		} catch (error) {
+			handleActionError(
+				"Failed to switch organization. Please try again.",
+				error,
+			);
+			return false;
+		}
+	};
+
+	const handleDrawerSignOut = async () => {
+		const signedOut = await handleSignOut();
+		if (!signedOut) {
+			return;
+		}
+
+		setDrawerOpen(false);
+		router.push("/sign-in");
+	};
+
+	const handleDrawerOrganizationSelect = async (organizationId: string) => {
+		const switched = await handleSwitchOrganization(organizationId);
+		if (switched) {
+			setDrawerOpen(false);
+		}
+	};
+
+	const handleDropdownSignOut = async () => {
+		const signedOut = await handleSignOut();
+		if (!signedOut) {
+			return;
+		}
+
+		setDropdownOpen(false);
+		router.push("/sign-in");
+	};
+
+	const handleDropdownOrganizationSelect = async (organizationId: string) => {
+		const switched = await handleSwitchOrganization(organizationId);
+		if (switched) {
+			setDropdownOpen(false);
+		}
 	};
 
 	const triggerButton = (
 		<button
 			type="button"
 			className="flex cursor-pointer items-center gap-2 rounded-md border border-border/60 bg-secondary/50 px-3 py-1.5 transition-all duration-150 hover:border-border hover:bg-secondary focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-			aria-label="Organization menu"
+			aria-label={`Organization menu for ${displayName}`}
 			onClick={isMobile ? () => setDrawerOpen(true) : undefined}
 		>
 			<Avatar className="size-5">
@@ -106,8 +165,7 @@ export function AgentsHeader() {
 										type="button"
 										className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-2 text-sm hover:bg-accent"
 										onClick={() => {
-											handleSwitchOrganization(org.id);
-											setDrawerOpen(false);
+											void handleDrawerOrganizationSelect(org.id);
 										}}
 									>
 										<Avatar className="size-4">
@@ -134,8 +192,7 @@ export function AgentsHeader() {
 							type="button"
 							className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-2 text-sm hover:bg-accent"
 							onClick={() => {
-								handleSignOut();
-								setDrawerOpen(false);
+								void handleDrawerSignOut();
 							}}
 						>
 							<LogOut className="size-4" />
@@ -146,7 +203,7 @@ export function AgentsHeader() {
 			</Drawer>
 		</>
 	) : (
-		<DropdownMenu>
+		<DropdownMenu open={dropdownOpen} onOpenChange={setDropdownOpen}>
 			<DropdownMenuTrigger asChild>{triggerButton}</DropdownMenuTrigger>
 			<DropdownMenuContent align="end" className="min-w-56">
 				<DropdownMenuLabel>
@@ -170,7 +227,10 @@ export function AgentsHeader() {
 									<DropdownMenuItem
 										key={org.id}
 										className="cursor-pointer gap-2"
-										onClick={() => handleSwitchOrganization(org.id)}
+										onSelect={(event) => {
+											event.preventDefault();
+											void handleDropdownOrganizationSelect(org.id);
+										}}
 									>
 										<Avatar className="size-4">
 											<AvatarImage
@@ -194,7 +254,10 @@ export function AgentsHeader() {
 				)}
 				<DropdownMenuItem
 					className="cursor-pointer gap-2"
-					onClick={handleSignOut}
+					onSelect={(event) => {
+						event.preventDefault();
+						void handleDropdownSignOut();
+					}}
 				>
 					<LogOut className="size-4" />
 					<span>Log out</span>

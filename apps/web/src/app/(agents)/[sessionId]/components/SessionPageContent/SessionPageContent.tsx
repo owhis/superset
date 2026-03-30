@@ -14,6 +14,16 @@ type SessionPageContentProps = {
 	session: MockSession;
 };
 
+const panelIds = {
+	chat: "session-panel-chat",
+	diff: "session-panel-diff",
+} as const;
+
+const tabIds = {
+	chat: "session-tab-chat",
+	diff: "session-tab-diff",
+} as const;
+
 export function SessionPageContent({ session }: SessionPageContentProps) {
 	const [activeTab, setActiveTab] = useState<ActiveTab>("chat");
 
@@ -21,7 +31,12 @@ export function SessionPageContent({ session }: SessionPageContentProps) {
 		<div className="flex flex-1 flex-col overflow-hidden">
 			<SessionHeader session={session} />
 			<SessionTabs activeTab={activeTab} onTabChange={setActiveTab} />
-			<div className="flex-1 overflow-hidden">
+			<div
+				role="tabpanel"
+				id={panelIds[activeTab]}
+				aria-labelledby={tabIds[activeTab]}
+				className="flex-1 overflow-hidden"
+			>
 				{activeTab === "chat" ? <SessionChat /> : <SessionDiff />}
 			</div>
 			{activeTab === "chat" && <FollowUpInput />}

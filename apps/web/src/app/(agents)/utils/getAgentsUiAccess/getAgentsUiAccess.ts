@@ -22,12 +22,21 @@ export const getAgentsUiAccess = cache(async () => {
 		redirect("/sign-in");
 	}
 
-	const hasAgentsUiAccess = Boolean(
-		await posthog.getFeatureFlag(
-			FEATURE_FLAGS.WEB_AGENTS_UI_ACCESS,
-			session.user.id,
-		),
-	);
+	let hasAgentsUiAccess = false;
+
+	try {
+		hasAgentsUiAccess = Boolean(
+			await posthog.getFeatureFlag(
+				FEATURE_FLAGS.WEB_AGENTS_UI_ACCESS,
+				session.user.id,
+			),
+		);
+	} catch (error) {
+		console.error(
+			"[getAgentsUiAccess] Failed to load the agents UI feature flag",
+			error,
+		);
+	}
 
 	return {
 		hasAgentsUiAccess,

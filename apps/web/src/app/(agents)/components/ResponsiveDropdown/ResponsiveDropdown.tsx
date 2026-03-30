@@ -8,7 +8,13 @@ import {
 	DropdownMenuTrigger,
 } from "@superset/ui/dropdown-menu";
 import { useIsMobile } from "@superset/ui/hooks/use-mobile";
-import { cloneElement, isValidElement, type ReactNode, useState } from "react";
+import {
+	cloneElement,
+	isValidElement,
+	type MouseEvent,
+	type ReactNode,
+	useState,
+} from "react";
 
 type DropdownItem = {
 	label: string;
@@ -40,8 +46,17 @@ export function ResponsiveDropdown({
 	const [open, setOpen] = useState(false);
 
 	if (isMobile) {
-		const mobileTrigger = isValidElement<{ onClick?: () => void }>(trigger)
-			? cloneElement(trigger, { onClick: () => setOpen(true) })
+		const mobileTrigger = isValidElement<{
+			onClick?: (event: MouseEvent<HTMLElement>) => void;
+		}>(trigger)
+			? cloneElement(trigger, {
+					onClick: (event: MouseEvent<HTMLElement>) => {
+						trigger.props.onClick?.(event);
+						if (!event.defaultPrevented) {
+							setOpen(true);
+						}
+					},
+				})
 			: trigger;
 
 		return (
