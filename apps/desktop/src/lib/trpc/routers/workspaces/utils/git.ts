@@ -940,7 +940,9 @@ export async function getDefaultBranch(mainRepoPath: string): Promise<string> {
 			if (symrefMatch) {
 				return symrefMatch[1];
 			}
-		} catch {}
+		} catch (error) {
+			console.warn("Failed to resolve default branch via ls-remote", error);
+		}
 
 		// Fallback: check remote tracking branches for common default branch names
 		try {
