@@ -80,25 +80,25 @@ describe("resolveAgentConfigs", () => {
 		const custom = resolveAgentConfigs({
 			customDefinitions: [
 				{
-					id: "custom:amp-team",
+					id: "custom:team-agent",
 					kind: "terminal",
-					label: "Amp Team",
-					description: "Team Amp wrapper",
-					command: "amp --team",
-					promptCommand: "amp -x --team",
+					label: "Team Agent",
+					description: "Team wrapper",
+					command: "team-agent",
+					promptCommand: "team-agent --prompt",
 					taskPromptTemplate: "Task {{slug}}",
 					enabled: false,
 				},
 			],
-		}).find((preset) => preset.id === "custom:amp-team");
+		}).find((preset) => preset.id === "custom:team-agent");
 
 		expect(custom).toMatchObject({
-			id: "custom:amp-team",
+			id: "custom:team-agent",
 			source: "user",
 			kind: "terminal",
-			label: "Amp Team",
-			command: "amp --team",
-			promptCommand: "amp -x --team",
+			label: "Team Agent",
+			command: "team-agent",
+			promptCommand: "team-agent --prompt",
 			taskPromptTemplate: "Task {{slug}}",
 			enabled: false,
 		});

@@ -85,6 +85,4 @@ superset-dev-data/
 !.codex/config.toml
 !.codex/commands
 !.codex/prompts
-
-# Amp workspace config (track shared settings; ignore runtime state)
 .amp/*
