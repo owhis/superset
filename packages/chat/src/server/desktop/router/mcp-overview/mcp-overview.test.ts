@@ -152,6 +152,45 @@ describe("getMcpOverview", () => {
 		]);
 	});
 
+	it("prefers .mcp.json over .amp/settings.json", () => {
+		const cwd = createTempDirectory();
+		mkdirSync(join(cwd, ".amp"), { recursive: true });
+		writeFileSync(
+			join(cwd, ".mcp.json"),
+			JSON.stringify({
+				mcpServers: {
+					sharedRemote: {
+						type: "http",
+						url: "https://shared.example.com/mcp",
+					},
+				},
+			}),
+			"utf-8",
+		);
+		writeFileSync(
+			join(cwd, ".amp", "settings.json"),
+			JSON.stringify({
+				"amp.mcpServers": {
+					personalRemote: {
+						url: "https://personal.example.com/mcp",
+					},
+				},
+			}),
+			"utf-8",
+		);
+
+		const result = getMcpOverview(cwd);
+		expect(result.sourcePath).toBe(join(cwd, ".mcp.json"));
+		expect(result.servers).toEqual([
+			{
+				name: "sharedRemote",
+				state: "enabled",
+				transport: "remote",
+				target: "https://shared.example.com/mcp",
+			},
+		]);
+	});
+
 	it("falls back to .mcp.json when .mastracode/mcp.json is invalid", () => {
 		const cwd = createTempDirectory();
 		mkdirSync(join(cwd, ".mastracode"), { recursive: true });
@@ -206,6 +245,34 @@ describe("getMcpOverview", () => {
 				state: "enabled",
 				transport: "remote",
 				target: "https://fallback.example.com/mcp",
+			},
+		]);
+	});
+
+	it("falls back to .amp/settings.json when .mcp.json is invalid", () => {
+		const cwd = createTempDirectory();
+		mkdirSync(join(cwd, ".amp"), { recursive: true });
+		writeFileSync(join(cwd, ".mcp.json"), "{ invalid", "utf-8");
+		writeFileSync(
+			join(cwd, ".amp", "settings.json"),
+			JSON.stringify({
+				"amp.mcpServers": {
+					ampFallback: {
+						url: "https://amp.example.com/mcp",
+					},
+				},
+			}),
+			"utf-8",
+		);
+
+		const result = getMcpOverview(cwd);
+		expect(result.sourcePath).toBe(join(cwd, ".amp", "settings.json"));
+		expect(result.servers).toEqual([
+			{
+				name: "ampFallback",
+				state: "enabled",
+				transport: "remote",
+				target: "https://amp.example.com/mcp",
 			},
 		]);
 	});

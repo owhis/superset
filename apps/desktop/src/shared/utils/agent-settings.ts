@@ -345,7 +345,12 @@ export function resolveAgentConfigs({
 	);
 
 	return getAgentDefinitions(customDefinitions).map((definition) =>
-		resolveAgentConfig(definition, overridesById.get(definition.id)),
+		resolveAgentConfig(
+			definition,
+			definition.source === "builtin"
+				? overridesById.get(definition.id)
+				: undefined,
+		),
 	);
 }
 

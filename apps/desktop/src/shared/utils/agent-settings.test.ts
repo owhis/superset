@@ -104,6 +104,42 @@ describe("resolveAgentConfigs", () => {
 			enabled: false,
 		});
 	});
+
+	test("ignores legacy overrides for custom terminal configs", () => {
+		const custom = resolveAgentConfigs({
+			customDefinitions: [
+				{
+					id: "custom:team-agent",
+					kind: "terminal",
+					label: "Team Agent",
+					command: "team-agent",
+					taskPromptTemplate: "Task {{slug}}",
+				},
+			],
+			overrideEnvelope: {
+				version: 1,
+				presets: [
+					{
+						id: "custom:team-agent",
+						label: "Stale Override",
+						command: "stale-command",
+						promptCommand: "stale-command --prompt",
+						enabled: false,
+					},
+				],
+			},
+		}).find((preset) => preset.id === "custom:team-agent");
+
+		expect(custom).toMatchObject({
+			id: "custom:team-agent",
+			source: "user",
+			label: "Team Agent",
+			command: "team-agent",
+			promptCommand: "team-agent",
+			enabled: true,
+			overriddenFields: [],
+		});
+	});
 });
 
 describe("createOverrideEnvelopeWithPatch", () => {

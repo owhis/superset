@@ -160,6 +160,15 @@ function saveAgentCustomDefinitions(definitions: AgentCustomDefinition[]) {
 		.run();
 }
 
+function clearCustomAgentPresetOverride(id: `custom:${string}`) {
+	saveAgentPresetOverrides(
+		resetAgentPresetOverride({
+			currentOverrides: readRawAgentPresetOverrides(),
+			id,
+		}),
+	);
+}
+
 function getResolvedAgentPresets() {
 	return resolveAgentConfigs({
 		customDefinitions: readRawAgentCustomDefinitions(),
@@ -231,6 +240,7 @@ export const createSettingsRouter = () => {
 				});
 
 				saveAgentCustomDefinitions(nextDefinitions);
+				clearCustomAgentPresetOverride(definition.id);
 
 				return getResolvedAgentPresets().find(
 					(preset) => preset.id === definition.id,
@@ -259,6 +269,7 @@ export const createSettingsRouter = () => {
 				});
 
 				saveAgentCustomDefinitions(nextDefinitions);
+				clearCustomAgentPresetOverride(input.id as `custom:${string}`);
 
 				return getResolvedAgentPresets().find(
 					(preset) => preset.id === input.id,

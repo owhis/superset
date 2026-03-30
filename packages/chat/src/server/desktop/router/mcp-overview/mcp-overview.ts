@@ -19,17 +19,17 @@ const MCP_SETTINGS_FILES = [
 		},
 	},
 	{
-		relativePath: ".amp/settings.json",
-		readServers: (parsed: unknown) => {
-			const result = ampMcpSettingsSchema.safeParse(parsed);
-			return result.success ? result.data["amp.mcpServers"] : null;
-		},
-	},
-	{
 		relativePath: ".mcp.json",
 		readServers: (parsed: unknown) => {
 			const result = mcpSettingsSchema.safeParse(parsed);
 			return result.success ? result.data.mcpServers : null;
+		},
+	},
+	{
+		relativePath: ".amp/settings.json",
+		readServers: (parsed: unknown) => {
+			const result = ampMcpSettingsSchema.safeParse(parsed);
+			return result.success ? result.data["amp.mcpServers"] : null;
 		},
 	},
 ] as const;
