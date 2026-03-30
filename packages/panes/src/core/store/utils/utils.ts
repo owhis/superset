@@ -1,9 +1,6 @@
 import type { LayoutNode, SplitDirection, SplitPosition } from "../../../types";
 
-export function findPaneInLayout(
-	node: LayoutNode,
-	paneId: string,
-): boolean {
+export function findPaneInLayout(node: LayoutNode, paneId: string): boolean {
 	if (node.type === "pane") {
 		return node.paneId === paneId;
 	}

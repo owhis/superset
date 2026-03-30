@@ -94,9 +94,7 @@ export interface WorkspaceStore<TData> extends WorkspaceState<TData> {
 	getActiveTab: () => Tab<TData> | null;
 
 	setActivePane: (args: { tabId: string; paneId: string }) => void;
-	getPane: (
-		paneId: string,
-	) => { tabId: string; pane: Pane<TData> } | null;
+	getPane: (paneId: string) => { tabId: string; pane: Pane<TData> } | null;
 	getActivePane: (
 		tabId?: string,
 	) => { tabId: string; pane: Pane<TData> } | null;
@@ -172,9 +170,7 @@ export function createWorkspaceStore<TData>(
 				return {
 					tabs: nextTabs,
 					activeTabId:
-						s.activeTabId === tabId
-							? (nextTabs[0]?.id ?? null)
-							: s.activeTabId,
+						s.activeTabId === tabId ? (nextTabs[0]?.id ?? null) : s.activeTabId,
 				};
 			});
 		},
@@ -189,9 +185,7 @@ export function createWorkspaceStore<TData>(
 		setTabTitleOverride: (args) => {
 			set((s) => ({
 				tabs: s.tabs.map((t) =>
-					t.id === args.tabId
-						? { ...t, titleOverride: args.titleOverride }
-						: t,
+					t.id === args.tabId ? { ...t, titleOverride: args.titleOverride } : t,
 				),
 			}));
 		},
@@ -211,9 +205,7 @@ export function createWorkspaceStore<TData>(
 				return {
 					activeTabId: args.tabId,
 					tabs: s.tabs.map((t) =>
-						t.id === args.tabId
-							? { ...t, activePaneId: args.paneId }
-							: t,
+						t.id === args.tabId ? { ...t, activePaneId: args.paneId } : t,
 					),
 				};
 			});
@@ -249,9 +241,7 @@ export function createWorkspaceStore<TData>(
 				const { [args.paneId]: _, ...nextPanes } = tab.panes;
 
 				if (!nextLayout) {
-					const nextTabs = s.tabs.filter(
-						(t) => t.id !== args.tabId,
-					);
+					const nextTabs = s.tabs.filter((t) => t.id !== args.tabId);
 					return {
 						tabs: nextTabs,
 						activeTabId:
@@ -360,6 +350,7 @@ export function createWorkspaceStore<TData>(
 				if (!tab || !pane || !tab.layout) return s;
 				if (pane.pinned) return s;
 
+				const { layout } = tab;
 				const newPane = buildPane(args.newPane);
 				const { [args.paneId]: _, ...restPanes } = tab.panes;
 
@@ -369,7 +360,7 @@ export function createWorkspaceStore<TData>(
 							? {
 									...tab,
 									layout: replacePaneIdInLayout(
-										tab.layout!,
+										layout,
 										args.paneId,
 										newPane.id,
 									),
@@ -395,6 +386,7 @@ export function createWorkspaceStore<TData>(
 				)
 					return s;
 
+				const { layout } = tab;
 				const newPane = buildPane(args.newPane);
 
 				return {
@@ -403,7 +395,7 @@ export function createWorkspaceStore<TData>(
 							? {
 									...tab,
 									layout: splitPaneInLayout(
-										tab.layout!,
+										layout,
 										args.paneId,
 										newPane.id,
 										args.position,
@@ -453,20 +445,18 @@ export function createWorkspaceStore<TData>(
 				}
 
 				const position = args.position ?? "right";
-				const targetPaneId =
-					args.relativeToPaneId ?? tab.activePaneId;
+				const targetPaneId = args.relativeToPaneId ?? tab.activePaneId;
 
-				if (
-					targetPaneId &&
-					findPaneInLayout(tab.layout, targetPaneId)
-				) {
+				const { layout } = tab;
+
+				if (targetPaneId && findPaneInLayout(layout, targetPaneId)) {
 					return {
 						tabs: s.tabs.map((t) =>
 							t.id === args.tabId
 								? {
 										...tab,
 										layout: splitPaneInLayout(
-											tab.layout!,
+											layout,
 											targetPaneId,
 											newPane.id,
 											position,
@@ -495,8 +485,8 @@ export function createWorkspaceStore<TData>(
 							: "vertical",
 					children:
 						position === "left" || position === "top"
-							? [newPaneLeaf, tab.layout!]
-							: [tab.layout!, newPaneLeaf],
+							? [newPaneLeaf, layout]
+							: [layout, newPaneLeaf],
 					weights: [1, 1],
 				};
 
@@ -523,13 +513,15 @@ export function createWorkspaceStore<TData>(
 				const tab = s.tabs.find((t) => t.id === args.tabId);
 				if (!tab || !tab.layout) return s;
 
+				const { layout } = tab;
+
 				return {
 					tabs: s.tabs.map((t) =>
 						t.id === args.tabId
 							? {
 									...t,
 									layout: updateSplitInLayout(
-										tab.layout!,
+										layout,
 										args.splitId,
 										(split) => ({
 											...split,
@@ -548,19 +540,19 @@ export function createWorkspaceStore<TData>(
 				const tab = s.tabs.find((t) => t.id === args.tabId);
 				if (!tab || !tab.layout) return s;
 
+				const { layout } = tab;
+
 				return {
 					tabs: s.tabs.map((t) =>
 						t.id === args.tabId
 							? {
 									...t,
 									layout: updateSplitInLayout(
-										tab.layout!,
+										layout,
 										args.splitId,
 										(split) => ({
 											...split,
-											weights: split.children.map(
-												() => 1,
-											),
+											weights: split.children.map(() => 1),
 										}),
 									),
 								}
@@ -574,7 +566,11 @@ export function createWorkspaceStore<TData>(
 			set((s) => {
 				const resolved =
 					typeof next === "function"
-						? next({ version: s.version, tabs: s.tabs, activeTabId: s.activeTabId })
+						? next({
+								version: s.version,
+								tabs: s.tabs,
+								activeTabId: s.activeTabId,
+							})
 						: next;
 				return {
 					version: resolved.version,

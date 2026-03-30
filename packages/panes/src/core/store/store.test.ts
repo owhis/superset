@@ -130,9 +130,7 @@ describe("pane operations", () => {
 			titleOverride: "Custom",
 		});
 
-		expect(store.getState().getPane("p1")?.pane.titleOverride).toBe(
-			"Custom",
-		);
+		expect(store.getState().getPane("p1")?.pane.titleOverride).toBe("Custom");
 	});
 
 	it("pins a pane", () => {
@@ -162,13 +160,12 @@ describe("pane operations", () => {
 			newPane: tp("p2", "new"),
 		});
 
-		const tab = store.getState().tabs[0]!;
-		expect(tab.panes["p1"]).toBeUndefined();
-		expect(tab.panes["p2"]?.data.label).toBe("new");
-		expect(tab.activePaneId).toBe("p2");
-		expect(
-			tab.layout?.type === "pane" ? tab.layout.paneId : null,
-		).toBe("p2");
+		const tab = store.getState().tabs[0];
+		expect(tab).toBeDefined();
+		expect(tab?.panes.p1).toBeUndefined();
+		expect(tab?.panes.p2?.data.label).toBe("new");
+		expect(tab?.activePaneId).toBe("p2");
+		expect(tab?.layout?.type === "pane" ? tab.layout.paneId : null).toBe("p2");
 	});
 
 	it("replacePane is no-op if target pane is pinned", () => {
@@ -446,10 +443,11 @@ describe("collapsing", () => {
 
 		store.getState().closePane({ tabId: "t1", paneId: "p1" });
 
-		const tab = store.getState().tabs[0]!;
-		expect(tab.layout).toEqual({ type: "pane", paneId: "p2" });
-		expect(tab.activePaneId).toBe("p2");
-		expect(tab.panes["p1"]).toBeUndefined();
+		const tab = store.getState().tabs[0];
+		expect(tab).toBeDefined();
+		expect(tab?.layout).toEqual({ type: "pane", paneId: "p2" });
+		expect(tab?.activePaneId).toBe("p2");
+		expect(tab?.panes.p1).toBeUndefined();
 	});
 
 	it("close pane in 3-pane split removes child + weight", () => {
@@ -562,12 +560,10 @@ describe("edge cases", () => {
 	it("replaces state wholesale", () => {
 		const store = makeStore();
 
-		store
-			.getState()
-			.replaceState((prev: WorkspaceState<TestData>) => ({
-				...prev,
-				activeTabId: "injected",
-			}));
+		store.getState().replaceState((prev: WorkspaceState<TestData>) => ({
+			...prev,
+			activeTabId: "injected",
+		}));
 
 		expect(store.getState().activeTabId).toBe("injected");
 	});
