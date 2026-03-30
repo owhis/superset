@@ -15,6 +15,11 @@ import {
 } from "@superset/shared/agent-catalog";
 import type { TaskInput } from "@superset/shared/agent-command";
 import {
+	buildPromptCommandString,
+	buildPromptFileCommandString,
+	type PromptTransport,
+} from "@superset/shared/agent-prompt-launch";
+import {
 	DEFAULT_CHAT_TASK_PROMPT_TEMPLATE,
 	DEFAULT_TERMINAL_TASK_PROMPT_TEMPLATE,
 	getSupportedTaskPromptVariables,
@@ -55,6 +60,7 @@ export type TerminalResolvedAgentConfig = {
 	command: string;
 	promptCommand: string;
 	promptCommandSuffix?: string;
+	promptTransport: PromptTransport;
 	taskPromptTemplate: string;
 	overriddenFields: AgentPresetField[];
 };
@@ -108,6 +114,9 @@ function toCustomAgentDefinition(
 		defaultCommand: customDefinition.command,
 		defaultPromptCommand: customDefinition.promptCommand,
 		defaultPromptCommandSuffix: customDefinition.promptCommandSuffix,
+		// Custom agents stay on the default argv transport until we intentionally
+		// expose prompt transport as part of user-configurable CRUD.
+		defaultPromptTransport: "argv",
 		defaultTaskPromptTemplate: customDefinition.taskPromptTemplate,
 		defaultEnabled: customDefinition.enabled ?? true,
 	};
@@ -294,6 +303,7 @@ function resolveAgentConfig(
 				definition.defaultPromptCommandSuffix,
 				override,
 			),
+			promptTransport: definition.defaultPromptTransport,
 			taskPromptTemplate:
 				override?.taskPromptTemplate ?? definition.defaultTaskPromptTemplate,
 			overriddenFields: getOverriddenFields(override, definition),
@@ -371,53 +381,6 @@ export function getFallbackAgentId(
 	return preferredClaude?.id ?? enabledConfigs[0]?.id ?? null;
 }
 
-function buildHeredoc(
-	prompt: string,
-	delimiter: string,
-	command: string,
-	suffix?: string,
-): string {
-	const closing = suffix ? `)" ${suffix}` : ')"';
-	return [
-		`${command} "$(cat <<'${delimiter}'`,
-		prompt,
-		delimiter,
-		closing,
-	].join("\n");
-}
-
-function buildStdinHeredoc(
-	prompt: string,
-	delimiter: string,
-	command: string,
-	suffix?: string,
-): string {
-	const fullCommand = suffix ? `${command} ${suffix}` : command;
-	return [`${fullCommand} <<'${delimiter}'`, prompt, delimiter].join("\n");
-}
-
-function buildFileCommand(
-	filePath: string,
-	command: string,
-	suffix?: string,
-): string {
-	const escapedPath = filePath.replaceAll("'", "'\\''");
-	return `${command} "$(cat '${escapedPath}')"${suffix ? ` ${suffix}` : ""}`;
-}
-
-function buildStdinFileCommand(
-	filePath: string,
-	command: string,
-	suffix?: string,
-): string {
-	const escapedPath = filePath.replaceAll("'", "'\\''");
-	return `${command}${suffix ? ` ${suffix}` : ""} < '${escapedPath}'`;
-}
-
-function shouldUseStdinPrompt(config: TerminalResolvedAgentConfig): boolean {
-	return config.id === "amp";
-}
-
 export function getCommandFromAgentConfig(
 	config: TerminalResolvedAgentConfig,
 ): string | null {
@@ -437,15 +400,13 @@ export function buildPromptCommandFromAgentConfig({
 	const promptCommand = config.promptCommand.trim() || config.command.trim();
 	if (!promptCommand) return null;
 
-	let delimiter = `SUPERSET_PROMPT_${randomId.replaceAll("-", "")}`;
-	while (prompt.includes(delimiter)) {
-		delimiter = `${delimiter}_X`;
-	}
-
-	const suffix = config.promptCommandSuffix?.trim() || undefined;
-	return shouldUseStdinPrompt(config)
-		? buildStdinHeredoc(prompt, delimiter, promptCommand, suffix)
-		: buildHeredoc(prompt, delimiter, promptCommand, suffix);
+	return buildPromptCommandString({
+		prompt,
+		randomId,
+		command: promptCommand,
+		suffix: config.promptCommandSuffix?.trim() || undefined,
+		transport: config.promptTransport,
+	});
 }
 
 export function buildFileCommandFromAgentConfig({
@@ -458,10 +419,12 @@ export function buildFileCommandFromAgentConfig({
 	const promptCommand = config.promptCommand.trim() || config.command.trim();
 	if (!promptCommand) return null;
 
-	const suffix = config.promptCommandSuffix?.trim() || undefined;
-	return shouldUseStdinPrompt(config)
-		? buildStdinFileCommand(filePath, promptCommand, suffix)
-		: buildFileCommand(filePath, promptCommand, suffix);
+	return buildPromptFileCommandString({
+		filePath,
+		command: promptCommand,
+		suffix: config.promptCommandSuffix?.trim() || undefined,
+		transport: config.promptTransport,
+	});
 }
 
 export function buildDefaultTerminalTaskPrompt(task: TaskInput): string {

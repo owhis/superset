@@ -3,6 +3,7 @@ import {
 	AGENT_PROMPT_COMMANDS,
 	AGENT_TYPES,
 } from "./agent-command";
+import type { PromptTransport } from "./agent-prompt-launch";
 import {
 	DEFAULT_CHAT_TASK_PROMPT_TEMPLATE,
 	DEFAULT_TERMINAL_TASK_PROMPT_TEMPLATE,
@@ -30,6 +31,7 @@ export interface TerminalAgentDefinition extends BaseAgentDefinition {
 	defaultCommand: string;
 	defaultPromptCommand: string;
 	defaultPromptCommandSuffix?: string;
+	defaultPromptTransport: PromptTransport;
 	defaultTaskPromptTemplate: string;
 }
 
@@ -60,6 +62,7 @@ function createBuiltinTerminalAgentDefinition(
 		defaultCommand: agent.command,
 		defaultPromptCommand: promptCommand.command,
 		defaultPromptCommandSuffix: promptCommand.suffix,
+		defaultPromptTransport: promptCommand.transport,
 		defaultTaskPromptTemplate: DEFAULT_TERMINAL_TASK_PROMPT_TEMPLATE,
 		defaultEnabled: true,
 	};

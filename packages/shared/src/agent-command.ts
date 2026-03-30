@@ -1,4 +1,9 @@
 import {
+	buildPromptCommandString,
+	buildPromptFileCommandString,
+	type PromptTransport,
+} from "./agent-prompt-launch";
+import {
 	DEFAULT_TERMINAL_TASK_PROMPT_TEMPLATE,
 	renderTaskPromptTemplate,
 } from "./agent-prompt-template";
@@ -32,6 +37,7 @@ export const AGENT_PRESET_DESCRIPTIONS: Record<AgentType, string> =
 export interface AgentPromptCommandDefaults {
 	command: string;
 	suffix?: string;
+	transport: PromptTransport;
 }
 
 export const AGENT_PROMPT_COMMANDS: Record<
@@ -53,53 +59,6 @@ export function buildAgentTaskPrompt(task: TaskInput): string {
 	return renderTaskPromptTemplate(DEFAULT_TERMINAL_TASK_PROMPT_TEMPLATE, task);
 }
 
-function buildHeredoc(
-	prompt: string,
-	delimiter: string,
-	command: string,
-	suffix?: string,
-): string {
-	const closing = suffix ? `)" ${suffix}` : ')"';
-	return [
-		`${command} "$(cat <<'${delimiter}'`,
-		prompt,
-		delimiter,
-		closing,
-	].join("\n");
-}
-
-function buildStdinHeredoc(
-	prompt: string,
-	delimiter: string,
-	command: string,
-	suffix?: string,
-): string {
-	const fullCommand = suffix ? `${command} ${suffix}` : command;
-	return [`${fullCommand} <<'${delimiter}'`, prompt, delimiter].join("\n");
-}
-
-function buildFileCommand(
-	filePath: string,
-	command: string,
-	suffix?: string,
-): string {
-	const escapedPath = filePath.replaceAll("'", "'\\''");
-	return `${command} "$(cat '${escapedPath}')"${suffix ? ` ${suffix}` : ""}`;
-}
-
-function buildStdinFileCommand(
-	filePath: string,
-	command: string,
-	suffix?: string,
-): string {
-	const escapedPath = filePath.replaceAll("'", "'\\''");
-	return `${command}${suffix ? ` ${suffix}` : ""} < '${escapedPath}'`;
-}
-
-function shouldUseStdinPrompt(agent: AgentType): boolean {
-	return agent === "amp";
-}
-
 export function buildAgentFileCommand({
 	filePath,
 	agent = "claude",
@@ -108,13 +67,12 @@ export function buildAgentFileCommand({
 	agent?: AgentType;
 }): string {
 	const promptCommand = AGENT_PROMPT_COMMANDS[agent];
-	return shouldUseStdinPrompt(agent)
-		? buildStdinFileCommand(
-				filePath,
-				promptCommand.command,
-				promptCommand.suffix,
-			)
-		: buildFileCommand(filePath, promptCommand.command, promptCommand.suffix);
+	return buildPromptFileCommandString({
+		filePath,
+		command: promptCommand.command,
+		suffix: promptCommand.suffix,
+		transport: promptCommand.transport,
+	});
 }
 
 export function buildAgentPromptCommand({
@@ -126,24 +84,14 @@ export function buildAgentPromptCommand({
 	randomId: string;
 	agent?: AgentType;
 }): string {
-	let delimiter = `SUPERSET_PROMPT_${randomId.replaceAll("-", "")}`;
-	while (prompt.includes(delimiter)) {
-		delimiter = `${delimiter}_X`;
-	}
 	const promptCommand = AGENT_PROMPT_COMMANDS[agent];
-	return shouldUseStdinPrompt(agent)
-		? buildStdinHeredoc(
-				prompt,
-				delimiter,
-				promptCommand.command,
-				promptCommand.suffix,
-			)
-		: buildHeredoc(
-				prompt,
-				delimiter,
-				promptCommand.command,
-				promptCommand.suffix,
-			);
+	return buildPromptCommandString({
+		prompt,
+		randomId,
+		command: promptCommand.command,
+		suffix: promptCommand.suffix,
+		transport: promptCommand.transport,
+	});
 }
 
 export function buildAgentCommand({

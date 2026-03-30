@@ -1,3 +1,5 @@
+import type { PromptTransport } from "./agent-prompt-launch";
+
 export interface BuiltinTerminalAgentManifest {
 	id: string;
 	label: string;
@@ -5,6 +7,12 @@ export interface BuiltinTerminalAgentManifest {
 	command: string;
 	promptCommand?: string;
 	promptCommandSuffix?: string;
+	/**
+	 * Built-ins can opt into a non-default prompt transport when the CLI only
+	 * supports interactive stdin flows. Keep this declarative; shell rendering
+	 * lives in the shared prompt-launch helper.
+	 */
+	promptTransport?: PromptTransport;
 	includeInDefaultTerminalPresets?: boolean;
 }
 
@@ -46,6 +54,7 @@ export const BUILTIN_TERMINAL_AGENTS = [
 			"Amp's coding agent for terminal-first coding, subagents, and task work.",
 		command: "amp",
 		promptCommand: "amp",
+		promptTransport: "stdin",
 		includeInDefaultTerminalPresets: true,
 	},
 	{
@@ -137,10 +146,18 @@ export const BUILTIN_TERMINAL_AGENT_COMMANDS = createAgentRecord(
 
 export const BUILTIN_TERMINAL_AGENT_PROMPT_COMMANDS = createAgentRecord(
 	BUILTIN_TERMINAL_AGENTS,
-	(agent) => ({
+	(
+		agent,
+	): {
+		command: string;
+		suffix?: string;
+		transport: PromptTransport;
+	} => ({
 		command: "promptCommand" in agent ? agent.promptCommand : agent.command,
 		suffix:
 			"promptCommandSuffix" in agent ? agent.promptCommandSuffix : undefined,
+		transport:
+			"promptTransport" in agent ? (agent.promptTransport ?? "argv") : "argv",
 	}),
 );
 
