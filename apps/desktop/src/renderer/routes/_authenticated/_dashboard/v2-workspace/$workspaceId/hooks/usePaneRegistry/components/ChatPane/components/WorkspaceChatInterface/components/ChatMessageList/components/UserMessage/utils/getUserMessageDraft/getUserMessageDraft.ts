@@ -1,5 +1,5 @@
 import type { FileUIPart } from "ai";
-import type { UseChatDisplayReturn } from "renderer/routes/_authenticated/_dashboard/v2-workspace/$workspaceId/components/WorkspaceChat/hooks/useWorkspaceChatDisplay";
+import type { UseChatDisplayReturn } from "renderer/routes/_authenticated/_dashboard/v2-workspace/$workspaceId/hooks/usePaneRegistry/components/ChatPane/hooks/useWorkspaceChatDisplay";
 
 type ChatMessage = NonNullable<UseChatDisplayReturn["messages"]>[number];
 type ChatMessagePart = ChatMessage["content"][number];

@@ -1,7 +1,7 @@
 import { Message, MessageContent } from "@superset/ui/ai-elements/message";
 import { Button } from "@superset/ui/button";
 import { useEffect, useRef, useState } from "react";
-import type { UseChatDisplayReturn } from "renderer/routes/_authenticated/_dashboard/v2-workspace/$workspaceId/components/WorkspaceChat/hooks/useWorkspaceChatDisplay";
+import type { UseChatDisplayReturn } from "renderer/routes/_authenticated/_dashboard/v2-workspace/$workspaceId/hooks/usePaneRegistry/components/ChatPane/hooks/useWorkspaceChatDisplay";
 
 type ApprovalDecision = "approve" | "decline" | "always_allow_category";
 type PendingApproval = UseChatDisplayReturn["pendingApproval"];

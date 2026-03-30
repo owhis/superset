@@ -3,7 +3,7 @@ import { FitAddon } from "@xterm/addon-fit";
 import { Terminal as XTerm } from "@xterm/xterm";
 import "@xterm/xterm/css/xterm.css";
 import { useEffect, useRef, useState } from "react";
-import { useWorkspaceWsUrl } from "../../../providers/WorkspaceTrpcProvider/WorkspaceTrpcProvider";
+import { useWorkspaceWsUrl } from "../../../../../providers/WorkspaceTrpcProvider/WorkspaceTrpcProvider";
 
 interface WorkspaceTerminalProps {
 	workspaceId: string;

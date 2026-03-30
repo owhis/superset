@@ -6,7 +6,7 @@ import {
 import { Button } from "@superset/ui/button";
 import { Input } from "@superset/ui/input";
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { UseChatDisplayReturn } from "renderer/routes/_authenticated/_dashboard/v2-workspace/$workspaceId/components/WorkspaceChat/hooks/useWorkspaceChatDisplay";
+import type { UseChatDisplayReturn } from "renderer/routes/_authenticated/_dashboard/v2-workspace/$workspaceId/hooks/usePaneRegistry/components/ChatPane/hooks/useWorkspaceChatDisplay";
 
 type PendingQuestion = UseChatDisplayReturn["pendingQuestion"];
 

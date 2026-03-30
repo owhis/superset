@@ -7,7 +7,7 @@ import { Button } from "@superset/ui/button";
 import { Switch } from "@superset/ui/switch";
 import { Textarea } from "@superset/ui/textarea";
 import { useEffect, useId, useRef, useState } from "react";
-import type { UseChatDisplayReturn } from "renderer/routes/_authenticated/_dashboard/v2-workspace/$workspaceId/components/WorkspaceChat/hooks/useWorkspaceChatDisplay";
+import type { UseChatDisplayReturn } from "renderer/routes/_authenticated/_dashboard/v2-workspace/$workspaceId/hooks/usePaneRegistry/components/ChatPane/hooks/useWorkspaceChatDisplay";
 
 type PendingPlanApproval = UseChatDisplayReturn["pendingPlanApproval"];
 

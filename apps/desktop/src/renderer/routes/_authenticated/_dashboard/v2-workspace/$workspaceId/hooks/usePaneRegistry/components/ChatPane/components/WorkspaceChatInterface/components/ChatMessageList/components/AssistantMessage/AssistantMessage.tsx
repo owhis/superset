@@ -7,7 +7,7 @@ import { ReasoningBlock } from "renderer/components/Chat/ChatInterface/component
 import { ToolCallBlock } from "renderer/components/Chat/ChatInterface/components/ToolCallBlock";
 import type { ToolPart } from "renderer/components/Chat/ChatInterface/utils/tool-helpers";
 import { normalizeToolName } from "renderer/components/Chat/ChatInterface/utils/tool-helpers";
-import type { UseChatDisplayReturn } from "renderer/routes/_authenticated/_dashboard/v2-workspace/$workspaceId/components/WorkspaceChat/hooks/useWorkspaceChatDisplay";
+import type { UseChatDisplayReturn } from "renderer/routes/_authenticated/_dashboard/v2-workspace/$workspaceId/hooks/usePaneRegistry/components/ChatPane/hooks/useWorkspaceChatDisplay";
 import { useTabsStore } from "renderer/stores/tabs/store";
 import { AttachmentChip } from "../AttachmentChip";
 import { PendingPlanApprovalMessage } from "../PendingPlanApprovalMessage";
