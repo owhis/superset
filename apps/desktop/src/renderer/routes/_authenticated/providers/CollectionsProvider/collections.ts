@@ -573,4 +573,36 @@ export function getCollections(organizationId: string) {
 	};
 }
 
+/**
+ * Clean up cached collections to release Electric SQL sync connections and memory.
+ * If organizationId is provided, only that org's collections are cleaned up.
+ * If no organizationId is provided, ALL cached collections are cleaned up.
+ *
+ * This prevents the renderer process from accumulating unbounded Electric SQL
+ * shape subscriptions when switching organizations or during long-running sessions.
+ */
+export function cleanupCollections(organizationId?: string): void {
+	if (organizationId) {
+		const cacheKey = getCollectionsCacheKey(organizationId);
+		const orgCollections = collectionsCache.get(cacheKey);
+		if (orgCollections) {
+			for (const collection of Object.values(orgCollections)) {
+				if (collection && typeof collection.cleanup === "function") {
+					collection.cleanup();
+				}
+			}
+			collectionsCache.delete(cacheKey);
+		}
+	} else {
+		for (const [key, orgCollections] of collectionsCache) {
+			for (const collection of Object.values(orgCollections)) {
+				if (collection && typeof collection.cleanup === "function") {
+					collection.cleanup();
+				}
+			}
+			collectionsCache.delete(key);
+		}
+	}
+}
+
 export type AppCollections = ReturnType<typeof getCollections>;

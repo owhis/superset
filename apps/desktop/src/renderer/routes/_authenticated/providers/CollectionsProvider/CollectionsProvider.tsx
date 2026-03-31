@@ -9,7 +9,11 @@ import {
 import { env } from "renderer/env.renderer";
 import { authClient } from "renderer/lib/auth-client";
 import { MOCK_ORG_ID } from "shared/constants";
-import { getCollections, preloadCollections } from "./collections";
+import {
+	cleanupCollections,
+	getCollections,
+	preloadCollections,
+} from "./collections";
 
 type CollectionsContextType = ReturnType<typeof getCollections> & {
 	switchOrganization: (organizationId: string) => Promise<void>;
@@ -41,6 +45,11 @@ export function CollectionsProvider({ children }: { children: ReactNode }) {
 			if (organizationId === activeOrganizationId) return;
 			setIsSwitching(true);
 			try {
+				// Clean up the previous org's collections to release Electric SQL
+				// sync connections and prevent unbounded memory growth (#3049)
+				if (activeOrganizationId) {
+					cleanupCollections(activeOrganizationId);
+				}
 				await authClient.organization.setActive({ organizationId });
 				await preloadCollections(organizationId);
 				await refetchSession();
