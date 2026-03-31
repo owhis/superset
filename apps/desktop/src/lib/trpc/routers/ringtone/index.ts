@@ -1,6 +1,7 @@
 import type { ChildProcess } from "node:child_process";
 import { execFile } from "node:child_process";
 import { existsSync } from "node:fs";
+import { settings } from "@superset/local-db";
 import { TRPCError } from "@trpc/server";
 import type { BrowserWindow, OpenDialogOptions } from "electron";
 import { dialog } from "electron";
@@ -9,6 +10,7 @@ import {
 	getCustomRingtonePath,
 	importCustomRingtoneFromPath,
 } from "main/lib/custom-ringtones";
+import { localDb } from "main/lib/local-db";
 import { getSoundPath } from "main/lib/sound-paths";
 import {
 	CUSTOM_RINGTONE_ID,
@@ -45,8 +47,10 @@ function stopCurrentSound(): void {
 /**
  * Plays a sound file using platform-specific commands.
  * Uses session tracking to prevent race conditions with fallback audio players.
+ * @param soundPath Path to the sound file
+ * @param volume Volume level from 0-100
  */
-function playSoundFile(soundPath: string): void {
+function playSoundFile(soundPath: string, volume: number = 100): void {
 	if (!existsSync(soundPath)) {
 		console.warn(`[ringtone] Sound file not found: ${soundPath}`);
 		return;
@@ -59,42 +63,62 @@ function playSoundFile(soundPath: string): void {
 	const sessionId = nextSessionId++;
 	currentSession = { id: sessionId, process: null };
 
+	// Convert volume from 0-100 to platform-specific values
+	const volumeDecimal = volume / 100; // 0.0 to 1.0
+
 	if (process.platform === "darwin") {
-		currentSession.process = execFile("afplay", [soundPath], () => {
-			// Only clear if this session is still active
-			if (currentSession?.id === sessionId) {
-				currentSession = null;
-			}
-		});
+		// macOS: afplay -v accepts volume from 0.0 to higher (1.0 is normal)
+		currentSession.process = execFile(
+			"afplay",
+			["-v", volumeDecimal.toString(), soundPath],
+			() => {
+				// Only clear if this session is still active
+				if (currentSession?.id === sessionId) {
+					currentSession = null;
+				}
+			},
+		);
 	} else if (process.platform === "win32") {
+		// Windows: Use powershell with WindowsMediaPlayer for volume control
+		const volumePercent = Math.round(volume);
 		currentSession.process = execFile(
 			"powershell",
-			["-c", `(New-Object Media.SoundPlayer '${soundPath}').PlaySync()`],
+			[
+				"-c",
+				`$player = New-Object System.Media.SoundPlayer '${soundPath}'; $player.PlaySync()`,
+			],
 			() => {
 				if (currentSession?.id === sessionId) {
 					currentSession = null;
 				}
 			},
 		);
+		// Note: Media.SoundPlayer doesn't support volume control
+		// For full volume control on Windows, we'd need Windows Media Player or similar
 	} else {
-		// Linux - try common audio players with race-safe fallback
-		currentSession.process = execFile("paplay", [soundPath], (error) => {
-			// Check if this session is still active before proceeding
-			if (currentSession?.id !== sessionId) {
-				return; // Session was stopped, don't start fallback
-			}
+		// Linux: paplay --volume accepts 0-65536 (65536 = 100%)
+		const paVolume = Math.round(volumeDecimal * 65536);
+		currentSession.process = execFile(
+			"paplay",
+			["--volume", paVolume.toString(), soundPath],
+			(error) => {
+				// Check if this session is still active before proceeding
+				if (currentSession?.id !== sessionId) {
+					return; // Session was stopped, don't start fallback
+				}
 
-			if (error) {
-				// paplay failed, try aplay as fallback
-				currentSession.process = execFile("aplay", [soundPath], () => {
-					if (currentSession?.id === sessionId) {
-						currentSession = null;
-					}
-				});
-			} else {
-				currentSession = null;
-			}
-		});
+				if (error) {
+					// paplay failed, try aplay as fallback (aplay doesn't have volume control)
+					currentSession.process = execFile("aplay", [soundPath], () => {
+						if (currentSession?.id === sessionId) {
+							currentSession = null;
+						}
+					});
+				} else {
+					currentSession = null;
+				}
+			},
+		);
 	}
 }
 
@@ -135,7 +159,16 @@ export const createRingtoneRouter = (getWindow: () => BrowserWindow | null) => {
 					return { success: true as const };
 				}
 
-				playSoundFile(soundPath);
+				// Get volume from settings
+				let volume = 100;
+				try {
+					const settingsRow = localDb.select().from(settings).get();
+					volume = settingsRow?.notificationVolume ?? 100;
+				} catch (error) {
+					console.warn("[ringtone] Failed to get volume setting:", error);
+				}
+
+				playSoundFile(soundPath, volume);
 				return { success: true as const };
 			}),
 
@@ -205,5 +238,14 @@ export function playNotificationRingtone(ringtoneId: string): void {
 		return;
 	}
 
-	playSoundFile(soundPath);
+	// Get volume from settings
+	let volume = 100;
+	try {
+		const settingsRow = localDb.select().from(settings).get();
+		volume = settingsRow?.notificationVolume ?? 100;
+	} catch (error) {
+		console.warn("[ringtone] Failed to get volume setting:", error);
+	}
+
+	playSoundFile(soundPath, volume);
 }

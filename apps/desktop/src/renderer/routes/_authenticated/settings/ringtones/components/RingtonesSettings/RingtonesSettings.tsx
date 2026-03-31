@@ -18,6 +18,7 @@ import {
 	SETTING_ITEM_ID,
 	type SettingItemId,
 } from "../../../utils/settings-search";
+import { VolumeSlider } from "./components/VolumeSlider";
 
 function formatDuration(seconds: number): string {
 	return `${seconds}s`;
@@ -317,6 +318,9 @@ export function RingtonesSettings({ visibleItems }: RingtonesSettingsProps) {
 						</div>
 					</div>
 				)}
+
+				{/* Volume Slider */}
+				{showNotification && !isMuted && <VolumeSlider />}
 
 				{/* Tip */}
 				{showNotification && !isMuted && (
