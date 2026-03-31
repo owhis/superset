@@ -1,3 +1,4 @@
+import { auth } from "@superset/auth/server";
 import { db } from "@superset/db/client";
 import { githubInstallations, members } from "@superset/db/schema";
 import { Client } from "@upstash/qstash";
@@ -8,6 +9,51 @@ import { verifySignedState } from "@/lib/oauth-state";
 import { githubApp } from "../octokit";
 
 const qstash = new Client({ token: env.QSTASH_TOKEN });
+
+async function resolveCallbackContext({
+	request,
+	installationId,
+	state,
+}: {
+	request: Request;
+	installationId: string;
+	state: string | null;
+}) {
+	if (state) {
+		const stateData = verifySignedState(state);
+		if (!stateData) {
+			return { error: "invalid_state" as const };
+		}
+
+		return {
+			organizationId: stateData.organizationId,
+			userId: stateData.userId,
+			resolution: "state" as const,
+		};
+	}
+
+	const session = await auth.api.getSession({ headers: request.headers });
+	if (!session?.user) {
+		return { error: "unauthorized" as const };
+	}
+
+	const existingInstallation = await db.query.githubInstallations.findFirst({
+		where: eq(githubInstallations.installationId, installationId),
+		columns: {
+			organizationId: true,
+		},
+	});
+
+	if (!existingInstallation) {
+		return { error: "missing_params" as const };
+	}
+
+	return {
+		organizationId: existingInstallation.organizationId,
+		userId: session.user.id,
+		resolution: "existing_installation" as const,
+	};
+}
 
 /**
  * Callback handler for GitHub App installation.
@@ -25,21 +71,24 @@ export async function GET(request: Request) {
 		);
 	}
 
-	if (!installationId || !state) {
+	if (!installationId) {
 		return Response.redirect(
 			`${env.NEXT_PUBLIC_WEB_URL}/integrations/github?error=missing_params`,
 		);
 	}
 
-	// Verify signed state (prevents forgery)
-	const stateData = verifySignedState(state);
-	if (!stateData) {
+	const callbackContext = await resolveCallbackContext({
+		request,
+		installationId,
+		state,
+	});
+	if ("error" in callbackContext) {
 		return Response.redirect(
-			`${env.NEXT_PUBLIC_WEB_URL}/integrations/github?error=invalid_state`,
+			`${env.NEXT_PUBLIC_WEB_URL}/integrations/github?error=${callbackContext.error}`,
 		);
 	}
 
-	const { organizationId, userId } = stateData;
+	const { organizationId, userId, resolution } = callbackContext;
 
 	// Re-verify membership at callback time (defense-in-depth)
 	const membership = await db.query.members.findFirst({
@@ -122,14 +171,27 @@ export async function GET(request: Request) {
 
 		// Queue initial sync job
 		try {
-			await qstash.publishJSON({
-				url: `${env.NEXT_PUBLIC_API_URL}/api/github/jobs/initial-sync`,
-				body: {
-					installationDbId: savedInstallation.id,
-					organizationId,
-				},
-				retries: 3,
-			});
+			const syncUrl = `${env.NEXT_PUBLIC_API_URL}/api/github/jobs/initial-sync`;
+			const syncBody = {
+				installationDbId: savedInstallation.id,
+				organizationId,
+			};
+
+			if (env.NODE_ENV === "development") {
+				fetch(syncUrl, {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify(syncBody),
+				}).catch((error) => {
+					console.error("[github/callback] Dev sync failed:", error);
+				});
+			} else {
+				await qstash.publishJSON({
+					url: syncUrl,
+					body: syncBody,
+					retries: 3,
+				});
+			}
 		} catch (error) {
 			console.error(
 				"[github/callback] Failed to queue initial sync job:",
@@ -141,7 +203,11 @@ export async function GET(request: Request) {
 		}
 
 		return Response.redirect(
-			`${env.NEXT_PUBLIC_WEB_URL}/integrations/github?success=github_installed`,
+			`${env.NEXT_PUBLIC_WEB_URL}/integrations/github?success=${
+				setupAction === "update" || resolution === "existing_installation"
+					? "github_updated"
+					: "github_installed"
+			}`,
 		);
 	} catch (error) {
 		console.error("[github/callback] Unexpected error:", error);

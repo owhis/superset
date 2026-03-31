@@ -21,6 +21,7 @@ const WARNING_MESSAGES: Record<string, string> = {
 
 const SUCCESS_MESSAGES: Record<string, string> = {
 	github_installed: "GitHub App installed successfully!",
+	github_updated: "GitHub App updated successfully!",
 };
 
 export function ErrorHandler() {

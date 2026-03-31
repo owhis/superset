@@ -54,30 +54,33 @@ export function ConnectionControls({
 
 	if (isConnected) {
 		return (
-			<AlertDialog>
-				<AlertDialogTrigger asChild>
-					<Button variant="outline" disabled={disconnectMutation.isPending}>
-						<Unplug className="mr-2 size-4" />
-						{disconnectMutation.isPending ? "Disconnecting..." : "Disconnect"}
-					</Button>
-				</AlertDialogTrigger>
-				<AlertDialogContent>
-					<AlertDialogHeader>
-						<AlertDialogTitle>Disconnect GitHub?</AlertDialogTitle>
-						<AlertDialogDescription>
-							This will disconnect GitHub from your organization. The GitHub App
-							will remain installed but will no longer sync data. You can
-							reconnect at any time.
-						</AlertDialogDescription>
-					</AlertDialogHeader>
-					<AlertDialogFooter>
-						<AlertDialogCancel>Cancel</AlertDialogCancel>
-						<AlertDialogAction onClick={handleDisconnect}>
-							Disconnect
-						</AlertDialogAction>
-					</AlertDialogFooter>
-				</AlertDialogContent>
-			</AlertDialog>
+			<div className="flex flex-wrap gap-3">
+				<Button onClick={handleConnect}>Manage Installation</Button>
+				<AlertDialog>
+					<AlertDialogTrigger asChild>
+						<Button variant="outline" disabled={disconnectMutation.isPending}>
+							<Unplug className="mr-2 size-4" />
+							{disconnectMutation.isPending ? "Disconnecting..." : "Disconnect"}
+						</Button>
+					</AlertDialogTrigger>
+					<AlertDialogContent>
+						<AlertDialogHeader>
+							<AlertDialogTitle>Disconnect GitHub?</AlertDialogTitle>
+							<AlertDialogDescription>
+								This will disconnect GitHub from your organization. The GitHub
+								App will remain installed but will no longer sync data. You can
+								reconnect at any time.
+							</AlertDialogDescription>
+						</AlertDialogHeader>
+						<AlertDialogFooter>
+							<AlertDialogCancel>Cancel</AlertDialogCancel>
+							<AlertDialogAction onClick={handleDisconnect}>
+								Disconnect
+							</AlertDialogAction>
+						</AlertDialogFooter>
+					</AlertDialogContent>
+				</AlertDialog>
+			</div>
 		);
 	}
 
