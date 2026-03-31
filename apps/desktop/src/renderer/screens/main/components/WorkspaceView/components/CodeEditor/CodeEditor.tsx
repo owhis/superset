@@ -149,9 +149,6 @@ function createCodeMirrorAdapter(view: EditorView): CodeEditorAdapter {
 		openFind() {
 			openSearchPanel(view);
 		},
-		getScrollTop() {
-			return view.scrollDOM.scrollTop;
-		},
 		setScrollTop(top: number) {
 			view.scrollDOM.scrollTop = top;
 		},

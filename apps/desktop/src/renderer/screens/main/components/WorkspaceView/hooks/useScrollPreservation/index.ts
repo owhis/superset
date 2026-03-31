@@ -1,4 +1,1 @@
-export {
-	clearScrollCache,
-	useScrollPreservation,
-} from "./useScrollPreservation";
+export { useScrollPreservation } from "./useScrollPreservation";

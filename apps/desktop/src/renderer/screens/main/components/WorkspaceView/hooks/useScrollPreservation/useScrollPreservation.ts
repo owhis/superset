@@ -60,8 +60,3 @@ export function useScrollPreservation(
 		};
 	}, [cacheKey, ...deps]);
 }
-
-/** Clear a single cached entry (e.g. when a pane is permanently closed). */
-export function clearScrollCache(cacheKey: string) {
-	scrollCache.delete(cacheKey);
-}

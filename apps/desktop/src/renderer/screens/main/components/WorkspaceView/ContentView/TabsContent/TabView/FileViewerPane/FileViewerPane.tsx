@@ -412,11 +412,10 @@ export function FileViewerPane({
 
 	// Save raw mode scroll position when the current document changes or unmounts.
 	useEffect(() => {
-		lastScrollTopRef.current = editorRef.current?.getScrollTop() ?? 0;
+		lastScrollTopRef.current = 0;
 
 		return () => {
-			const scrollTop =
-				editorRef.current?.getScrollTop() ?? lastScrollTopRef.current ?? 0;
+			const scrollTop = lastScrollTopRef.current ?? 0;
 			if (scrollTop > 0) {
 				rawScrollCache.set(rawScrollCacheKey, scrollTop);
 			} else {
