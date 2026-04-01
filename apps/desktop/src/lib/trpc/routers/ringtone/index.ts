@@ -57,6 +57,11 @@ function playWithTracking(soundPath: string, volume: number = 100): void {
 			}
 		},
 		isCanceled: () => currentSession?.id !== sessionId,
+		onProcessChange: (newProc) => {
+			if (currentSession?.id === sessionId) {
+				currentSession.process = newProc;
+			}
+		},
 	});
 
 	if (proc) {

@@ -5,6 +5,7 @@ import { existsSync } from "node:fs";
 interface PlaySoundCallbacks {
 	onComplete?: () => void;
 	isCanceled?: () => boolean;
+	onProcessChange?: (process: ChildProcess) => void;
 }
 
 /**
@@ -57,7 +58,10 @@ export function playSoundFile(
 					callbacks?.onComplete?.();
 					return;
 				}
-				execFile("aplay", [soundPath], () => callbacks?.onComplete?.());
+				const fallback = execFile("aplay", [soundPath], () =>
+					callbacks?.onComplete?.(),
+				);
+				callbacks?.onProcessChange?.(fallback);
 				return;
 			}
 			callbacks?.onComplete?.();
