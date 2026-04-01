@@ -17,7 +17,7 @@ let fetchedDevices = [
 		deviceId: "device-offline",
 		deviceName: "Grace's iPhone",
 		deviceType: "mobile",
-		lastSeenAt: new Date(Date.now() - 120_000),
+		lastSeenAt: new Date(Date.now() - 600_000),
 		ownerId: "user-2",
 		ownerName: "Grace",
 		ownerEmail: "grace@example.com",
@@ -114,7 +114,7 @@ describe("list_devices MCP tool", () => {
 				deviceId: "device-offline",
 				deviceName: "Grace's iPhone",
 				deviceType: "mobile",
-				lastSeenAt: new Date(Date.now() - 120_000),
+				lastSeenAt: new Date(Date.now() - 600_000),
 				ownerId: "user-2",
 				ownerName: "Grace",
 				ownerEmail: "grace@example.com",
@@ -158,6 +158,27 @@ describe("list_devices MCP tool", () => {
 				isOnline: true,
 			},
 		]);
+	});
+
+	it("treats a device seen 90 seconds ago as online (regression #3091)", async () => {
+		fetchedDevices = [
+			{
+				deviceId: "device-recent",
+				deviceName: "Recently seen laptop",
+				deviceType: "desktop",
+				lastSeenAt: new Date(Date.now() - 90_000),
+				ownerId: "user-1",
+				ownerName: "Ada",
+				ownerEmail: "ada@example.com",
+			},
+		];
+		const { handler } = createTool();
+
+		const result = await handler({}, {});
+
+		// A device seen 90s ago should still be considered online
+		expect(result.structuredContent?.devices).toHaveLength(1);
+		expect(result.structuredContent?.devices[0]?.isOnline).toBe(true);
 	});
 
 	it("includes offline devices when requested and marks them offline", async () => {
