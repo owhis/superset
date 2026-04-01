@@ -50,6 +50,10 @@ export function VolumeDropdown() {
 			}
 			setLocalVolume(null);
 		},
+		onSettled: async () => {
+			await utils.settings.getNotificationVolume.invalidate();
+			setLocalVolume(null);
+		},
 	});
 
 	useEffect(() => {

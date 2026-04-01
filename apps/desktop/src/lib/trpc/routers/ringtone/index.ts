@@ -158,7 +158,10 @@ export const createRingtoneRouter = (getWindow: () => BrowserWindow | null) => {
 		 */
 		preview: publicProcedure
 			.input(
-				z.object({ ringtoneId: z.string(), volume: z.number().optional() }),
+				z.object({
+					ringtoneId: z.string(),
+					volume: z.number().min(0).max(100).optional(),
+				}),
 			)
 			.mutation(({ input }) => {
 				const soundPath = getRingtoneSoundPath(input.ringtoneId);
