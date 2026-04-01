@@ -922,9 +922,11 @@ export function useTerminalLifecycle({
 			// remains valid even if the terminal is resized between save and restore.
 			if (!paneDestroyed) {
 				const buf = xterm.buffer.active;
-				const isAtBottom = buf.viewportY >= buf.baseY;
-				if (!isAtBottom) {
-					savedViewportOffset.set(paneId, { viewportY: buf.viewportY });
+				const linesFromBottom = Math.max(0, buf.baseY - buf.viewportY);
+				if (linesFromBottom > 0) {
+					savedViewportOffset.set(paneId, { linesFromBottom });
+				} else {
+					savedViewportOffset.delete(paneId);
 				}
 			} else {
 				savedViewportOffset.delete(paneId);

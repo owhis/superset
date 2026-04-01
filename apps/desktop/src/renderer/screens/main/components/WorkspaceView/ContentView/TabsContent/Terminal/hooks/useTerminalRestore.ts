@@ -198,16 +198,43 @@ export function useTerminalRestore({
 			}
 
 			const rehydrateSequences = result.snapshot?.rehydrateSequences ?? "";
+			const saved = savedViewportOffset.get(paneId);
+			savedViewportOffset.delete(paneId);
+
+			const scheduleSavedScrollRestore = () => {
+				if (!saved) {
+					return;
+				}
+
+				const applyScroll = () => {
+					if (xtermRef.current !== xterm) return;
+					if (restoreSequenceRef.current !== restoreSequence) return;
+					const target = Math.max(
+						0,
+						xterm.buffer.active.baseY - saved.linesFromBottom,
+					);
+					xterm.scrollToLine(target);
+				};
+
+				// Wait for the initial snapshot, flushed pending events, and any
+				// follow-up terminal redraws to settle before restoring viewport.
+				xterm.write("", () => {
+					requestAnimationFrame(() => {
+						requestAnimationFrame(applyScroll);
+					});
+				});
+			};
 
 			const finalizeRestore = () => {
 				isStreamReadyRef.current = true;
-				scheduleFitAndScroll();
 				if (DEBUG_TERMINAL) {
 					console.log(
 						`[Terminal] isStreamReady=true (finalizeRestore): ${paneId}, pendingEvents=${pendingEventsRef.current.length}`,
 					);
 				}
 				flushPendingEvents();
+				scheduleFitAndScroll();
+				scheduleSavedScrollRestore();
 			};
 
 			const writeSnapshot = () => {
@@ -228,27 +255,6 @@ export function useTerminalRestore({
 				updateCwdRef.current(result.snapshot.cwd);
 			} else {
 				updateCwdRef.current(initialAnsi);
-			}
-
-			// Restore saved viewport position. Deferred so it runs after
-			// all writes (initial content + flushed events + SIGWINCH prompt
-			// redraw) have been processed and rendered by xterm.
-			const saved = savedViewportOffset.get(paneId);
-			savedViewportOffset.delete(paneId);
-			if (saved) {
-				const applyScroll = () => {
-					if (xtermRef.current !== xterm) return;
-					if (restoreSequenceRef.current !== restoreSequence) return;
-					const target = Math.min(saved.viewportY, xterm.buffer.active.baseY);
-					xterm.scrollToLine(target);
-				};
-				// Wait for xterm write queue to drain, then one more frame
-				// for rendering + SIGWINCH response, then restore
-				xterm.write("", () => {
-					requestAnimationFrame(() => {
-						requestAnimationFrame(applyScroll);
-					});
-				});
 			}
 		} catch (error) {
 			console.error("[Terminal] Restoration failed:", error);

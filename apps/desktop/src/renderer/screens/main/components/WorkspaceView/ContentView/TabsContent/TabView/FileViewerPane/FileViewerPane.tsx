@@ -6,7 +6,11 @@ import type { MosaicBranch } from "react-mosaic-component";
 import type { MarkdownEditorAdapter } from "renderer/components/MarkdownRenderer";
 import { electronTrpc } from "renderer/lib/electron-trpc";
 import { FileSaveConflictDialog } from "renderer/screens/main/components/WorkspaceView/components/FileSaveConflictDialog";
-import { useScrollPreservation } from "renderer/screens/main/components/WorkspaceView/hooks/useScrollPreservation";
+import {
+	getCachedScrollTop,
+	setCachedScrollTop,
+	useScrollPreservation,
+} from "renderer/screens/main/components/WorkspaceView/hooks/useScrollPreservation";
 import { useWorkspaceFileEvents } from "renderer/screens/main/components/WorkspaceView/hooks/useWorkspaceFileEvents";
 import { useChangesStore } from "renderer/stores/changes";
 import {
@@ -50,9 +54,6 @@ import { useFileContent } from "./hooks/useFileContent";
 import { useFileSave } from "./hooks/useFileSave";
 import { useMarkdownSearch } from "./hooks/useMarkdownSearch";
 import { UnsavedChangesDialog } from "./UnsavedChangesDialog";
-
-/** Module-level cache for raw mode (CodeMirror) scroll positions keyed by document context. */
-const rawScrollCache = new Map<string, number>();
 
 interface FileViewerPaneProps {
 	paneId: string;
@@ -416,11 +417,7 @@ export function FileViewerPane({
 
 		return () => {
 			const scrollTop = lastScrollTopRef.current ?? 0;
-			if (scrollTop > 0) {
-				rawScrollCache.set(rawScrollCacheKey, scrollTop);
-			} else {
-				rawScrollCache.delete(rawScrollCacheKey);
-			}
+			setCachedScrollTop(rawScrollCacheKey, scrollTop);
 			lastScrollTopRef.current = 0;
 		};
 	}, [rawScrollCacheKey]);
@@ -429,12 +426,12 @@ export function FileViewerPane({
 	useEffect(() => {
 		if (viewMode !== "raw" || isLoadingRaw || !rawFileData?.ok) return;
 
-		const saved = rawScrollCache.get(rawScrollCacheKey);
+		const saved = getCachedScrollTop(rawScrollCacheKey);
 		if (saved == null) {
 			lastScrollTopRef.current = 0;
 			return;
 		}
-		rawScrollCache.delete(rawScrollCacheKey);
+		setCachedScrollTop(rawScrollCacheKey, 0);
 
 		// Wait for CodeMirror to render the content before restoring
 		requestAnimationFrame(() => {

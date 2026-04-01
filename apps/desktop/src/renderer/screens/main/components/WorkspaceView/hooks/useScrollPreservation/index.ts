@@ -1,1 +1,6 @@
-export { useScrollPreservation } from "./useScrollPreservation";
+export {
+	clearScrollCache,
+	getCachedScrollTop,
+	setCachedScrollTop,
+	useScrollPreservation,
+} from "./useScrollPreservation";

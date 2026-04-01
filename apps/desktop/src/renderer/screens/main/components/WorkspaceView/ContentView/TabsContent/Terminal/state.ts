@@ -18,7 +18,10 @@ export const coldRestoreState = new Map<string, ColdRestoreState>();
 
 /**
  * Saved viewport line so scroll position can be restored after workspace switch.
- * Stored as absolute viewportY so it points at the same content even when new
- * output is appended at the bottom while the user is on another workspace.
+ * Stored as lines-from-bottom so it remains valid if terminal dimensions or
+ * scrollback depth change between save and restore.
  */
-export const savedViewportOffset = new Map<string, { viewportY: number }>();
+export const savedViewportOffset = new Map<
+	string,
+	{ linesFromBottom: number }
+>();

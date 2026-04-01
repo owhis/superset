@@ -3,7 +3,9 @@ import { updateTree } from "react-mosaic-component";
 import { getFileOpenMode } from "renderer/hooks/useFileOpenMode";
 import { posthog } from "renderer/lib/posthog";
 import { trpcTabsStorage } from "renderer/lib/trpc-storage";
+import { clearScrollCache } from "renderer/screens/main/components/WorkspaceView/hooks/useScrollPreservation";
 import { deleteDocumentBuffer } from "renderer/stores/editor-state/editorBufferRegistry";
+import { buildEditorDocumentKey } from "renderer/stores/editor-state/types";
 import { useEditorDocumentsStore } from "renderer/stores/editor-state/useEditorDocumentsStore";
 import { useEditorSessionsStore } from "renderer/stores/editor-state/useEditorSessionsStore";
 import {
@@ -22,6 +24,7 @@ import {
 import type {
 	AddFileViewerPaneOptions,
 	AddTabWithMultiplePanesOptions,
+	Pane,
 	TabsState,
 	TabsStore,
 } from "./types";
@@ -185,6 +188,28 @@ const cleanupEditorPaneState = (paneId: string): void => {
 
 	useEditorDocumentsStore.getState().removeDocument(session.documentKey);
 	deleteDocumentBuffer(session.documentKey);
+};
+
+const cleanupFileViewerScrollState = (
+	workspaceId: string,
+	pane: Pane | undefined,
+): void => {
+	const fileViewer = pane?.fileViewer;
+	if (!fileViewer) {
+		return;
+	}
+
+	const documentKey = buildEditorDocumentKey({
+		workspaceId,
+		filePath: fileViewer.filePath,
+		diffCategory: fileViewer.diffCategory,
+		commitHash: fileViewer.commitHash,
+		oldPath: fileViewer.oldPath,
+	});
+
+	clearScrollCache(`file-viewer:raw:${documentKey}`);
+	clearScrollCache(`file-viewer:diff:${documentKey}`);
+	clearScrollCache(`file-viewer:rendered:${documentKey}`);
 };
 
 export const useTabsStore = create<TabsStore>()(
@@ -380,6 +405,7 @@ export const useTabsStore = create<TabsStore>()(
 							killTerminalForPane(paneId);
 						}
 
+						cleanupFileViewerScrollState(tabToRemove.workspaceId, pane);
 						cleanupEditorPaneState(paneId);
 					}
 
@@ -1067,6 +1093,7 @@ export const useTabsStore = create<TabsStore>()(
 							killTerminalForPane(id);
 						}
 
+						cleanupFileViewerScrollState(tab.workspaceId, state.panes[id]);
 						cleanupEditorPaneState(id);
 					}
 
