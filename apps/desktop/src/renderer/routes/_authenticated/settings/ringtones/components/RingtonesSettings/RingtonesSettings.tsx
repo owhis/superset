@@ -136,7 +136,10 @@ export function RingtonesSettings({ visibleItems }: RingtonesSettingsProps) {
 		electronTrpc.ringtone.getCustom.useQuery();
 	const { data: isMutedData, isLoading: isMutedLoading } =
 		electronTrpc.settings.getNotificationSoundsMuted.useQuery();
+	const { data: volumeData } =
+		electronTrpc.settings.getNotificationVolume.useQuery();
 	const isMuted = isMutedData ?? false;
+	const volume = volumeData ?? 100;
 	const customRingtone: Ringtone | null = customRingtoneData
 		? {
 				...customRingtoneData,
@@ -232,6 +235,7 @@ export function RingtonesSettings({ visibleItems }: RingtonesSettingsProps) {
 			try {
 				await electronTrpcClient.ringtone.preview.mutate({
 					ringtoneId: ringtone.id,
+					volume,
 				});
 			} catch (error) {
 				console.error("Failed to play ringtone:", error);
@@ -245,7 +249,7 @@ export function RingtonesSettings({ visibleItems }: RingtonesSettingsProps) {
 				previewTimerRef.current = null;
 			}, durationMs);
 		},
-		[playingId],
+		[playingId, volume],
 	);
 
 	const handleSelect = useCallback(

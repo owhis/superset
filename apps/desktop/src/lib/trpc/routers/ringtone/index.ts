@@ -45,8 +45,10 @@ function stopCurrentSound(): void {
 /**
  * Plays a sound file using platform-specific commands.
  * Uses session tracking to prevent race conditions with fallback audio players.
+ * @param soundPath Path to the sound file
+ * @param volume Volume level from 0-100
  */
-function playSoundFile(soundPath: string): void {
+function playSoundFile(soundPath: string, volume: number = 100): void {
 	if (!existsSync(soundPath)) {
 		console.warn(`[ringtone] Sound file not found: ${soundPath}`);
 		return;
@@ -59,14 +61,29 @@ function playSoundFile(soundPath: string): void {
 	const sessionId = nextSessionId++;
 	currentSession = { id: sessionId, process: null };
 
+	// Convert volume from 0-100 to platform-specific values
+	const volumeDecimal = volume / 100; // 0.0 to 1.0
+
 	if (process.platform === "darwin") {
-		currentSession.process = execFile("afplay", [soundPath], () => {
-			// Only clear if this session is still active
-			if (currentSession?.id === sessionId) {
-				currentSession = null;
-			}
-		});
+		// macOS: afplay -v accepts volume from 0.0 to higher (1.0 is normal)
+		currentSession.process = execFile(
+			"afplay",
+			["-v", volumeDecimal.toString(), soundPath],
+			() => {
+				// Only clear if this session is still active
+				if (currentSession?.id === sessionId) {
+					currentSession = null;
+				}
+			},
+		);
 	} else if (process.platform === "win32") {
+		// Windows: Media.SoundPlayer doesn't support volume control
+		// Respect volume=0 by not playing at all
+		if (volume === 0) {
+			currentSession = null;
+			return;
+		}
+		// For other volumes, play at system volume (can't be controlled)
 		currentSession.process = execFile(
 			"powershell",
 			["-c", `(New-Object Media.SoundPlayer '${soundPath}').PlaySync()`],
@@ -77,24 +94,36 @@ function playSoundFile(soundPath: string): void {
 			},
 		);
 	} else {
-		// Linux - try common audio players with race-safe fallback
-		currentSession.process = execFile("paplay", [soundPath], (error) => {
-			// Check if this session is still active before proceeding
-			if (currentSession?.id !== sessionId) {
-				return; // Session was stopped, don't start fallback
-			}
+		// Linux: paplay --volume accepts 0-65536 (65536 = 100%)
+		const paVolume = Math.round(volumeDecimal * 65536);
+		currentSession.process = execFile(
+			"paplay",
+			["--volume", paVolume.toString(), soundPath],
+			(error) => {
+				// Check if this session is still active before proceeding
+				if (currentSession?.id !== sessionId) {
+					return; // Session was stopped, don't start fallback
+				}
 
-			if (error) {
-				// paplay failed, try aplay as fallback
-				currentSession.process = execFile("aplay", [soundPath], () => {
-					if (currentSession?.id === sessionId) {
+				if (error) {
+					// paplay failed, try aplay as fallback
+					// Note: aplay doesn't support volume control
+					// Respect volume=0 by not playing at all
+					if (volume === 0) {
 						currentSession = null;
+						return;
 					}
-				});
-			} else {
-				currentSession = null;
-			}
-		});
+					// For other volumes, play at system volume (can't be controlled)
+					currentSession.process = execFile("aplay", [soundPath], () => {
+						if (currentSession?.id === sessionId) {
+							currentSession = null;
+						}
+					});
+				} else {
+					currentSession = null;
+				}
+			},
+		);
 	}
 }
 
@@ -128,14 +157,16 @@ export const createRingtoneRouter = (getWindow: () => BrowserWindow | null) => {
 		 * Preview a ringtone by ringtone ID.
 		 */
 		preview: publicProcedure
-			.input(z.object({ ringtoneId: z.string() }))
+			.input(
+				z.object({ ringtoneId: z.string(), volume: z.number().optional() }),
+			)
 			.mutation(({ input }) => {
 				const soundPath = getRingtoneSoundPath(input.ringtoneId);
 				if (!soundPath) {
 					return { success: true as const };
 				}
 
-				playSoundFile(soundPath);
+				playSoundFile(soundPath, input.volume ?? 100);
 				return { success: true as const };
 			}),
 

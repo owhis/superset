@@ -70,6 +70,11 @@ function playSoundFile(soundPath: string, volume: number = 100): void {
 		execFile("afplay", ["-v", volumeDecimal.toString(), soundPath]);
 	} else if (process.platform === "win32") {
 		// Windows: Media.SoundPlayer doesn't support volume control
+		// Respect volume=0 by not playing at all
+		if (volume === 0) {
+			return;
+		}
+		// For other volumes, play at system volume (can't be controlled)
 		execFile("powershell", [
 			"-c",
 			`(New-Object Media.SoundPlayer '${soundPath}').PlaySync()`,
