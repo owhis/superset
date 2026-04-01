@@ -9,7 +9,14 @@ import { Skeleton } from "@superset/ui/skeleton";
 import { toast } from "@superset/ui/sonner";
 import { cn } from "@superset/ui/utils";
 import { useEffect, useRef, useState } from "react";
-import { LuArrowUpRight, LuCheck, LuCopy } from "react-icons/lu";
+import {
+	LuArrowUpRight,
+	LuCheck,
+	LuCheckCheck,
+	LuCopy,
+	LuLoaderCircle,
+	LuUndo2,
+} from "react-icons/lu";
 import { VscChevronRight } from "react-icons/vsc";
 import { electronTrpc } from "renderer/lib/electron-trpc";
 import { PRIcon } from "renderer/screens/main/components/PRIcon";
@@ -34,6 +41,8 @@ interface ReviewPanelProps {
 	comments?: PullRequestComment[];
 	isLoading?: boolean;
 	isCommentsLoading?: boolean;
+	workspaceId?: string;
+	onCommentsChange?: () => void;
 }
 
 export function ReviewPanel({
@@ -41,16 +50,23 @@ export function ReviewPanel({
 	comments = [],
 	isLoading = false,
 	isCommentsLoading = false,
+	workspaceId,
+	onCommentsChange,
 }: ReviewPanelProps) {
 	const [checksOpen, setChecksOpen] = useState(true);
 	const [commentsOpen, setCommentsOpen] = useState(true);
 	const [resolvedCommentsGroupOpen, setResolvedCommentsGroupOpen] =
 		useState(false);
 	const [copiedActionKey, setCopiedActionKey] = useState<string | null>(null);
+	const [resolvingThreadIds, setResolvingThreadIds] = useState<Set<string>>(
+		new Set(),
+	);
 	const copiedActionResetTimeoutRef = useRef<ReturnType<
 		typeof setTimeout
 	> | null>(null);
 	const copyToClipboardMutation = electronTrpc.external.copyText.useMutation();
+	const resolveThreadMutation =
+		electronTrpc.workspaces.resolveReviewThread.useMutation();
 
 	useEffect(() => {
 		return () => {
@@ -98,6 +114,38 @@ export function ReviewPanel({
 		});
 	};
 
+	const handleToggleResolve = (comment: PullRequestComment) => {
+		if (!workspaceId || !comment.threadId) return;
+
+		setResolvingThreadIds((prev) => new Set(prev).add(comment.threadId!));
+		resolveThreadMutation.mutate(
+			{
+				workspaceId,
+				threadId: comment.threadId,
+				resolve: !comment.isResolved,
+			},
+			{
+				onSuccess: () => {
+					onCommentsChange?.();
+				},
+				onError: (error) => {
+					const message =
+						error instanceof Error ? error.message : "Unknown error";
+					toast.error(
+						`Failed to ${comment.isResolved ? "unresolve" : "resolve"} thread: ${message}`,
+					);
+				},
+				onSettled: () => {
+					setResolvingThreadIds((prev) => {
+						const next = new Set(prev);
+						next.delete(comment.threadId!);
+						return next;
+					});
+				},
+			},
+		);
+	};
+
 	if (isLoading && !pr) {
 		return (
 			<div className="flex h-full items-center justify-center text-sm text-muted-foreground">
@@ -141,6 +189,39 @@ export function ReviewPanel({
 			actionKey: ALL_COMMENTS_COPY_ACTION_KEY,
 			errorLabel: "Failed to copy comments",
 		});
+	};
+
+	const uniqueResolvableThreadIds = [
+		...new Set(
+			activeComments
+				.map((c) => c.threadId)
+				.filter((id): id is string => !!id),
+		),
+	];
+	const isResolvingAll = resolvingThreadIds.size > 0;
+
+	const handleResolveAll = async () => {
+		if (!workspaceId || uniqueResolvableThreadIds.length === 0) return;
+
+		setResolvingThreadIds(new Set(uniqueResolvableThreadIds));
+
+		try {
+			await Promise.all(
+				uniqueResolvableThreadIds.map((threadId) =>
+					resolveThreadMutation.mutateAsync({
+						workspaceId,
+						threadId,
+						resolve: true,
+					}),
+				),
+			);
+			onCommentsChange?.();
+		} catch (error) {
+			const message = error instanceof Error ? error.message : "Unknown error";
+			toast.error(`Failed to resolve all threads: ${message}`);
+		} finally {
+			setResolvingThreadIds(new Set());
+		}
 	};
 
 	const renderCommentList = (list: PullRequestComment[]) =>
@@ -210,6 +291,29 @@ export function ReviewPanel({
 							>
 								<LuArrowUpRight className="size-3" />
 							</a>
+						) : null}
+						{comment.threadId && workspaceId ? (
+							<button
+								type="button"
+								className="inline-flex size-4 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+								onClick={(event) => {
+									event.preventDefault();
+									event.stopPropagation();
+									handleToggleResolve(comment);
+								}}
+								disabled={resolvingThreadIds.has(comment.threadId)}
+								aria-label={
+									comment.isResolved ? "Unresolve thread" : "Resolve thread"
+								}
+							>
+								{resolvingThreadIds.has(comment.threadId) ? (
+									<LuLoaderCircle className="size-3 animate-spin" />
+								) : comment.isResolved ? (
+									<LuUndo2 className="size-3" />
+								) : (
+									<LuCheckCheck className="size-3" />
+								)}
+							</button>
 						) : null}
 						<button
 							type="button"
@@ -394,18 +498,35 @@ export function ReviewPanel({
 						</span>
 					</CollapsibleTrigger>
 					{activeComments.length > 0 && (
-						<button
-							type="button"
-							className="mr-1.5 shrink-0 flex items-center gap-1 rounded-sm px-1.5 py-0.5 text-[10px] text-muted-foreground transition-colors hover:bg-accent/30 hover:text-foreground"
-							onClick={handleCopyCommentsList}
-						>
-							{copiedActionKey === ALL_COMMENTS_COPY_ACTION_KEY ? (
-								<LuCheck className="size-3" />
-							) : (
-								<LuCopy className="size-3" />
+						<div className="mr-1.5 flex items-center gap-1">
+							{uniqueResolvableThreadIds.length > 0 && workspaceId && (
+								<button
+									type="button"
+									className="shrink-0 flex items-center gap-1 rounded-sm px-1.5 py-0.5 text-[10px] text-muted-foreground transition-colors hover:bg-accent/30 hover:text-foreground disabled:opacity-50"
+									onClick={() => void handleResolveAll()}
+									disabled={isResolvingAll}
+								>
+									{isResolvingAll ? (
+										<LuLoaderCircle className="size-3 animate-spin" />
+									) : (
+										<LuCheckCheck className="size-3" />
+									)}
+									<span>Resolve all</span>
+								</button>
 							)}
-							<span>{copyAllCommentsLabel}</span>
-						</button>
+							<button
+								type="button"
+								className="shrink-0 flex items-center gap-1 rounded-sm px-1.5 py-0.5 text-[10px] text-muted-foreground transition-colors hover:bg-accent/30 hover:text-foreground"
+								onClick={handleCopyCommentsList}
+							>
+								{copiedActionKey === ALL_COMMENTS_COPY_ACTION_KEY ? (
+									<LuCheck className="size-3" />
+								) : (
+									<LuCopy className="size-3" />
+								)}
+								<span>{copyAllCommentsLabel}</span>
+							</button>
+						</div>
 					)}
 				</div>
 				<CollapsibleContent className="px-0.5 pb-1 min-w-0 overflow-hidden">
