@@ -280,22 +280,11 @@ export function ReviewPanel({
 							{content}
 						</div>
 					)}
-					<div className="absolute right-1 top-1 flex flex-col gap-1 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
-						{comment.url ? (
-							<a
-								href={comment.url}
-								target="_blank"
-								rel="noopener noreferrer"
-								className="inline-flex size-4 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-								aria-label="Open comment on GitHub"
-							>
-								<LuArrowUpRight className="size-3" />
-							</a>
-						) : null}
+					<div className="absolute right-0.5 top-0.5 flex items-center gap-0.5 rounded-sm bg-background/90 px-0.5 py-0.5 shadow-sm opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
 						{comment.threadId && workspaceId ? (
 							<button
 								type="button"
-								className="inline-flex size-4 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+								className="inline-flex size-5 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
 								onClick={(event) => {
 									event.preventDefault();
 									event.stopPropagation();
@@ -317,7 +306,7 @@ export function ReviewPanel({
 						) : null}
 						<button
 							type="button"
-							className="inline-flex size-4 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+							className="inline-flex size-5 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
 							onClick={(event) => {
 								event.preventDefault();
 								event.stopPropagation();
@@ -331,6 +320,17 @@ export function ReviewPanel({
 								<LuCopy className="size-3" />
 							)}
 						</button>
+						{comment.url ? (
+							<a
+								href={comment.url}
+								target="_blank"
+								rel="noopener noreferrer"
+								className="inline-flex size-5 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+								aria-label="Open comment on GitHub"
+							>
+								<LuArrowUpRight className="size-3" />
+							</a>
+						) : null}
 					</div>
 				</div>
 			);
