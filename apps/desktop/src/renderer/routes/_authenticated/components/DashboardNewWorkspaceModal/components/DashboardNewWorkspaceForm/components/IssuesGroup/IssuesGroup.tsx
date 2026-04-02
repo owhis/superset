@@ -185,6 +185,7 @@ export function IssuesGroup({ projectId, hostTarget }: IssuesGroupProps) {
 					<span
 						className="text-muted-foreground shrink-0 text-xs tabular-nums truncate"
 						style={{ width: slugWidth }}
+						title={task.slug}
 					>
 						{task.slug}
 					</span>

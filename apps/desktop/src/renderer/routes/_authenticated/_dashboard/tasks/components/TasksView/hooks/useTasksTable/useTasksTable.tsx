@@ -249,7 +249,10 @@ export function useTasksTable({
 				cell: (info) => {
 					if (info.cell.getIsPlaceholder()) return null;
 					return (
-						<span className="text-xs text-muted-foreground truncate min-w-0">
+						<span
+							className="text-xs text-muted-foreground truncate min-w-0"
+							title={info.getValue()}
+						>
 							{info.getValue()}
 						</span>
 					);
