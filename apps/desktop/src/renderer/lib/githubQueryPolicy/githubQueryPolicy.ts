@@ -26,7 +26,6 @@ interface GitHubPRCommentsQueryPolicyOptions {
 	hasWorkspaceId: boolean;
 	hasActivePullRequest: boolean;
 	isActive?: boolean;
-	isReviewTabActive?: boolean;
 }
 
 /**
@@ -50,17 +49,13 @@ export function getGitHubPRCommentsQueryPolicy({
 	hasWorkspaceId,
 	hasActivePullRequest,
 	isActive = true,
-	isReviewTabActive = false,
 }: GitHubPRCommentsQueryPolicyOptions): GitHubQueryPolicy {
 	const isEnabled = hasWorkspaceId && isActive && hasActivePullRequest;
 
 	return {
 		enabled: isEnabled,
-		refetchInterval:
-			isEnabled && isReviewTabActive
-				? GITHUB_PR_COMMENTS_REFETCH_INTERVAL_MS
-				: false,
-		refetchOnWindowFocus: isEnabled && isReviewTabActive,
+		refetchInterval: isEnabled ? GITHUB_PR_COMMENTS_REFETCH_INTERVAL_MS : false,
+		refetchOnWindowFocus: isEnabled,
 		staleTime: GITHUB_PR_COMMENTS_STALE_TIME_MS,
 	};
 }
