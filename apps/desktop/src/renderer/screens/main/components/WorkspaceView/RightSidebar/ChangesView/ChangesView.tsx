@@ -97,7 +97,6 @@ export function ChangesView({
 		{
 			hasWorkspaceId: !!workspaceId,
 			isActive,
-			isReviewTabActive,
 		},
 	);
 
