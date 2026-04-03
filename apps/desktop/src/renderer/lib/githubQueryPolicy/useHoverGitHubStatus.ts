@@ -46,14 +46,21 @@ export function useHoverGitHubStatus({
 		if (!hasHovered) {
 			setHasHovered(true);
 		} else if (isStale) {
+			if (pendingRefetchRef.current) {
+				clearTimeout(pendingRefetchRef.current);
+				pendingRefetchRef.current = null;
+			}
 			void refetch();
 		} else if (!pendingRefetchRef.current) {
 			const msUntilStale =
 				GITHUB_STATUS_STALE_TIME_MS - (Date.now() - dataUpdatedAt);
-			pendingRefetchRef.current = setTimeout(() => {
-				pendingRefetchRef.current = null;
-				void refetch();
-			}, Math.max(0, msUntilStale));
+			pendingRefetchRef.current = setTimeout(
+				() => {
+					pendingRefetchRef.current = null;
+					void refetch();
+				},
+				Math.max(0, msUntilStale),
+			);
 		}
 	};
 
