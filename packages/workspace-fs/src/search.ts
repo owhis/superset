@@ -4,10 +4,9 @@ import path from "node:path";
 import { promisify } from "node:util";
 import fg from "fast-glob";
 import {
+	compareItemsByFuzzyScore,
 	type FuzzyScorerCache,
 	type IItemAccessor,
-	type IPreparedQuery,
-	compareItemsByFuzzyScore,
 	prepareQuery,
 	scoreFuzzy,
 	scoreItemFuzzy,
@@ -100,7 +99,6 @@ export interface SearchContentOptions {
 
 const searchIndexCache = new Map<string, SearchIndexEntry[]>();
 const searchIndexBuilds = new Map<string, Promise<SearchIndexEntry[]>>();
-
 
 function createSearchIndexEntry(
 	rootPath: string,
@@ -760,15 +758,19 @@ export async function searchFiles({
 	const cache: FuzzyScorerCache = {};
 
 	const searchableItems = pathMatcher.hasFilters
-		? index.filter((item) =>
-				matchesPathFilters(item.relativePath, pathMatcher),
-			)
+		? index.filter((item) => matchesPathFilters(item.relativePath, pathMatcher))
 		: index;
 
 	// Score all items using VS Code's item scorer, then filter non-matches
 	const scored: Array<{ item: SearchIndexEntry; score: number }> = [];
 	for (const item of searchableItems) {
-		const itemScore = scoreItemFuzzy(item, prepared, true, searchEntryAccessor, cache);
+		const itemScore = scoreItemFuzzy(
+			item,
+			prepared,
+			true,
+			searchEntryAccessor,
+			cache,
+		);
 		if (itemScore.score > 0) {
 			scored.push({ item, score: itemScore.score });
 		}
@@ -776,7 +778,14 @@ export async function searchFiles({
 
 	// Sort using VS Code's full comparator
 	scored.sort((a, b) =>
-		compareItemsByFuzzyScore(a.item, b.item, prepared, true, searchEntryAccessor, cache),
+		compareItemsByFuzzyScore(
+			a.item,
+			b.item,
+			prepared,
+			true,
+			searchEntryAccessor,
+			cache,
+		),
 	);
 
 	return scored.slice(0, safeLimit).map((result) => ({

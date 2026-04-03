@@ -4,7 +4,6 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useCopyToClipboard } from "renderer/hooks/useCopyToClipboard";
 import { useFileOpenMode } from "renderer/hooks/useFileOpenMode";
 import { electronTrpc } from "renderer/lib/electron-trpc";
-import { getWorkspaceDisplayName } from "renderer/lib/getWorkspaceDisplayName";
 import { electronTrpcClient as trpcClient } from "renderer/lib/trpc-client";
 import { usePresets } from "renderer/react-query/presets";
 import type { WorkspaceSearchParams } from "renderer/routes/_authenticated/_dashboard/utils/workspace-navigation";
@@ -633,7 +632,9 @@ function WorkspacePage() {
 				workspaceId={workspaceId}
 				open={quickOpenOpen}
 				onOpenChange={setQuickOpenOpen}
-				onSelectFile={(filePath) => useTabsStore.getState().addFileViewerPane(workspaceId, { filePath })}
+				onSelectFile={(filePath) =>
+					useTabsStore.getState().addFileViewerPane(workspaceId, { filePath })
+				}
 			/>
 			<UnsavedChangesDialog
 				open={pendingTabClose !== null}

@@ -3,9 +3,9 @@ import { CommandPrimitive } from "@superset/ui/command";
 import { SearchIcon } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { LuChevronDown, LuChevronRight } from "react-icons/lu";
-import { FileIcon } from "renderer/screens/main/components/WorkspaceView/RightSidebar/FilesView/utils";
-import { useFileSearch } from "renderer/screens/main/components/WorkspaceView/RightSidebar/FilesView/hooks/useFileSearch/useFileSearch";
 import { useV2FileSearch } from "renderer/routes/_authenticated/_dashboard/v2-workspace/$workspaceId/hooks/useV2FileSearch";
+import { useFileSearch } from "renderer/screens/main/components/WorkspaceView/RightSidebar/FilesView/hooks/useFileSearch/useFileSearch";
+import { FileIcon } from "renderer/screens/main/components/WorkspaceView/RightSidebar/FilesView/utils";
 
 // 48px input + 10 * 40px items
 const MAX_DIALOG_HEIGHT = 448;
@@ -141,12 +141,19 @@ export function CommandPalette({
 									onSelect={() => handleSelectFile(file.path)}
 									className="group data-[selected=true]:bg-accent data-[selected=true]:text-accent-foreground [&_svg:not([class*='text-'])]:text-muted-foreground relative flex cursor-default items-center gap-2 rounded-sm px-2 py-2 text-sm outline-hidden select-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"
 								>
-									<FileIcon fileName={file.name} className="size-3.5 shrink-0" />
-									<span className="max-w-[252px] truncate font-medium">{file.name}</span>
+									<FileIcon
+										fileName={file.name}
+										className="size-3.5 shrink-0"
+									/>
+									<span className="max-w-[252px] truncate font-medium">
+										{file.name}
+									</span>
 									<span className="truncate text-muted-foreground text-xs">
 										{file.relativePath}
 									</span>
-									<kbd className="ml-auto hidden shrink-0 text-xs text-muted-foreground group-data-[selected=true]:block">↵</kbd>
+									<kbd className="ml-auto hidden shrink-0 text-xs text-muted-foreground group-data-[selected=true]:block">
+										↵
+									</kbd>
 								</CommandPrimitive.Item>
 							))}
 						</CommandPrimitive.List>
