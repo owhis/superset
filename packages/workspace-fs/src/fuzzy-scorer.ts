@@ -156,7 +156,9 @@ function doScoreFuzzy(
 
 		const queryIndexGtNull = queryIndex > 0;
 
+		// biome-ignore lint/style/noNonNullAssertion: ported from VS Code — index in bounds by loop
 		const queryCharAtIndex = query[queryIndex]!;
+		// biome-ignore lint/style/noNonNullAssertion: ported from VS Code
 		const queryLowerCharAtIndex = queryLower[queryIndex]!;
 
 		for (let targetIndex = 0; targetIndex < targetLength; targetIndex++) {
@@ -231,6 +233,7 @@ function computeCharScore(
 ): number {
 	let score = 0;
 
+	// biome-ignore lint/style/noNonNullAssertion: ported from VS Code — index in bounds by loop
 	if (!considerAsEqual(queryLowerCharAtIndex, targetLower[targetIndex]!)) {
 		return score;
 	}
@@ -697,13 +700,16 @@ function computeLabelAndDescriptionMatchDistance<T>(
 	let matchEnd = -1;
 
 	if (score.descriptionMatch?.length) {
-		matchStart = score.descriptionMatch[0]?.start;
+		// biome-ignore lint/style/noNonNullAssertion: ported from VS Code — length already checked
+		matchStart = score.descriptionMatch[0]!.start;
 	} else if (score.labelMatch?.length) {
-		matchStart = score.labelMatch[0]?.start;
+		// biome-ignore lint/style/noNonNullAssertion: ported from VS Code — length already checked
+		matchStart = score.labelMatch[0]!.start;
 	}
 
 	if (score.labelMatch?.length) {
-		matchEnd = score.labelMatch[score.labelMatch.length - 1]?.end;
+		// biome-ignore lint/style/noNonNullAssertion: ported from VS Code — length already checked
+		matchEnd = score.labelMatch[score.labelMatch.length - 1]!.end;
 		if (score.descriptionMatch?.length) {
 			const itemDescription = accessor.getItemDescription(item);
 			if (itemDescription) {
@@ -711,7 +717,8 @@ function computeLabelAndDescriptionMatchDistance<T>(
 			}
 		}
 	} else if (score.descriptionMatch?.length) {
-		matchEnd = score.descriptionMatch[score.descriptionMatch.length - 1]?.end;
+		// biome-ignore lint/style/noNonNullAssertion: ported from VS Code — length already checked
+		matchEnd = score.descriptionMatch[score.descriptionMatch.length - 1]!.end;
 	}
 
 	return matchEnd - matchStart;
@@ -733,12 +740,16 @@ function compareByMatchLength(
 		return 1;
 	}
 
-	const matchStartA = matchesA[0]?.start;
-	const matchEndA = matchesA[matchesA.length - 1]?.end;
+	// biome-ignore lint/style/noNonNullAssertion: ported from VS Code — length already checked above
+	const matchStartA = matchesA[0]!.start;
+	// biome-ignore lint/style/noNonNullAssertion: ported from VS Code
+	const matchEndA = matchesA[matchesA.length - 1]!.end;
 	const matchLengthA = matchEndA - matchStartA;
 
-	const matchStartB = matchesB[0]?.start;
-	const matchEndB = matchesB[matchesB.length - 1]?.end;
+	// biome-ignore lint/style/noNonNullAssertion: ported from VS Code — length already checked above
+	const matchStartB = matchesB[0]!.start;
+	// biome-ignore lint/style/noNonNullAssertion: ported from VS Code
+	const matchEndB = matchesB[matchesB.length - 1]!.end;
 	const matchLengthB = matchEndB - matchStartB;
 
 	return matchLengthA === matchLengthB

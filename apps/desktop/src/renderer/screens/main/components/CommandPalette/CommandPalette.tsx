@@ -3,9 +3,9 @@ import { CommandPrimitive } from "@superset/ui/command";
 import { SearchIcon } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { LuChevronDown, LuChevronRight } from "react-icons/lu";
-import { useV2FileSearch } from "./hooks/useV2FileSearch";
 import { useFileSearch } from "renderer/screens/main/components/WorkspaceView/RightSidebar/FilesView/hooks/useFileSearch/useFileSearch";
 import { FileIcon } from "renderer/screens/main/components/WorkspaceView/RightSidebar/FilesView/utils";
+import { useV2FileSearch } from "./hooks/useV2FileSearch";
 
 // 48px input + 10 * 40px items
 const MAX_DIALOG_HEIGHT = 448;
