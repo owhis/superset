@@ -3,12 +3,12 @@ import { toast } from "@superset/ui/sonner";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@superset/ui/tooltip";
 import { cn } from "@superset/ui/utils";
 import { useMatchRoute, useNavigate } from "@tanstack/react-router";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { HiMiniXMark } from "react-icons/hi2";
 import { HotkeyTooltipContent } from "renderer/components/HotkeyTooltipContent";
 import { useCopyToClipboard } from "renderer/hooks/useCopyToClipboard";
 import { electronTrpc } from "renderer/lib/electron-trpc";
-import { getGitHubStatusQueryPolicy } from "renderer/lib/githubQueryPolicy";
+import { useHoverGitHubStatus } from "renderer/lib/githubQueryPolicy";
 import { useWorkspaceDeleteHandler } from "renderer/react-query/workspaces";
 import { navigateToWorkspace } from "renderer/routes/_authenticated/_dashboard/utils/workspace-navigation";
 import { WorkspaceRunIndicator } from "renderer/screens/main/components/WorkspaceRunIndicator";
@@ -67,7 +67,11 @@ export function WorkspaceListItem({
 	const isBranchWorkspace = type === "branch";
 	const navigate = useNavigate();
 	const matchRoute = useMatchRoute();
-	const [hasHovered, setHasHovered] = useState(false);
+	const { githubStatus, hasHovered, onMouseEnter: onGithubMouseEnter } = useHoverGitHubStatus({
+		workspaceId: id,
+		surface: "workspace-list-item",
+		isWorktree: type === "worktree",
+	});
 	const rename = useWorkspaceRename(id, name, branch);
 	const workspaceStatus = useTabsStore((state) => {
 		function* paneStatuses() {
@@ -147,20 +151,6 @@ export function WorkspaceListItem({
 
 	const { showDeleteDialog, setShowDeleteDialog, handleDeleteClick } =
 		useWorkspaceDeleteHandler();
-	const githubStatusQueryPolicy = getGitHubStatusQueryPolicy(
-		"workspace-list-item",
-		{
-			hasWorkspaceId: !!id,
-			isActive: hasHovered && type === "worktree",
-		},
-	);
-
-	const { data: githubStatus, isStale: isGithubStatusStale, refetch: refetchGithubStatus } =
-		electronTrpc.workspaces.getGitHubStatus.useQuery(
-			{ workspaceId: id },
-			githubStatusQueryPolicy,
-		);
-
 	const { status: localChanges } = useGitChangesStatus({
 		worktreePath,
 		enabled: hasHovered && !!worktreePath,
@@ -230,11 +220,7 @@ export function WorkspaceListItem({
 	};
 
 	const handleMouseEnter = () => {
-		if (!hasHovered) {
-			setHasHovered(true);
-		} else if (isGithubStatusStale) {
-			void refetchGithubStatus();
-		}
+		onGithubMouseEnter();
 		if (isBranchWorkspace) void refetchAheadBehind();
 	};
 
