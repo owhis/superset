@@ -4,6 +4,7 @@ import {
 	ContextMenuContent,
 	ContextMenuItem,
 	ContextMenuSeparator,
+	ContextMenuShortcut,
 	ContextMenuTrigger,
 } from "@superset/ui/context-menu";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@superset/ui/tooltip";
@@ -257,6 +258,7 @@ export function FileItem({
 					<ContextMenuItem onClick={openInEditor}>
 						<VscLinkExternal className="mr-2 size-4" />
 						Open in Editor
+						<ContextMenuShortcut>⌘+Click</ContextMenuShortcut>
 					</ContextMenuItem>
 
 					{(onStage || onUnstage || onDiscard) && <ContextMenuSeparator />}

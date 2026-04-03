@@ -3,6 +3,7 @@ import {
 	ContextMenuContent,
 	ContextMenuItem,
 	ContextMenuSeparator,
+	ContextMenuShortcut,
 	ContextMenuTrigger,
 } from "@superset/ui/context-menu";
 import { cn } from "@superset/ui/utils";
@@ -168,6 +169,7 @@ export function FileSearchResultItem({
 				<ContextMenuItem onClick={openInEditor}>
 					<LuExternalLink className="mr-2 size-4" />
 					Open in Editor
+					<ContextMenuShortcut>⌘+Click</ContextMenuShortcut>
 				</ContextMenuItem>
 
 				<ContextMenuSeparator />
