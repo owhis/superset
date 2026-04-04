@@ -39,13 +39,25 @@ export function parseAnthropicForm(envText: string): AnthropicFormValues {
 		const value = normalized.slice(eqIndex + 1).trim();
 		switch (key) {
 			case "ANTHROPIC_API_KEY":
-				values.apiKey = value;
+				if (value) {
+					values.apiKey = value;
+				} else {
+					remaining.push(line);
+				}
 				break;
 			case "ANTHROPIC_AUTH_TOKEN":
-				values.authToken = value;
+				if (value) {
+					values.authToken = value;
+				} else {
+					remaining.push(line);
+				}
 				break;
 			case "ANTHROPIC_BASE_URL":
-				values.baseUrl = value;
+				if (value) {
+					values.baseUrl = value;
+				} else {
+					remaining.push(line);
+				}
 				break;
 			default:
 				remaining.push(line);
