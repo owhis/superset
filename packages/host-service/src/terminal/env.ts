@@ -71,15 +71,17 @@ export function resetTerminalBaseEnvForTests(): void {
 
 // ── Locale ───────────────────────────────────────────────────────────
 
+const UTF8_RE = /utf-?8/i;
+
 /**
  * Normalize a UTF-8 locale from the base env.
  *
- * Matches VS Code's getLangEnvVariable pattern: prefer existing locale
- * from the env, default to en_US.UTF-8.
+ * POSIX precedence: LC_ALL overrides everything, then LANG.
+ * Matches UTF-8, utf8, UTF8 case-insensitively.
  */
 export function normalizeUtf8Locale(baseEnv: Record<string, string>): string {
-	if (baseEnv.LANG?.includes("UTF-8")) return baseEnv.LANG;
-	if (baseEnv.LC_ALL?.includes("UTF-8")) return baseEnv.LC_ALL;
+	if (baseEnv.LC_ALL && UTF8_RE.test(baseEnv.LC_ALL)) return baseEnv.LC_ALL;
+	if (baseEnv.LANG && UTF8_RE.test(baseEnv.LANG)) return baseEnv.LANG;
 	return "en_US.UTF-8";
 }
 

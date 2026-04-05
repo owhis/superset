@@ -32,18 +32,29 @@ describe("resolveLaunchShell", () => {
 // ── normalizeUtf8Locale ──────────────────────────────────────────────
 
 describe("normalizeUtf8Locale", () => {
-	test("prefers LANG when it contains UTF-8", () => {
+	test("LC_ALL takes precedence over LANG (POSIX)", () => {
+		expect(
+			normalizeUtf8Locale({ LC_ALL: "fr_FR.UTF-8", LANG: "en_US.UTF-8" }),
+		).toBe("fr_FR.UTF-8");
+	});
+
+	test("falls back to LANG when LC_ALL is absent", () => {
 		expect(normalizeUtf8Locale({ LANG: "ja_JP.UTF-8" })).toBe("ja_JP.UTF-8");
 	});
 
-	test("falls back to LC_ALL", () => {
-		expect(normalizeUtf8Locale({ LC_ALL: "fr_FR.UTF-8" })).toBe(
-			"fr_FR.UTF-8",
-		);
+	test("matches case-insensitive utf8 variants", () => {
+		expect(normalizeUtf8Locale({ LANG: "en_US.utf8" })).toBe("en_US.utf8");
+		expect(normalizeUtf8Locale({ LC_ALL: "C.UTF8" })).toBe("C.UTF8");
 	});
 
 	test("defaults to en_US.UTF-8", () => {
 		expect(normalizeUtf8Locale({})).toBe("en_US.UTF-8");
+	});
+
+	test("ignores non-UTF-8 locales", () => {
+		expect(normalizeUtf8Locale({ LANG: "C", LC_ALL: "POSIX" })).toBe(
+			"en_US.UTF-8",
+		);
 	});
 });
 
@@ -130,25 +141,31 @@ describe("stripTerminalRuntimeEnv", () => {
 		expect(result.ELECTRON_ENABLE_LOGGING).toBeUndefined();
 	});
 
-	test("HOST_*, DESKTOP_*, DEVICE_* prefixes are stripped", () => {
+	test("HOST_* prefix is stripped, DESKTOP_*/DEVICE_* are exact-key only", () => {
 		const env: Record<string, string> = {
+			// HOST_* prefix: all stripped
 			HOST_DB_PATH: "/tmp/db",
 			HOST_MANIFEST_DIR: "/tmp/manifests",
-			HOST_CUSTOM_KEY: "value",
+			HOST_SERVICE_SECRET: "secret",
+			// DESKTOP_* / DEVICE_*: only our exact keys stripped
 			DESKTOP_VITE_PORT: "5173",
-			DESKTOP_OTHER: "val",
 			DEVICE_CLIENT_ID: "abc",
 			DEVICE_NAME: "Mac",
+			// Legitimate Linux desktop vars: must survive
+			DESKTOP_SESSION: "gnome",
+			DESKTOP_STARTUP_ID: "startup-123",
 			HOME: "/Users/test",
 		};
 		const result = stripTerminalRuntimeEnv(env);
 		expect(result.HOST_DB_PATH).toBeUndefined();
 		expect(result.HOST_MANIFEST_DIR).toBeUndefined();
-		expect(result.HOST_CUSTOM_KEY).toBeUndefined();
+		expect(result.HOST_SERVICE_SECRET).toBeUndefined();
 		expect(result.DESKTOP_VITE_PORT).toBeUndefined();
-		expect(result.DESKTOP_OTHER).toBeUndefined();
 		expect(result.DEVICE_CLIENT_ID).toBeUndefined();
 		expect(result.DEVICE_NAME).toBeUndefined();
+		// Linux desktop vars preserved
+		expect(result.DESKTOP_SESSION).toBe("gnome");
+		expect(result.DESKTOP_STARTUP_ID).toBe("startup-123");
 		expect(result.HOME).toBe("/Users/test");
 	});
 

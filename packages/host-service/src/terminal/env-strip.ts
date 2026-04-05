@@ -11,10 +11,19 @@
  * untouched (it has the user's version managers, proxy config, etc.).
  */
 
-/** Exact keys injected by desktop into host-service that must not leak to PTYs. */
+/**
+ * Exact keys injected by desktop into host-service that must not leak to PTYs.
+ *
+ * Note: DESKTOP_* and DEVICE_* are listed as exact keys rather than prefixes
+ * because DESKTOP_SESSION, DESKTOP_STARTUP_ID, etc. are legitimate Linux
+ * desktop environment vars that should pass through to user terminals.
+ */
 const HOST_SERVICE_RUNTIME_KEYS = new Set([
 	"AUTH_TOKEN",
 	"CLOUD_API_URL",
+	"DESKTOP_VITE_PORT",
+	"DEVICE_CLIENT_ID",
+	"DEVICE_NAME",
 	"KEEP_ALIVE_AFTER_PARENT",
 	"ORGANIZATION_ID",
 ]);
@@ -24,8 +33,7 @@ const NODE_APP_KEYS = new Set(["NODE_ENV", "NODE_OPTIONS", "NODE_PATH"]);
 
 /**
  * Prefixes for internal runtime env that must not leak to PTYs.
- * Covers: dev-runner, Electron, VS Code, build tools, and
- * host-service/desktop control categories (HOST_*, DESKTOP_*, DEVICE_*).
+ * Covers: dev-runner, Electron, build tools, and host-service control vars.
  */
 const STRIP_PREFIXES = [
 	"npm_",
@@ -35,8 +43,6 @@ const STRIP_PREFIXES = [
 	"NEXT_PUBLIC_",
 	"TURBO_",
 	"HOST_",
-	"DESKTOP_",
-	"DEVICE_",
 ];
 
 /** Explicit Superset support keys to keep when present. */

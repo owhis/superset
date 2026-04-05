@@ -4,6 +4,10 @@ import {
 } from "node:child_process";
 import { promisify } from "node:util";
 import { shellEnv } from "shell-env";
+import {
+	clearCleanShellEnvCache,
+	getStrictShellEnvironment,
+} from "./clean-shell-env";
 
 const execFileAsync = promisify(execFile);
 
@@ -97,10 +101,7 @@ export async function getShellEnvironment(
 
 // Re-export the clean shell env resolver for v2 terminal construction.
 // The implementation lives in its own module to keep concerns separated.
-export {
-	clearCleanShellEnvCache,
-	getStrictShellEnvironment,
-} from "./clean-shell-env";
+export { clearCleanShellEnvCache, getStrictShellEnvironment };
 
 const COMMON_MACOS_PATHS = [
 	"/opt/homebrew/bin",
