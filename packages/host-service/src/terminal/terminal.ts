@@ -1,11 +1,15 @@
 import { existsSync } from "node:fs";
-import { homedir } from "node:os";
 import type { NodeWebSocket } from "@hono/node-ws";
 import { eq } from "drizzle-orm";
 import type { Hono } from "hono";
 import { type IPty, spawn } from "node-pty";
 import type { HostDb } from "../db";
-import { terminalSessions, workspaces } from "../db/schema";
+import { projects, terminalSessions, workspaces } from "../db/schema";
+import {
+	buildV2TerminalEnv,
+	getShellLaunchArgs,
+	resolveLaunchShell,
+} from "./env";
 
 interface RegisterWorkspaceTerminalRouteOptions {
 	app: Hono;
@@ -52,11 +56,15 @@ function sendMessage(
 	socket.send(JSON.stringify(message));
 }
 
-function resolveShell(): string {
-	if (process.platform === "win32") {
-		return process.env.COMSPEC || "cmd.exe";
+/** Capture a string-only snapshot of the current process env. */
+function getProcessEnvSnapshot(): Record<string, string> {
+	const snapshot: Record<string, string> = {};
+	for (const [key, value] of Object.entries(process.env)) {
+		if (typeof value === "string") {
+			snapshot[key] = value;
+		}
 	}
-	return process.env.SHELL || "/bin/zsh";
+	return snapshot;
 }
 
 function bufferOutput(session: TerminalSession, data: string) {
@@ -123,22 +131,39 @@ function createTerminalSessionInternal({
 		return { error: "Workspace worktree not found" };
 	}
 
+	// Derive root path from the workspace's project
+	let rootPath = "";
+	const project = db.query.projects
+		.findFirst({ where: eq(projects.id, workspace.projectId) })
+		.sync();
+	if (project?.repoPath) {
+		rootPath = project.repoPath;
+	}
+
 	const cwd = workspace.worktreePath;
+	const baseEnv = getProcessEnvSnapshot();
+	const supersetHomeDir = baseEnv.SUPERSET_HOME_DIR || "";
+	const shell = resolveLaunchShell(baseEnv);
+	const shellArgs = getShellLaunchArgs({ shell, supersetHomeDir });
+	const ptyEnv = buildV2TerminalEnv({
+		baseEnv,
+		shell,
+		supersetHomeDir,
+		cwd,
+		terminalId,
+		workspaceId,
+		workspacePath: workspace.worktreePath,
+		rootPath,
+	});
 
 	let pty: IPty;
 	try {
-		pty = spawn(resolveShell(), [], {
+		pty = spawn(shell, shellArgs, {
 			name: "xterm-256color",
 			cwd,
 			cols: 120,
 			rows: 32,
-			env: {
-				...process.env,
-				TERM: "xterm-256color",
-				COLORTERM: "truecolor",
-				HOME: process.env.HOME || homedir(),
-				PWD: cwd,
-			},
+			env: ptyEnv,
 		});
 	} catch (error) {
 		return {

@@ -4,8 +4,14 @@ import { randomBytes } from "node:crypto";
 import { EventEmitter } from "node:events";
 import path from "node:path";
 import { app } from "electron";
-import { getProcessEnvWithShellPath } from "../../lib/trpc/routers/workspaces/utils/shell-env";
+import { env as sharedEnv } from "shared/env.shared";
+import {
+	augmentPathForMacOS,
+	getShellEnvironment,
+} from "../../lib/trpc/routers/workspaces/utils/shell-env";
+import { SUPERSET_HOME_DIR } from "./app-environment";
 import { getDeviceName, getHashedDeviceId } from "./device-info";
+import { HOOK_PROTOCOL_VERSION, buildSafeEnv } from "./terminal/env";
 import {
 	HOST_SERVICE_PROTOCOL_VERSION,
 	type HostServiceManifest,
@@ -118,13 +124,53 @@ export function checkCompatibility(instance: {
 	return { compatible: true, updateAvailable };
 }
 
+/**
+ * Resolve the base env for host-service from the user's shell.
+ * Falls back to a filtered snapshot of desktop process.env when shell
+ * resolution fails — never passes raw process.env through.
+ */
+async function resolveHostServiceBaseEnv(): Promise<{
+	env: Record<string, string>;
+	source: "shell" | "fallback";
+}> {
+	try {
+		const shellSnapshot = await getShellEnvironment();
+		return { env: shellSnapshot, source: "shell" };
+	} catch {
+		// Build a conservative fallback: string-only process.env, augmented
+		// with macOS paths, then filtered through the safe-env allowlist
+		// without blanket SUPERSET_* passthrough.
+		const raw: Record<string, string> = {};
+		for (const [key, value] of Object.entries(process.env)) {
+			if (typeof value === "string") {
+				raw[key] = value;
+			}
+		}
+		augmentPathForMacOS(raw);
+
+		const filtered = buildSafeEnv(raw);
+		// buildSafeEnv allows SUPERSET_* by prefix — remove all except
+		// SUPERSET_HOME_DIR for the host-service base env.
+		for (const key of Object.keys(filtered)) {
+			if (key.startsWith("SUPERSET_") && key !== "SUPERSET_HOME_DIR") {
+				delete filtered[key];
+			}
+		}
+
+		return { env: filtered, source: "fallback" };
+	}
+}
+
 async function buildHostServiceEnv(
 	organizationId: string,
 	secret: string,
 ): Promise<Record<string, string>> {
+	const { env: baseEnv } = await resolveHostServiceBaseEnv();
 	const orgDir = manifestDir(organizationId);
-	return getProcessEnvWithShellPath({
-		...(process.env as Record<string, string>),
+
+	return {
+		...baseEnv,
+		// Host-service runtime keys
 		ELECTRON_RUN_AS_NODE: "1",
 		ORGANIZATION_ID: organizationId,
 		DEVICE_CLIENT_ID: getHashedDeviceId(),
@@ -137,7 +183,11 @@ async function buildHostServiceEnv(
 		HOST_MIGRATIONS_PATH: app.isPackaged
 			? path.join(process.resourcesPath, "resources/host-migrations")
 			: path.join(app.getAppPath(), "../../packages/host-service/drizzle"),
-	});
+		DESKTOP_VITE_PORT: String(sharedEnv.DESKTOP_VITE_PORT),
+		SUPERSET_HOME_DIR: SUPERSET_HOME_DIR,
+		SUPERSET_AGENT_HOOK_PORT: String(sharedEnv.DESKTOP_NOTIFICATIONS_PORT),
+		SUPERSET_AGENT_HOOK_VERSION: HOOK_PROTOCOL_VERSION,
+	};
 }
 
 export class HostServiceManager extends EventEmitter {
