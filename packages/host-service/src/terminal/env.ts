@@ -41,7 +41,9 @@ function snapshotStringEnv(
  * Resolve the shell-derived terminal base env inside the host-service process.
  * Desktop main should not construct or own this snapshot.
  */
-export async function resolveTerminalBaseEnv(): Promise<Record<string, string>> {
+export async function resolveTerminalBaseEnv(): Promise<
+	Record<string, string>
+> {
 	return getStrictShellEnvironment();
 }
 
