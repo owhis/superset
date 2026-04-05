@@ -122,7 +122,7 @@ function WorkspaceContent({
 				{
 					kind: "terminal",
 					data: {
-						sessionKey: `${workspaceId}:${crypto.randomUUID()}`,
+						terminalId: `${workspaceId}:${crypto.randomUUID()}`,
 						cwd: `/workspace/${workspaceName}`,
 						launchMode: "workspace-shell",
 					} as TerminalPaneData,
@@ -197,7 +197,7 @@ function WorkspaceContent({
 					ctx.actions.split(position, {
 						kind: "terminal",
 						data: {
-							sessionKey: `${workspaceId}:${crypto.randomUUID()}`,
+							terminalId: `${workspaceId}:${crypto.randomUUID()}`,
 							cwd: `/workspace/${workspaceName}`,
 							launchMode: "workspace-shell",
 						} as TerminalPaneData,

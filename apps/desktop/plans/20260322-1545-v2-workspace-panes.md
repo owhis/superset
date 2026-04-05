@@ -228,7 +228,7 @@ Notes:
 type TerminalPane = PaneBase<
   "terminal",
   {
-    sessionKey: string;
+    terminalId: string;
     cwd?: string;
     launchMode: "workspace-shell" | "command" | "agent";
     command?: string;
@@ -239,7 +239,7 @@ type TerminalPane = PaneBase<
 Notes:
 
 - Persist the terminal identity, not the PTY internals
-- Restore by `attachOrCreate(sessionKey)`
+- Restore by `attachOrCreate(terminalId)`
 - Terminal buffer and websocket state stay runtime-only
 
 ### Browser pane
@@ -382,7 +382,7 @@ That order gives the highest-value workspace behavior first and defers the trick
 
 Add small adapters:
 
-- terminal pane -> attach/create session by `sessionKey`
+- terminal pane -> attach/create session by `terminalId`
 - browser pane -> create/restore browser surface for `url`
 - chat pane -> bind to `sessionId`
 - devtools pane -> attach to target browser pane if present
