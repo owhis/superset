@@ -738,14 +738,14 @@ So yes, every pane surface can show the VS Code-style hover effect, but that eff
 
 ```ts
 type WorkspacePaneData =
-  | { kind: "terminal"; terminalId: string }
+  | { kind: "terminal" }
   | { kind: "browser"; url: string }
   | { kind: "file"; filePath: string; viewMode: "raw" | "rendered" | "diff" };
 
 const paneRegistry: PaneRegistry<WorkspacePaneData> = {
   terminal: {
-    getTitle: (pane) => pane.data.terminalId,
-    renderPane: ({ pane }) => <TerminalPane terminalId={pane.data.terminalId} />,
+    getTitle: () => "Terminal",
+    renderPane: () => <TerminalPane />,
   },
   browser: {
     getTitle: () => "Preview",

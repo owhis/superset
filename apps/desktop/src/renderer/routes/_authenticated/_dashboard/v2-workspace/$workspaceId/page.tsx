@@ -122,14 +122,13 @@ function WorkspaceContent({
 				{
 					kind: "terminal",
 					data: {
-						terminalId: `${workspaceId}:${crypto.randomUUID()}`,
 						cwd: `/workspace/${workspaceName}`,
 						launchMode: "workspace-shell",
 					} as TerminalPaneData,
 				},
 			],
 		});
-	}, [store, workspaceId, workspaceName]);
+	}, [store, workspaceName]);
 
 	const addChatTab = useCallback(() => {
 		store.getState().addTab({
@@ -197,7 +196,6 @@ function WorkspaceContent({
 					ctx.actions.split(position, {
 						kind: "terminal",
 						data: {
-							terminalId: `${workspaceId}:${crypto.randomUUID()}`,
 							cwd: `/workspace/${workspaceName}`,
 							launchMode: "workspace-shell",
 						} as TerminalPaneData,
@@ -213,7 +211,7 @@ function WorkspaceContent({
 				onClick: (ctx) => ctx.actions.close(),
 			},
 		],
-		[workspaceId, workspaceName],
+		[workspaceName],
 	);
 
 	useAppHotkey("NEW_GROUP", addTerminalTab, undefined, [addTerminalTab]);

@@ -18,7 +18,6 @@ Relevant files:
 
 Today, the checked-out v2 terminal path is still workspace-scoped, not terminal-scoped:
 
-- `TerminalPaneData` stores `terminalId`
 - the pane registry renders `TerminalPane` with only `workspaceId`
 - `TerminalPane` connects to `/terminal/${workspaceId}`
 - host-service exposes `GET /terminal/:workspaceId`
@@ -89,7 +88,6 @@ Only if and when v2 actually uses them:
 SUPERSET_WORKSPACE_ID=<workspace id>
 SUPERSET_WORKSPACE_PATH=<workspace path>
 SUPERSET_ROOT_PATH=<root path>
-SUPERSET_TERMINAL_ID=<terminal id>
 ```
 
 ## Bottom Line

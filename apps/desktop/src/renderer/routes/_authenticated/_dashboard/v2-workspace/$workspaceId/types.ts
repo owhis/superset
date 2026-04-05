@@ -6,7 +6,6 @@ export interface FilePaneData {
 }
 
 export interface TerminalPaneData {
-	terminalId: string;
 	cwd: string;
 	launchMode: "workspace-shell" | "command" | "agent";
 	command?: string;
