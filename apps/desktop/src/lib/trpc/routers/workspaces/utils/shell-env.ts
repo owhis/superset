@@ -95,6 +95,28 @@ export async function getShellEnvironment(
 	}
 }
 
+/**
+ * Resolve a real shell-derived environment snapshot.
+ * Unlike getShellEnvironment(), this function never falls back to process.env.
+ * If shell resolution fails, it throws — callers that require a genuine shell
+ * snapshot (e.g. v2 terminal env construction) should use this.
+ */
+export async function getStrictShellEnvironment(): Promise<
+	Record<string, string>
+> {
+	// Bypass the cache if it holds a fallback (process.env) result
+	if (!isFallbackCache && cachedEnv && Date.now() - cacheTime < CACHE_TTL_MS) {
+		return { ...cachedEnv };
+	}
+
+	const env = await getShellEnvWithTimeout();
+	cachedEnv = env as Record<string, string>;
+	cacheTime = Date.now();
+	isFallbackCache = false;
+	fallbackCacheTtlMs = FALLBACK_CACHE_TTL_MS;
+	return { ...cachedEnv };
+}
+
 const COMMON_MACOS_PATHS = [
 	"/opt/homebrew/bin",
 	"/opt/homebrew/sbin",

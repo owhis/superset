@@ -5,13 +5,10 @@ import { EventEmitter } from "node:events";
 import path from "node:path";
 import { app } from "electron";
 import { env as sharedEnv } from "shared/env.shared";
-import {
-	augmentPathForMacOS,
-	getShellEnvironment,
-} from "../../lib/trpc/routers/workspaces/utils/shell-env";
+import { getStrictShellEnvironment } from "../../lib/trpc/routers/workspaces/utils/shell-env";
 import { SUPERSET_HOME_DIR } from "./app-environment";
 import { getDeviceName, getHashedDeviceId } from "./device-info";
-import { HOOK_PROTOCOL_VERSION, buildSafeEnv } from "./terminal/env";
+import { HOOK_PROTOCOL_VERSION } from "./terminal/env";
 import {
 	HOST_SERVICE_PROTOCOL_VERSION,
 	type HostServiceManifest,
@@ -125,51 +122,25 @@ export function checkCompatibility(instance: {
 }
 
 /**
- * Resolve the base env for host-service from the user's shell.
- * Falls back to a filtered snapshot of desktop process.env when shell
- * resolution fails — never passes raw process.env through.
+ * Resolve a real shell-derived env snapshot for terminal construction.
+ * Throws if shell resolution fails — v2 terminal creation fails closed.
+ * Desktop process.env is never a valid substitute.
  */
-async function resolveHostServiceBaseEnv(): Promise<{
-	env: Record<string, string>;
-	source: "shell" | "fallback";
-}> {
-	try {
-		const shellSnapshot = await getShellEnvironment();
-		return { env: shellSnapshot, source: "shell" };
-	} catch {
-		// Build a conservative fallback: string-only process.env, augmented
-		// with macOS paths, then filtered through the safe-env allowlist
-		// without blanket SUPERSET_* passthrough.
-		const raw: Record<string, string> = {};
-		for (const [key, value] of Object.entries(process.env)) {
-			if (typeof value === "string") {
-				raw[key] = value;
-			}
-		}
-		augmentPathForMacOS(raw);
-
-		const filtered = buildSafeEnv(raw);
-		// buildSafeEnv allows SUPERSET_* by prefix — remove all except
-		// SUPERSET_HOME_DIR for the host-service base env.
-		for (const key of Object.keys(filtered)) {
-			if (key.startsWith("SUPERSET_") && key !== "SUPERSET_HOME_DIR") {
-				delete filtered[key];
-			}
-		}
-
-		return { env: filtered, source: "fallback" };
-	}
+async function resolveTerminalShellSnapshot(): Promise<
+	Record<string, string>
+> {
+	return getStrictShellEnvironment();
 }
 
 async function buildHostServiceEnv(
 	organizationId: string,
 	secret: string,
 ): Promise<Record<string, string>> {
-	const { env: baseEnv } = await resolveHostServiceBaseEnv();
+	const shellSnapshot = await resolveTerminalShellSnapshot();
 	const orgDir = manifestDir(organizationId);
 
 	return {
-		...baseEnv,
+		...shellSnapshot,
 		// Host-service runtime keys
 		ELECTRON_RUN_AS_NODE: "1",
 		ORGANIZATION_ID: organizationId,

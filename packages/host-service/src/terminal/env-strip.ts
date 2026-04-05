@@ -31,8 +31,15 @@ const HOST_SERVICE_RUNTIME_KEYS = new Set([
 /** Node/app keys that should not reach user terminals. */
 const NODE_APP_KEYS = new Set(["NODE_ENV", "NODE_OPTIONS", "NODE_PATH"]);
 
-/** Prefixes for build-tool env vars that must not leak. */
-const STRIP_PREFIXES = ["VITE_", "NEXT_PUBLIC_", "TURBO_"];
+/** Prefixes for dev-runner, Electron runtime, and build-tool env vars that must not leak. */
+const STRIP_PREFIXES = [
+	"npm_",
+	"npm_config_",
+	"ELECTRON_",
+	"VITE_",
+	"NEXT_PUBLIC_",
+	"TURBO_",
+];
 
 /** Explicit Superset support keys to keep when present. */
 const SUPERSET_KEEP_KEYS = new Set([

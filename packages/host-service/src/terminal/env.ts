@@ -4,10 +4,10 @@
  * Composes the final PTY env from:
  * - env-strip.ts: runtime env stripping
  * - shell-launch.ts: shell resolution, bootstrap env, launch args
- * - this file: locale normalization, metadata injection, final assembly
+ * - this file: shell snapshot preservation, locale, metadata, final assembly
  *
- * This is the single source of truth for v2 PTY env construction.
- * Does NOT reuse the v1 desktop terminal env builder.
+ * PTY env is built from a preserved shell snapshot captured at host-service
+ * startup — never from the live host-service process.env.
  */
 
 // Re-export sub-modules for consumers that import from "./env"
@@ -22,6 +22,52 @@ export type { ShellBootstrapParams, ShellLaunchParams } from "./shell-launch";
 
 import { stripTerminalRuntimeEnv } from "./env-strip";
 import { getShellBootstrapEnv } from "./shell-launch";
+
+// ── Shell snapshot preservation ──────────────────────────────────────
+
+/**
+ * The preserved shell-derived base env, captured once at host-service startup.
+ * PTY construction reads from this — never from live process.env.
+ */
+let _terminalBaseEnv: Record<string, string> | null = null;
+
+/**
+ * Capture the terminal base env from the current process.env at startup.
+ *
+ * Must be called once, early in host-service initialization, before any
+ * runtime code modifies process.env. The host-service process env at this
+ * point is: shellSnapshot + explicit runtime additions from desktop.
+ * Stripping the known runtime additions recovers the original shell snapshot.
+ */
+export function initTerminalBaseEnv(): void {
+	const snapshot: Record<string, string> = {};
+	for (const [key, value] of Object.entries(process.env)) {
+		if (typeof value === "string") {
+			snapshot[key] = value;
+		}
+	}
+	_terminalBaseEnv = stripTerminalRuntimeEnv(snapshot);
+}
+
+/**
+ * Return the preserved shell snapshot for PTY env construction.
+ * Throws if initTerminalBaseEnv() was not called at startup.
+ */
+export function getTerminalBaseEnv(): Record<string, string> {
+	if (!_terminalBaseEnv) {
+		throw new Error(
+			"Terminal base env not initialized. Call initTerminalBaseEnv() at host-service startup.",
+		);
+	}
+	return { ..._terminalBaseEnv };
+}
+
+/**
+ * Reset preserved terminal base env. For testing only.
+ */
+export function resetTerminalBaseEnvForTests(): void {
+	_terminalBaseEnv = null;
+}
 
 // ── Locale ───────────────────────────────────────────────────────────
 
@@ -48,13 +94,20 @@ interface BuildV2TerminalEnvParams {
 	workspaceId: string;
 	workspacePath: string;
 	rootPath: string;
+	hostServiceVersion: string;
+	supersetEnv: "development" | "production";
+	agentHookPort: string;
+	agentHookVersion: string;
 }
 
 /**
  * Build the final v2 PTY environment.
  *
+ * baseEnv must be the preserved shell snapshot from getTerminalBaseEnv(),
+ * not a snapshot of host-service process.env.
+ *
  * Assembly order:
- * 1. Strip runtime/secret keys from host-service process env
+ * 1. Start from baseEnv (already stripped at init time)
  * 2. Merge shell bootstrap env (zsh ZDOTDIR redirect, etc.)
  * 3. Inject public terminal surface (TERM, TERM_PROGRAM, COLORTERM, LANG)
  * 4. Inject Superset v2 metadata (terminal/workspace/agent hook vars)
@@ -71,10 +124,14 @@ export function buildV2TerminalEnv(
 		workspaceId,
 		workspacePath,
 		rootPath,
+		hostServiceVersion,
+		supersetEnv,
+		agentHookPort,
+		agentHookVersion,
 	} = params;
 
-	// 1. Strip runtime keys
-	const env = stripTerminalRuntimeEnv(baseEnv);
+	// 1. Copy the base (already stripped shell snapshot)
+	const env = { ...baseEnv };
 
 	// 2. Merge shell bootstrap env
 	const bootstrapEnv = getShellBootstrapEnv({
@@ -87,7 +144,7 @@ export function buildV2TerminalEnv(
 	// 3. Public terminal surface
 	env.TERM = "xterm-256color";
 	env.TERM_PROGRAM = "Superset";
-	env.TERM_PROGRAM_VERSION = baseEnv.HOST_SERVICE_VERSION || "unknown";
+	env.TERM_PROGRAM_VERSION = hostServiceVersion;
 	env.COLORTERM = "truecolor";
 	env.LANG = normalizeUtf8Locale(baseEnv);
 	env.PWD = cwd;
@@ -97,16 +154,9 @@ export function buildV2TerminalEnv(
 	env.SUPERSET_WORKSPACE_ID = workspaceId;
 	env.SUPERSET_WORKSPACE_PATH = workspacePath;
 	env.SUPERSET_ROOT_PATH = rootPath;
-	env.SUPERSET_ENV =
-		baseEnv.NODE_ENV === "development" ? "development" : "production";
-
-	// Explicit agent hook vars (authoritative values from host-service process env)
-	if (baseEnv.SUPERSET_AGENT_HOOK_PORT) {
-		env.SUPERSET_AGENT_HOOK_PORT = baseEnv.SUPERSET_AGENT_HOOK_PORT;
-	}
-	if (baseEnv.SUPERSET_AGENT_HOOK_VERSION) {
-		env.SUPERSET_AGENT_HOOK_VERSION = baseEnv.SUPERSET_AGENT_HOOK_VERSION;
-	}
+	env.SUPERSET_ENV = supersetEnv;
+	env.SUPERSET_AGENT_HOOK_PORT = agentHookPort;
+	env.SUPERSET_AGENT_HOOK_VERSION = agentHookVersion;
 
 	return env;
 }

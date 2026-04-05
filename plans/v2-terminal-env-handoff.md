@@ -9,6 +9,7 @@ Define and implement a v2 terminal env contract that:
 - matches common terminal patterns from GitHub sources
 - preserves user-needed shell env for normal shell behavior
 - includes explicit shell integration behavior for common shells
+- uses only a shell-derived base env for PTYs
 - avoids leaking desktop, Electron, and host-service runtime env into PTYs
 - keeps the useful parts of the v1 Superset notification contract, but renames
   the v2-specific keys to make the contract clearer
@@ -79,19 +80,25 @@ What these tools converge on:
 
 ### 1. Env boundary
 
-The shell-derived env snapshot is the boundary.
+The shell-derived env snapshot is the only valid PTY base env.
 
 For v2:
 
 - desktop should resolve a shell-derived env snapshot once
 - host-service should be spawned from that shell-derived snapshot plus explicit
   host-service runtime vars
-- PTYs should be built from a sanitized host-service env, not from raw
-  `process.env`
+- host-service should preserve that shell snapshot as a dedicated terminal base
+  env, separate from its own runtime `process.env`
+- PTYs should be built from that dedicated shell snapshot plus explicit v2
+  terminal vars
 
-Do not pass arbitrary desktop `process.env` through to host-service.
+Desktop `process.env` is not a valid PTY env source.
 
-Do not pass arbitrary host-service `process.env` through to user terminals.
+Host-service `process.env` is not a valid PTY env source.
+
+Host-service runtime vars may exist in the host-service process env for the
+service itself, but they are not part of the PTY base env and must never be
+passed through to user terminals by default.
 
 ### 2. Shell-derived base env
 
@@ -102,17 +109,19 @@ Use the existing shell env primitive in:
 But tighten the semantics:
 
 - normal path: use the resolved shell snapshot
-- fallback path: use a conservative filtered fallback, never a raw
-  passthrough-to-PTY fallback
+- failure path: fail closed for terminal env construction
 
 Important:
 
 - the current helper falls back to `process.env` when shell env resolution
   fails
-- that fallback is acceptable for recovering desktop child-process execution
-  but not acceptable as a PTY contract by itself
+- that fallback must not be used for v2 terminal env construction
+- if a real shell snapshot cannot be resolved, v2 terminal creation should fail
+  with an explicit error instead of silently inheriting desktop or host-service
+  runtime env
 
-For v2, PTY creation must never degenerate into `...process.env`.
+For v2, PTY creation must never degenerate into `...process.env` or any other
+desktop-runtime fallback.
 
 ### 3. Public terminal env
 
@@ -263,14 +272,14 @@ If v2 needs those later, use shell integration and OSC sequences instead.
 
 ### Host-service launch env
 
-`apps/desktop/src/main/lib/host-service-manager.ts` currently builds the
-host-service env by starting from desktop `process.env` and then merging shell
-path data.
+`apps/desktop/src/main/lib/host-service-manager.ts` must launch host-service
+from a real shell snapshot plus explicit host-service runtime additions.
 
-That means the host-service process already inherits more desktop runtime state
-than it should.
+It must not start from desktop `process.env`.
 
-V2 should tighten the boundary here first.
+Host-service must also preserve the original shell snapshot as the dedicated
+terminal base env used for PTY construction. PTYs must not be derived from the
+live host-service `process.env`.
 
 ### PTY context available in host-service
 
@@ -322,39 +331,36 @@ Secondary follow-up targets:
 1. Tighten host-service spawn env in
    `apps/desktop/src/main/lib/host-service-manager.ts`.
 
-   Implement a new local helper:
+   Implement a strict helper:
 
-   - `resolveHostServiceBaseEnv(): Promise<{ env: Record<string, string>; source: "shell" | "fallback" }>`
+   - `resolveTerminalShellSnapshot(): Promise<Record<string, string>>`
 
    Required behavior:
 
    - first, call `getShellEnvironment()`
-   - on success, use that shell snapshot as the base env and return
-     `source: "shell"`
-   - on failure, build a fallback env from string entries in desktop
-     `process.env`, run `augmentPathForMacOS(...)`, then filter it through the
-     same safe-env allowlist currently used by desktop terminal env filtering,
-     with two adjustments:
-     - do not use blanket `SUPERSET_*` prefix passthrough
-     - keep `SUPERSET_HOME_DIR` as an explicit key
-   - return that filtered fallback with `source: "fallback"`
+   - accept the result only when it is a real shell snapshot
+   - do not accept the helper's internal `process.env` fallback for terminal
+     env construction
+   - if a real shell snapshot cannot be resolved, throw an explicit error that
+     blocks v2 terminal creation
 
-   This fallback policy is final for v2:
+   This policy is final for v2:
 
-   - shell resolution failure is allowed
+   - shell resolution failure is terminal-blocking
    - raw `process.env` passthrough is not allowed
+   - filtered desktop-runtime fallback is not allowed
 
 2. Build the final host-service process env explicitly in
    `apps/desktop/src/main/lib/host-service-manager.ts`.
 
    Replace the current `buildHostServiceEnv()` implementation with:
 
-   - `baseEnv` from `resolveHostServiceBaseEnv()`
+   - `shellSnapshot` from `resolveTerminalShellSnapshot()`
    - explicit runtime additions only
 
    The final host-service env must contain exactly:
 
-   - all keys from `baseEnv`
+   - all keys from `shellSnapshot`
    - `ELECTRON_RUN_AS_NODE=1`
    - `ORGANIZATION_ID`
    - `DEVICE_CLIENT_ID`
@@ -382,6 +388,10 @@ Secondary follow-up targets:
    - `SUPERSET_HOME_DIR` comes from the already-resolved desktop app env
 
    Do not start from `...(process.env as Record<string, string>)`.
+
+   Also persist the original `shellSnapshot` in host-service as the dedicated
+   PTY base env. PTY construction must use that preserved snapshot, not
+   host-service `process.env`.
 
 3. Add `packages/host-service/src/terminal/env.ts` as the single source of
    truth for v2 PTY env construction.
@@ -442,7 +452,8 @@ Secondary follow-up targets:
 6. Make PTY env filtering deterministic in
    `stripTerminalRuntimeEnv(...)`.
 
-   Start from a string-only snapshot of host-service `process.env`.
+   Start from the dedicated terminal base env snapshot captured from the user's
+   shell, not from a snapshot of host-service `process.env`.
 
    Remove these exact runtime keys:
 
@@ -468,6 +479,9 @@ Secondary follow-up targets:
 
    Remove keys with these prefixes:
 
+   - `npm_`
+   - `npm_config_`
+   - `ELECTRON_`
    - `VITE_`
    - `NEXT_PUBLIC_`
    - `TURBO_`
@@ -509,11 +523,13 @@ Secondary follow-up targets:
 
    - query the workspace as it does now
    - query the related project to derive `rootPath`
-   - capture a string-only snapshot of host-service `process.env`
-   - resolve `shell` via `resolveLaunchShell(baseEnv)`
+   - load the preserved shell snapshot for PTY env construction
+   - resolve `shell` via `resolveLaunchShell(shellSnapshot)`
    - resolve `shellArgs` via `getShellLaunchArgs(...)`
    - build `ptyEnv` via `buildV2TerminalEnv(...)`
    - call `spawn(shell, shellArgs, { name: "xterm-256color", cwd, cols, rows, env: ptyEnv })`
+
+   It must not read host-service `process.env` as the PTY base env.
 
    It must no longer call `spawn(resolveShell(), [], { env: { ...process.env, ... } })`.
 
@@ -526,8 +542,10 @@ Secondary follow-up targets:
 ## Acceptance criteria
 
 - v2 host-service no longer spawns PTYs from raw `process.env`
+- v2 host-service no longer uses host-service `process.env` as the PTY base env
 - v2 host-service launch env no longer starts from raw desktop `process.env`
-  without a tightening step
+- v2 terminal creation fails closed when a real shell snapshot cannot be
+  resolved
 - user-needed shell env still works for normal tools and version managers
 - zsh, bash, and fish launch with Superset shell integration behavior
 - v2 PTY env includes `TERM_PROGRAM=Superset`
@@ -554,12 +572,16 @@ Required test coverage:
 - shell snapshot path
   - when a shell-derived env contains user PATH/tooling vars that are missing
     from app env, PTY env preserves them
-  - when shell resolution fails, fallback env is filtered and does not devolve
-    into raw `process.env`
+  - PTY env is built from the preserved shell snapshot, not live host-service
+    `process.env`
+  - when shell resolution fails, terminal creation fails explicitly instead of
+    falling back to desktop or host-service runtime env
 
 - leakage prevention
   - app/runtime secrets do not reach PTY env
   - host-service control vars do not reach PTY env
+  - dev-runner and Electron runtime vars do not reach PTY env:
+    `npm_*`, `npm_config_*`, `ELECTRON_*`
   - removed legacy vars do not reach PTY env:
     `SUPERSET_PANE_ID`, `SUPERSET_TAB_ID`, `SUPERSET_PORT`,
     `SUPERSET_HOOK_VERSION`
@@ -584,8 +606,8 @@ Required test coverage:
   - missing project/root metadata degrades to empty string rather than failure
 
 - one integration-level PTY spawn test
-  - host-service terminal session creation uses shell args plus built env rather
-    than `spawn(..., [], { env: { ...process.env } })`
+  - host-service terminal session creation uses the preserved shell snapshot
+    plus built env rather than `spawn(..., [], { env: { ...process.env } })`
 
 Avoid low-value tests that only restate helper internals line-by-line or assert
 every single key in isolation without covering a real regression risk.
