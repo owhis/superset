@@ -17,7 +17,7 @@ report_violation() {
 		echo "$message"
 		echo "$output"
 		echo
-		failures=1
+		((failures++)) || true
 	fi
 }
 
