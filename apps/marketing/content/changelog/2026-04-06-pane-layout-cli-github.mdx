@@ -1,0 +1,62 @@
+---
+title: New pane layout system, Superset CLI, and GitHub integration for all
+date: 2026-04-06
+image: /changelog/IMAGE_PLACEHOLDER.png
+---
+
+{/* TODO: Replace header image with a screenshot of the new v2 workspace with panes */}
+
+## Redesigned Pane Layout System <PRBadge url="https://github.com/superset-sh/superset/pull/3088" />
+
+The v2 workspace now uses a completely redesigned pane layout built on a new `@superset/panes` package. The model moves from a rigid hierarchy to a flexible Tab → Split → Pane structure with weighted, resizable splits.
+
+- Drag and drop panes to rearrange them <PRBadge url="https://github.com/superset-sh/superset/pull/3090" />
+- Drag to reorder tabs within a tab group <PRBadge url="https://github.com/superset-sh/superset/pull/3094" />
+- Right-click pane headers for a context menu (split, close, close others) <PRBadge url="https://github.com/superset-sh/superset/pull/3196" />
+- Double-click a split separator to equalize pane sizes <PRBadge url="https://github.com/superset-sh/superset/pull/3101" />
+- Closing the active pane now focuses the nearest sibling instead of the first pane <PRBadge url="https://github.com/superset-sh/superset/pull/3198" />
+
+## Superset CLI <PRBadge url="https://github.com/superset-sh/superset/pull/3194" />
+
+{/* TODO: Add a screenshot of the CLI in action */}
+
+A new `superset` CLI lets you manage Superset from your terminal. Log in via OAuth device flow, then manage tasks, orgs, and workspaces without opening the app.
+
+- `superset auth login` — authenticate via browser with device flow
+- `superset tasks list/create/update/delete` — full task CRUD
+- `superset org list/switch` — manage and switch organizations
+- `--json` output mode for scripting and agent use
+
+## Git Changes Sidebar <PRBadge url="https://github.com/superset-sh/superset/pull/3177" />
+
+The v2 workspace now has a Changes tab in the right sidebar showing your branch's full git state — ahead/behind status, commit count, and a filterable file list.
+
+- Filter by all changes, uncommitted only, a single commit, or a commit range
+- Switch base branches from a searchable dropdown
+- Inline branch rename for unpushed branches
+
+## GitHub Integration is Now Free <PRBadge url="https://github.com/superset-sh/superset/pull/3152" />
+
+GitHub integration is now available on all plans. Connect your GitHub account to get PR review, issue linking, and push directly from the desktop without a Pro subscription.
+
+## Improvements
+
+- **Fast file search** - File search (Cmd+P) now uses VS Code's path-aware fuzzy scorer for dramatically better ranking — filename matches rank above path-only matches, and the index pre-warms on workspace open for instant first results <PRBadge url="https://github.com/superset-sh/superset/pull/3136" />
+- **V2 top bar** - Right sidebar toggle, org dropdown in the sidebar, and a unified "Open In" button replacing the scattered open options <PRBadge url="https://github.com/superset-sh/superset/pull/3197" />
+- **Terminal theme & font settings** - The v2 terminal now respects your theme and font preferences, matching v1 feature parity <PRBadge url="https://github.com/superset-sh/superset/pull/3155" />
+- **V2 workspace hotkeys** - Keyboard shortcuts for pane management (split, close, navigate, resize) are now wired up in the v2 workspace <PRBadge url="https://github.com/superset-sh/superset/pull/3190" />
+- **Host service durability** - The host service now survives app quits and is re-adopted on next launch, so terminal sessions and running processes persist across restarts <PRBadge url="https://github.com/superset-sh/superset/pull/3157" />
+- **Notification sound volume** - A new dropdown in settings lets you adjust the volume for notification sounds <PRBadge url="https://github.com/superset-sh/superset/pull/3073" />
+- **Resolve review comments** - Resolve buttons are now available directly in the review tab <PRBadge url="https://github.com/superset-sh/superset/pull/3078" />
+- **Public roadmap** - Superset now has a public roadmap page at superset.sh/roadmap <PRBadge url="https://github.com/superset-sh/superset/pull/3074" />
+
+---
+
+**Bug fixes**
+
+- Fixed macOS quit behavior — Cmd+Q and Dock Quit now fully exit the app instead of backgrounding to tray <PRBadge url="https://github.com/superset-sh/superset/pull/3205" />
+- Fixed file icons resolving to wrong paths on nested workspace routes <PRBadge url="https://github.com/superset-sh/superset/pull/3199" />
+- Fixed terminal dimensions not being sent correctly after attach, which broke TUI apps <PRBadge url="https://github.com/superset-sh/superset/pull/3154" />
+- Fixed duplicate panes appearing when file-open mode was set to new-tab <PRBadge url="https://github.com/superset-sh/superset/pull/3093" />
+- Pinned axios to block a known supply chain attack vector <PRBadge url="https://github.com/superset-sh/superset/pull/3043" />
+- Fixed close workspace shortcut conflicting with tab close — changed to ⌘⇧⌫ <PRBadge url="https://github.com/superset-sh/superset/pull/3037" />
