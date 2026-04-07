@@ -20,8 +20,14 @@ export function SortableWorkspaceItem({
 	onHoverCardOpen,
 	shortcutLabel,
 }: SortableWorkspaceItemProps) {
-	const { setNodeRef, listeners, isDragging, transform, transition } =
-		useSortable({ id: sortableId });
+	const {
+		setNodeRef,
+		attributes,
+		listeners,
+		isDragging,
+		transform,
+		transition,
+	} = useSortable({ id: sortableId });
 
 	return (
 		<div
@@ -32,6 +38,7 @@ export function SortableWorkspaceItem({
 				opacity: isDragging ? 0.5 : undefined,
 				borderLeft: accentColor ? `2px solid ${accentColor}` : undefined,
 			}}
+			{...attributes}
 			{...listeners}
 		>
 			<DashboardSidebarWorkspaceItem

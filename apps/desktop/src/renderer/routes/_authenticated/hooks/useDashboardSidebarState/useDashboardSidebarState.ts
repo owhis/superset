@@ -260,8 +260,18 @@ export function useDashboardSidebarState() {
 
 				let newTabOrder: number;
 				if (firstSectionOrder != null) {
-					// Place just before the first section
-					newTabOrder = firstSectionOrder - 1;
+					// Place right before the first section, after existing ungrouped
+					const ungroupedOrders = Array.from(
+						collections.v2WorkspaceLocalState.state.values(),
+					)
+						.filter(
+							(item) =>
+								item.sidebarState.projectId === projectId &&
+								item.workspaceId !== workspaceId &&
+								item.sidebarState.sectionId === null,
+						)
+						.map((item) => ({ tabOrder: item.sidebarState.tabOrder }));
+					newTabOrder = getNextTabOrder(ungroupedOrders);
 				} else {
 					// No sections — append to end
 					const ungroupedOrders = Array.from(

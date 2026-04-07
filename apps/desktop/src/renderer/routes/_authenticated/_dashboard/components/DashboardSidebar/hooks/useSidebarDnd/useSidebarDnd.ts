@@ -141,6 +141,7 @@ export function useSidebarDnd({
 	// Sync from external data when items or their order/membership changes
 	const prevFingerprintRef = useRef("");
 	useEffect(() => {
+		if (activeId) return; // Don't reset during active drag
 		const fingerprint = projectChildren
 			.map((c) =>
 				c.type === "workspace"
@@ -152,7 +153,7 @@ export function useSidebarDnd({
 			prevFingerprintRef.current = fingerprint;
 			setFlatItems(buildFlatItems(projectChildren));
 		}
-	}, [projectChildren]);
+	}, [projectChildren, activeId]);
 
 	const collapsedSectionIds = useMemo(() => {
 		const set = new Set<string>();
