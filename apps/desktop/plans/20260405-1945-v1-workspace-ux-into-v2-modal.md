@@ -4,9 +4,9 @@ This doc replaces the earlier split plan and API draft.
 
 ## Goal
 
-Match the V1 create-workspace experience exactly while keeping the V2 stack:
+Match the V1 create-workspace experience on the V2 stack, with one intentional addition: explicit host-target selection.
 
-1. V1 composer UX
+1. V1 composer UX and semantics
 2. V2 routes, collections, sidebar, and workspace rows
 3. host-service as the semantic backend
 4. `@superset/workspace-client` as the only host transport
@@ -19,7 +19,7 @@ Match the V1 create-workspace experience exactly while keeping the V2 stack:
 Owns:
 
 1. modal draft state
-2. exact V1 UI
+2. V1 composer UI plus host-target selection
 3. picking one `WorkspaceHostTarget`
 4. optimistic UI and navigation
 
@@ -68,7 +68,7 @@ Stay thin:
 
 ## Target UX
 
-Keep the V1 surface:
+Keep the V1 surface, plus explicit host target selection:
 
 1. single composer
 2. workspace name
@@ -81,9 +81,10 @@ Keep the V1 surface:
 9. agent picker
 10. setup toggle
 11. inline compare-base/worktree picker
-12. auto-open/navigate after create
+12. host target selection
+13. auto-open/navigate after create
 
-Do not keep the current V2 tabbed modal or visible host picker if they change the V1 experience.
+Do not keep the current V2 tabbed modal. Keep host target selection available without changing the core V1 composer flow.
 
 ## Target Host API
 
@@ -155,11 +156,11 @@ Rules:
 
 ### Phase 1
 
-1. Replace the V2 modal UI with the exact V1 composer
+1. Replace the V2 modal UI with the V1 composer plus explicit host target selection
 2. Expand the V2 draft/store to hold full V1 state
 3. Add `workspaceCreation.getContext`
 4. Add `workspaceCreation.searchBranches`
-5. Add semantic `workspaceCreation.create`
+5. Add semantic `workspaceCreation.create` with full V1 outcome resolution (`created_workspace`, `opened_existing_workspace`, `opened_worktree`, `adopted_external_worktree`)
 6. Add `workspace.getInitState`
 7. Add `workspace:init:changed`
 
@@ -167,13 +168,13 @@ Rules:
 
 1. Move PR and issue linking behind host-service
 2. Move attachments to upload refs
-3. Port open/adopt worktree behavior fully
-4. Remove remaining V2-only modal shell pieces
+3. Remove remaining V2-only modal shell pieces
 
 ## Decisions Locked
 
-1. Exact V1 UX wins over preserving the current V2 modal structure.
+1. V1 composer UX and semantics win over preserving the current V2 modal structure.
 2. Host-service is the only semantic backend boundary for modal behavior.
 3. `@superset/workspace-client` is the only host transport boundary.
 4. Live init/setup state should extend the unified event bus.
-5. Visible host selection is not part of first-pass parity.
+5. Visible host selection is intentionally part of the first-pass UX.
+6. Phase 1 `workspaceCreation.create` includes full V1 create/open/adopt semantics.
