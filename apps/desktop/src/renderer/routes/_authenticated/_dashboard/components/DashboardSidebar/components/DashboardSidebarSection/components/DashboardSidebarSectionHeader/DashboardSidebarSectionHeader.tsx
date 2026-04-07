@@ -74,13 +74,18 @@ export const DashboardSidebarSectionHeader = forwardRef<
 				)}
 
 				{isRenaming ? (
-					<RenameInput
-						value={renameValue}
-						onChange={onRenameValueChange}
-						onSubmit={onSubmitRename}
-						onCancel={onCancelRename}
-						className="h-5 w-auto shrink px-1 py-0 text-[11px] font-medium text-center bg-transparent border-none outline-none text-muted-foreground"
-					/>
+					<div
+						className="shrink min-w-0"
+						style={{ width: `${Math.max(renameValue.length + 2, 4)}ch` }}
+					>
+						<RenameInput
+							value={renameValue}
+							onChange={onRenameValueChange}
+							onSubmit={onSubmitRename}
+							onCancel={onCancelRename}
+							className="h-5 w-full px-1 py-0 text-[11px] font-medium text-center bg-transparent border-none outline-none text-muted-foreground"
+						/>
+					</div>
 				) : (
 					<span className="shrink-0 truncate">{section.name}</span>
 				)}
