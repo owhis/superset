@@ -317,7 +317,9 @@ function WorkspacePage() {
 			});
 		}
 	}, [workspace?.worktreePath, resolvedDefaultApp, mutateOpenInApp, projectId]);
-	useHotkey("OPEN_IN_APP", handleOpenInApp);
+	// Note: OPEN_IN_APP hotkey is registered by the TopBar's OpenInMenuButton,
+	// not here, to avoid duplicate handlers that would fire two openInApp mutations
+	// on a single keypress (causing the IDE to open an untitled window).
 
 	// Copy path shortcut
 	const { copyToClipboard } = useCopyToClipboard();
