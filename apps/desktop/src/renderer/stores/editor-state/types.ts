@@ -48,6 +48,12 @@ export interface PendingTabCloseState {
 	isSaving: boolean;
 }
 
+export interface PendingTerminalTabCloseState {
+	workspaceId: string;
+	tabId: string;
+	terminalPaneIds: string[];
+}
+
 export type EditorSaveResult =
 	| { status: "saved" }
 	| {

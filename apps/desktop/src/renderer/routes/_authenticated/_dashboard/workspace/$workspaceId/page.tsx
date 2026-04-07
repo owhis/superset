@@ -9,6 +9,7 @@ import { electronTrpcClient as trpcClient } from "renderer/lib/trpc-client";
 import { usePresets } from "renderer/react-query/presets";
 import type { WorkspaceSearchParams } from "renderer/routes/_authenticated/_dashboard/utils/workspace-navigation";
 import { navigateToWorkspace } from "renderer/routes/_authenticated/_dashboard/utils/workspace-navigation";
+import { CloseTerminalDialog } from "renderer/routes/_authenticated/_dashboard/workspace/$workspaceId/components/CloseTerminalDialog";
 import { usePresetHotkeys } from "renderer/routes/_authenticated/_dashboard/workspace/$workspaceId/hooks/usePresetHotkeys";
 import { useWorkspaceRunCommand } from "renderer/routes/_authenticated/_dashboard/workspace/$workspaceId/hooks/useWorkspaceRunCommand";
 import { NotFound } from "renderer/routes/not-found";
@@ -21,6 +22,8 @@ import { WorkspaceLayout } from "renderer/screens/main/components/WorkspaceView/
 import { useCreateOrOpenPR, usePRStatus } from "renderer/screens/main/hooks";
 import {
 	cancelPendingTabClose,
+	cancelPendingTerminalTabClose,
+	confirmPendingTerminalTabClose,
 	discardAndClosePendingTab,
 	requestPaneClose,
 	requestTabClose,
@@ -184,6 +187,11 @@ function WorkspacePage() {
 	);
 	const pendingTabClose = useEditorSessionsStore((s) =>
 		s.pendingTabClose?.workspaceId === workspaceId ? s.pendingTabClose : null,
+	);
+	const pendingTerminalTabClose = useEditorSessionsStore((s) =>
+		s.pendingTerminalTabClose?.workspaceId === workspaceId
+			? s.pendingTerminalTabClose
+			: null,
 	);
 
 	const { toggleWorkspaceRun } = useWorkspaceRunCommand({
@@ -506,6 +514,16 @@ function WorkspacePage() {
 				}
 				discardLabel="Discard & Close Tab"
 				saveLabel="Save & Close Tab"
+			/>
+			<CloseTerminalDialog
+				open={pendingTerminalTabClose !== null}
+				onOpenChange={(open) => {
+					if (!open) {
+						cancelPendingTerminalTabClose(workspaceId);
+					}
+				}}
+				onConfirm={() => confirmPendingTerminalTabClose(workspaceId)}
+				terminalCount={pendingTerminalTabClose?.terminalPaneIds.length ?? 0}
 			/>
 		</div>
 	);

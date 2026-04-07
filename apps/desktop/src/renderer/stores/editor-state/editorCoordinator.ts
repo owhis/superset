@@ -594,6 +594,13 @@ export function requestPreviewReplacement(
 	return true;
 }
 
+function collectActiveTerminalPanes(tabId: string): string[] {
+	const tabsState = useTabsStore.getState();
+	return Object.values(tabsState.panes)
+		.filter((pane) => pane.tabId === tabId && pane.type === "terminal")
+		.map((pane) => pane.id);
+}
+
 export function requestTabClose(tabId: string): boolean {
 	const tab = useTabsStore.getState().tabs.find((item) => item.id === tabId);
 	if (!tab) {
@@ -601,19 +608,29 @@ export function requestTabClose(tabId: string): boolean {
 	}
 
 	const dirtyDocs = collectDirtyTabDocuments(tabId);
-	if (dirtyDocs.length === 0) {
-		useTabsStore.getState().removeTab(tabId);
-		return true;
+	if (dirtyDocs.length > 0) {
+		useEditorSessionsStore.getState().setPendingTabClose({
+			workspaceId: tab.workspaceId,
+			tabId,
+			paneIds: dirtyDocs.map((entry) => entry.paneId),
+			documentKeys: dirtyDocs.map((entry) => entry.documentKey),
+			isSaving: false,
+		});
+		return false;
 	}
 
-	useEditorSessionsStore.getState().setPendingTabClose({
-		workspaceId: tab.workspaceId,
-		tabId,
-		paneIds: dirtyDocs.map((entry) => entry.paneId),
-		documentKeys: dirtyDocs.map((entry) => entry.documentKey),
-		isSaving: false,
-	});
-	return false;
+	const terminalPaneIds = collectActiveTerminalPanes(tabId);
+	if (terminalPaneIds.length > 0) {
+		useEditorSessionsStore.getState().setPendingTerminalTabClose({
+			workspaceId: tab.workspaceId,
+			tabId,
+			terminalPaneIds,
+		});
+		return false;
+	}
+
+	useTabsStore.getState().removeTab(tabId);
+	return true;
 }
 
 export function cancelPendingIntent(paneId: string): void {
@@ -728,4 +745,23 @@ export function cancelPendingTabClose(workspaceId: string): void {
 	}
 
 	useEditorSessionsStore.getState().setPendingTabClose(null);
+}
+
+export function confirmPendingTerminalTabClose(workspaceId: string): void {
+	const pending = useEditorSessionsStore.getState().pendingTerminalTabClose;
+	if (!pending || pending.workspaceId !== workspaceId) {
+		return;
+	}
+
+	useEditorSessionsStore.getState().setPendingTerminalTabClose(null);
+	useTabsStore.getState().removeTab(pending.tabId);
+}
+
+export function cancelPendingTerminalTabClose(workspaceId: string): void {
+	const pending = useEditorSessionsStore.getState().pendingTerminalTabClose;
+	if (!pending || pending.workspaceId !== workspaceId) {
+		return;
+	}
+
+	useEditorSessionsStore.getState().setPendingTerminalTabClose(null);
 }

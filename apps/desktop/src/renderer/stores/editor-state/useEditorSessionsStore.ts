@@ -4,6 +4,7 @@ import type {
 	EditorPendingIntent,
 	EditorSessionMeta,
 	PendingTabCloseState,
+	PendingTerminalTabCloseState,
 } from "./types";
 
 type EditorSessionPatch = Partial<
@@ -13,6 +14,7 @@ type EditorSessionPatch = Partial<
 interface EditorSessionsStoreState {
 	sessions: Record<string, EditorSessionMeta>;
 	pendingTabClose: PendingTabCloseState | null;
+	pendingTerminalTabClose: PendingTerminalTabCloseState | null;
 	bindSession: (paneId: string, documentKey: string) => void;
 	replaceDocumentKey: (
 		previousDocumentKey: string,
@@ -26,12 +28,16 @@ interface EditorSessionsStoreState {
 	) => void;
 	clearSession: (paneId: string) => void;
 	setPendingTabClose: (pending: PendingTabCloseState | null) => void;
+	setPendingTerminalTabClose: (
+		pending: PendingTerminalTabCloseState | null,
+	) => void;
 }
 
 export const useEditorSessionsStore = create<EditorSessionsStoreState>(
 	(set) => ({
 		sessions: {},
 		pendingTabClose: null,
+		pendingTerminalTabClose: null,
 		bindSession: (paneId, documentKey) => {
 			set((state) => {
 				const existing = state.sessions[paneId];
@@ -122,5 +128,7 @@ export const useEditorSessionsStore = create<EditorSessionsStoreState>(
 			});
 		},
 		setPendingTabClose: (pendingTabClose) => set({ pendingTabClose }),
+		setPendingTerminalTabClose: (pendingTerminalTabClose) =>
+			set({ pendingTerminalTabClose }),
 	}),
 );
