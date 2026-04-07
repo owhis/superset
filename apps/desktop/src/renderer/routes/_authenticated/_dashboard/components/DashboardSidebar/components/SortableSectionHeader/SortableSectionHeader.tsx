@@ -2,6 +2,7 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { useState } from "react";
 import { useDashboardSidebarState } from "renderer/routes/_authenticated/hooks/useDashboardSidebarState";
+import { PROJECT_COLOR_DEFAULT } from "shared/constants/project-colors";
 import type { DashboardSidebarSection } from "../../types";
 import { DashboardSidebarSectionContextMenu } from "../DashboardSidebarSection/components/DashboardSidebarSectionContextMenu";
 import { DashboardSidebarSectionHeader } from "../DashboardSidebarSection/components/DashboardSidebarSectionHeader";
@@ -34,6 +35,9 @@ export function SortableSectionHeader({
 		isDragging,
 	} = useSortable({ id: sortableId });
 
+	const hasColor =
+		section.color != null && section.color !== PROJECT_COLOR_DEFAULT;
+
 	const handleSubmitRename = () => {
 		const trimmed = renameValue.trim();
 		if (trimmed) onRename(section.id, trimmed);
@@ -47,6 +51,9 @@ export function SortableSectionHeader({
 				transform: CSS.Translate.toString(transform),
 				transition,
 				opacity: isDragging ? 0.5 : undefined,
+				borderLeft: hasColor
+					? `2px solid ${section.color}`
+					: "2px solid var(--color-border)",
 			}}
 		>
 			<DashboardSidebarSectionContextMenu
@@ -70,8 +77,8 @@ export function SortableSectionHeader({
 						setIsRenaming(true);
 					}}
 					onToggleCollapse={() => onToggleCollapse(section.id)}
-					dragHandleListeners={listeners}
-					dragHandleAttributes={attributes}
+					{...attributes}
+					{...listeners}
 				/>
 			</DashboardSidebarSectionContextMenu>
 		</div>
