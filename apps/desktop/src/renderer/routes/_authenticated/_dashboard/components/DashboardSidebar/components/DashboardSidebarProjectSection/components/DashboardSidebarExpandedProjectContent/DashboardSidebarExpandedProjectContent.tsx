@@ -92,23 +92,36 @@ export function DashboardSidebarExpandedProjectContent({
 										);
 									}
 
-									// During section drag, hide workspaces that belong to a section
-									if (activeType === "section" && groupInfo.has(parsed.realId))
-										return null;
-
 									const workspace = workspacesById.get(parsed.realId);
 									if (!workspace) return null;
 									const group = groupInfo.get(parsed.realId);
+									const isInSection = groupInfo.has(parsed.realId);
+									const hiddenBySectionDrag =
+										activeType === "section" && isInSection;
 
 									return (
-										<SortableWorkspaceItem
-											key={String(id)}
-											sortableId={String(id)}
-											workspace={workspace}
-											accentColor={group?.color}
-											onHoverCardOpen={() => onWorkspaceHover(parsed.realId)}
-											shortcutLabel={workspaceShortcutLabels.get(parsed.realId)}
-										/>
+										<AnimatePresence key={String(id)} initial={false}>
+											{!hiddenBySectionDrag && (
+												<motion.div
+													initial={{ height: 0, opacity: 0 }}
+													animate={{ height: "auto", opacity: 1 }}
+													exit={{ height: 0, opacity: 0 }}
+													transition={{ duration: 0.15, ease: "easeOut" }}
+												>
+													<SortableWorkspaceItem
+														sortableId={String(id)}
+														workspace={workspace}
+														accentColor={group?.color}
+														onHoverCardOpen={() =>
+															onWorkspaceHover(parsed.realId)
+														}
+														shortcutLabel={workspaceShortcutLabels.get(
+															parsed.realId,
+														)}
+													/>
+												</motion.div>
+											)}
+										</AnimatePresence>
 									);
 								})}
 							</SortableContext>
