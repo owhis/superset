@@ -167,13 +167,7 @@ export function DashboardSidebar({
 					</SortableContext>
 
 					{createPortal(
-						<DragOverlay
-							dropAnimation={{
-								sideEffects: defaultDropAnimationSideEffects({
-									styles: { active: { opacity: "0.5" } },
-								}),
-							}}
-						>
+						<DragOverlay dropAnimation={null}>
 							{activeProject && (
 								<div className="bg-background shadow-lg border-b border-border">
 									<DashboardSidebarProjectSection
