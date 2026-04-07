@@ -90,25 +90,24 @@ export const DashboardSidebarSectionHeader = forwardRef<
 					<span className="shrink-0 truncate">{section.name}</span>
 				)}
 
-				{isRenaming ? (
-					<div className="h-px w-4 bg-border shrink-0" />
-				) : null}
-				<div className={cn("grid shrink-0 items-center [&>*]:col-start-1 [&>*]:row-start-1", isRenaming && "hidden")}>
-					<span className="pointer-events-none text-[10px] font-normal tabular-nums transition-opacity duration-150 group-hover:opacity-0">
-						({section.workspaces.length})
-					</span>
-					<button
-						type="button"
-						onClick={(event) => {
-							event.stopPropagation();
-							onStartRename();
-						}}
-						className="flex items-center justify-center opacity-0 text-muted-foreground transition-[opacity,color] duration-150 group-hover:opacity-100 hover:text-foreground"
-						aria-label="Rename section"
-					>
-						<LuPencil className="size-3.5" />
-					</button>
-				</div>
+				{!isRenaming && (
+					<div className="grid shrink-0 items-center [&>*]:col-start-1 [&>*]:row-start-1">
+						<span className="pointer-events-none text-[10px] font-normal tabular-nums transition-opacity duration-150 group-hover:opacity-0">
+							({section.workspaces.length})
+						</span>
+						<button
+							type="button"
+							onClick={(event) => {
+								event.stopPropagation();
+								onStartRename();
+							}}
+							className="flex items-center justify-center opacity-0 text-muted-foreground transition-[opacity,color] duration-150 group-hover:opacity-100 hover:text-foreground"
+							aria-label="Rename section"
+						>
+							<LuPencil className="size-3.5" />
+						</button>
+					</div>
+				)}
 
 				<div className="h-px flex-1 bg-border" />
 
