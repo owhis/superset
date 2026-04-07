@@ -1,8 +1,4 @@
-import {
-	DndContext,
-	DragOverlay,
-	defaultDropAnimationSideEffects,
-} from "@dnd-kit/core";
+import { DndContext, DragOverlay } from "@dnd-kit/core";
 import {
 	SortableContext,
 	verticalListSortingStrategy,
@@ -46,6 +42,7 @@ export function DashboardSidebarExpandedProjectContent({
 		activeId,
 		activeType,
 		activeItem,
+		predictedColor,
 		groupInfo,
 		workspacesById,
 		sectionsById,
@@ -111,7 +108,9 @@ export function DashboardSidebarExpandedProjectContent({
 													<SortableWorkspaceItem
 														sortableId={String(id)}
 														workspace={workspace}
-														accentColor={group?.color}
+														accentColor={
+															activeId === id ? predictedColor : group?.color
+														}
 														onHoverCardOpen={() =>
 															onWorkspaceHover(parsed.realId)
 														}

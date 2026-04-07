@@ -3,7 +3,6 @@ import {
 	DndContext,
 	type DragEndEvent,
 	DragOverlay,
-	defaultDropAnimationSideEffects,
 	KeyboardSensor,
 	MeasuringStrategy,
 	MouseSensor,

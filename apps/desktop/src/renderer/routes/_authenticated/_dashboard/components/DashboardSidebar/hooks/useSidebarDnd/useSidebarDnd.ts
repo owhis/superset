@@ -1,6 +1,7 @@
 import {
 	closestCenter,
 	type DragEndEvent,
+	type DragOverEvent,
 	type DragStartEvent,
 	KeyboardSensor,
 	MeasuringStrategy,
@@ -127,6 +128,7 @@ export function useSidebarDnd({
 			? "section"
 			: "workspace"
 		: null;
+	const [overId, setOverId] = useState<UniqueIdentifier | null>(null);
 	const clonedRef = useRef<UniqueIdentifier[] | null>(null);
 
 	// When dragging a section, SortableContext only has section IDs.
@@ -214,6 +216,22 @@ export function useSidebarDnd({
 		return sec ? { type: "section" as const, section: sec } : null;
 	}, [activeId, workspacesById, sectionsById]);
 
+	// Color the active workspace's ghost should show based on where it would land
+	const predictedColor = useMemo(() => {
+		if (!activeId || !overId || activeType !== "workspace") return null;
+		const overIndex = flatItems.indexOf(overId);
+		if (overIndex === -1) return null;
+		// Walk backwards from the over position to find the nearest section header
+		for (let i = overIndex; i >= 0; i--) {
+			const p = parseId(flatItems[i]);
+			if (p?.type === "section") {
+				const sec = sectionsById.get(p.realId);
+				return sec?.color ?? null;
+			}
+		}
+		return null; // ungrouped — no section above
+	}, [activeId, overId, activeType, flatItems, sectionsById]);
+
 	// ── Persistence ──────────────────────────────────────────────────
 
 	const commitToDb = useCallback(
@@ -243,9 +261,14 @@ export function useSidebarDnd({
 		[flatItems],
 	);
 
+	const onDragOver = useCallback(({ over }: DragOverEvent) => {
+		setOverId(over?.id ?? null);
+	}, []);
+
 	const onDragEnd = useCallback(
 		({ active, over }: DragEndEvent) => {
 			setActiveId(null);
+			setOverId(null);
 
 			if (!over || active.id === over.id) return;
 
@@ -306,6 +329,7 @@ export function useSidebarDnd({
 			setFlatItems(clonedRef.current);
 		}
 		setActiveId(null);
+		setOverId(null);
 		clonedRef.current = null;
 	}, []);
 
@@ -318,9 +342,10 @@ export function useSidebarDnd({
 		activeId,
 		activeType,
 		activeItem,
+		predictedColor,
 		groupInfo,
 		workspacesById,
 		sectionsById,
-		handlers: { onDragStart, onDragEnd, onDragCancel },
+		handlers: { onDragStart, onDragOver, onDragEnd, onDragCancel },
 	};
 }
