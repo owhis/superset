@@ -25,7 +25,6 @@ const _MIN_HOST_SERVICE_VERSION = "0.0.0";
 export type HostServiceStatus =
 	| "starting"
 	| "running"
-	| "degraded"
 	| "restarting"
 	| "stopped";
 
@@ -49,11 +48,8 @@ interface HostServiceProcess {
 	restartCount: number;
 	organizationId: string;
 	startedAt: number;
-	spawnConfig: SpawnConfig | null;
 }
 
-const MAX_RESTART_DELAY = 30_000;
-const BASE_RESTART_DELAY = 1_000;
 const HEALTH_POLL_INTERVAL = 200;
 const HEALTH_POLL_TIMEOUT = 10_000;
 const ADOPTED_LIVENESS_INTERVAL = 5_000;
@@ -101,7 +97,6 @@ async function pollHealthCheck(
 export class HostServiceManager extends EventEmitter {
 	private instances = new Map<string, HostServiceProcess>();
 	private pendingStarts = new Map<string, Promise<number>>();
-	private scheduledRestarts = new Map<string, ReturnType<typeof setTimeout>>();
 	private adoptedLivenessTimers = new Map<
 		string,
 		ReturnType<typeof setInterval>
@@ -123,8 +118,6 @@ export class HostServiceManager extends EventEmitter {
 			const secret = this.instances.get(organizationId)?.secret ?? "";
 			return { port, secret };
 		}
-
-		this.cancelScheduledRestart(organizationId);
 
 		const startPromise = this.doStart(organizationId, config);
 		this.pendingStarts.set(organizationId, startPromise);
@@ -151,7 +144,6 @@ export class HostServiceManager extends EventEmitter {
 
 	stop(organizationId: string): void {
 		const instance = this.instances.get(organizationId);
-		this.cancelScheduledRestart(organizationId);
 		this.stopAdoptedLivenessCheck(organizationId);
 
 		if (!instance) return;
@@ -183,10 +175,6 @@ export class HostServiceManager extends EventEmitter {
 			this.stopAdoptedLivenessCheck(id);
 		}
 		this.instances.clear();
-		for (const timer of this.scheduledRestarts.values()) {
-			clearTimeout(timer);
-		}
-		this.scheduledRestarts.clear();
 	}
 
 	async discoverAndAdoptAll(config: SpawnConfig): Promise<void> {
@@ -203,15 +191,10 @@ export class HostServiceManager extends EventEmitter {
 
 	async restart(
 		organizationId: string,
-		config?: SpawnConfig,
+		config: SpawnConfig,
 	): Promise<{ port: number; secret: string }> {
-		const savedConfig =
-			config ?? this.instances.get(organizationId)?.spawnConfig;
-		if (!savedConfig) {
-			throw new Error("No config available for restart");
-		}
 		this.stop(organizationId);
-		return this.start(organizationId, savedConfig);
+		return this.start(organizationId, config);
 	}
 
 	getConnection(
@@ -262,7 +245,6 @@ export class HostServiceManager extends EventEmitter {
 			restartCount: 0,
 			organizationId,
 			startedAt: manifest.startedAt,
-			spawnConfig: config,
 		};
 		this.instances.set(organizationId, instance);
 		this.startAdoptedLivenessCheck(organizationId, manifest.pid, config);
@@ -309,7 +291,6 @@ export class HostServiceManager extends EventEmitter {
 			restartCount,
 			organizationId,
 			startedAt: Date.now(),
-			spawnConfig: config,
 		};
 		this.instances.set(organizationId, instance);
 		this.emitStatus(organizationId, "starting", null);
@@ -336,9 +317,9 @@ export class HostServiceManager extends EventEmitter {
 			if (!current || current.process !== child || current.status === "stopped")
 				return;
 
-			current.status = "degraded";
-			this.emitStatus(organizationId, "degraded", "running");
-			this.scheduleRestart(organizationId);
+			this.instances.delete(organizationId);
+			removeManifest(organizationId);
+			this.emitStatus(organizationId, "stopped", "running");
 		});
 		child.unref();
 
@@ -408,11 +389,9 @@ export class HostServiceManager extends EventEmitter {
 					console.log(
 						`[host-service:${organizationId}] Adopted process ${pid} died`,
 					);
-					instance.status = "degraded";
-					this.emitStatus(organizationId, "degraded", "running");
 					this.instances.delete(organizationId);
 					removeManifest(organizationId);
-					this.scheduleRestart(organizationId);
+					this.emitStatus(organizationId, "stopped", "running");
 				}
 			}
 		}, ADOPTED_LIVENESS_INTERVAL);
@@ -428,43 +407,6 @@ export class HostServiceManager extends EventEmitter {
 	}
 
 	// ── Restart ───────────────────────────────────────────────────────
-
-	private cancelScheduledRestart(organizationId: string): void {
-		const timer = this.scheduledRestarts.get(organizationId);
-		if (timer) {
-			clearTimeout(timer);
-			this.scheduledRestarts.delete(organizationId);
-		}
-	}
-
-	private scheduleRestart(organizationId: string): void {
-		const instance = this.instances.get(organizationId);
-		this.cancelScheduledRestart(organizationId);
-
-		const restartCount = instance?.restartCount ?? 0;
-		const delay = Math.min(
-			BASE_RESTART_DELAY * 2 ** restartCount,
-			MAX_RESTART_DELAY,
-		);
-
-		console.log(
-			`[host-service:${organizationId}] restarting in ${delay}ms (attempt ${restartCount + 1})`,
-		);
-
-		const timer = setTimeout(() => {
-			this.scheduledRestarts.delete(organizationId);
-			const config = instance?.spawnConfig;
-			if (config) {
-				this.spawn(organizationId, config).catch((err) => {
-					console.error(
-						`[host-service:${organizationId}] restart failed:`,
-						err,
-					);
-				});
-			}
-		}, delay);
-		this.scheduledRestarts.set(organizationId, timer);
-	}
 
 	private emitStatus(
 		organizationId: string,

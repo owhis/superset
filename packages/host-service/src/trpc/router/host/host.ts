@@ -4,7 +4,8 @@ import { getDeviceName, getHashedDeviceId } from "../../../device-info";
 import type { ApiClient } from "../../../types";
 import { protectedProcedure, router } from "../../index";
 
-const processStartedAt = Date.now();
+const HOST_SERVICE_VERSION = "0.1.0";
+const _processStartedAt = Date.now();
 
 let cachedOrganization: {
 	id: string;
@@ -37,11 +38,10 @@ export const hostRouter = router({
 		return {
 			hostId: getHashedDeviceId(),
 			hostName: getDeviceName(),
+			version: HOST_SERVICE_VERSION,
 			organization,
 			platform: os.platform(),
-			arch: os.arch(),
 			uptime: process.uptime(),
-			startedAt: processStartedAt,
 		};
 	}),
 });

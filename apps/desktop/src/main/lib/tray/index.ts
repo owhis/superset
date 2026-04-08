@@ -7,6 +7,8 @@ import {
 	nativeImage,
 	Tray,
 } from "electron";
+import { loadToken } from "lib/trpc/routers/auth/utils/auth-functions";
+import { env } from "main/env.main";
 import { focusMainWindow, requestQuit } from "main/index";
 import {
 	getHostServiceManager,
@@ -111,13 +113,22 @@ function buildHostServiceSubmenu(): MenuItemConstructorOptions[] {
 				label: "  Restart",
 				enabled: isRunning,
 				click: () => {
-					manager.restart(orgId).catch((err) => {
-						console.error(
-							`[Tray] Failed to restart host-service for ${orgId}:`,
-							err,
-						);
-					});
-					updateTrayMenu();
+					void (async () => {
+						try {
+							const { token } = await loadToken();
+							if (!token) return;
+							await manager.restart(orgId, {
+								authToken: token,
+								cloudApiUrl: env.NEXT_PUBLIC_API_URL,
+							});
+						} catch (error) {
+							console.error(
+								`[Tray] Failed to restart host-service for ${orgId}:`,
+								error,
+							);
+						}
+						updateTrayMenu();
+					})();
 				},
 			});
 
