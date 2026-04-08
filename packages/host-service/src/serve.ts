@@ -1,74 +1,52 @@
 import { serve } from "@hono/node-server";
 import { createApp } from "./app";
-import { getDeviceName, getHashedDeviceId } from "./device-info";
 import { env } from "./env";
 import { JwtApiAuthProvider } from "./providers/auth";
+import { LocalGitCredentialProvider } from "./providers/git";
 import { PskHostAuthProvider } from "./providers/host-auth";
+import { LocalModelProvider } from "./providers/model-providers";
 import { initTerminalBaseEnv, resolveTerminalBaseEnv } from "./terminal/env";
-import { TunnelClient } from "./tunnel";
+import { connectRelay } from "./tunnel";
 
 async function main(): Promise<void> {
 	const terminalBaseEnv = await resolveTerminalBaseEnv();
 	initTerminalBaseEnv(terminalBaseEnv);
 
-	const hostAuth = new PskHostAuthProvider(env.HOST_SERVICE_SECRET);
 	const authToken = process.env.AUTH_TOKEN;
 	const cloudApiUrl = process.env.CLOUD_API_URL;
-	const machineId = getHashedDeviceId();
-	const deviceName = getDeviceName();
-	const relayUrl = process.env.RELAY_URL;
+
+	if (!authToken || !cloudApiUrl) {
+		throw new Error("Missing required env vars: AUTH_TOKEN, CLOUD_API_URL");
+	}
 
 	const { app, injectWebSocket, api } = createApp({
-		dbPath: env.HOST_DB_PATH,
-		hostAuth,
-		allowedOrigins: env.CORS_ORIGINS ?? [],
-		auth: authToken ? new JwtApiAuthProvider(authToken) : undefined,
-		cloudApiUrl: cloudApiUrl ?? undefined,
-		deviceClientId: machineId,
-		deviceName,
+		config: {
+			dbPath: env.HOST_DB_PATH ?? `${process.env.HOME}/.superset/host.db`,
+			cloudApiUrl,
+			allowedOrigins: env.CORS_ORIGINS ?? [],
+		},
+		providers: {
+			auth: new JwtApiAuthProvider(authToken),
+			hostAuth: new PskHostAuthProvider(env.HOST_SERVICE_SECRET),
+			credentials: new LocalGitCredentialProvider(),
+			modelResolver: new LocalModelProvider(),
+		},
 	});
 
 	const server = serve({ fetch: app.fetch, port: env.PORT }, (info) => {
 		console.log(`[host-service] listening on http://localhost:${info.port}`);
 
-		if (api && relayUrl) {
-			void registerAndConnect({
+		const relayUrl = process.env.RELAY_URL;
+		if (relayUrl) {
+			void connectRelay({
 				api,
-				machineId,
-				name: deviceName,
 				relayUrl,
 				localPort: info.port,
+				getAuthToken: () => process.env.AUTH_TOKEN ?? null,
 			});
 		}
 	});
 	injectWebSocket(server);
-}
-
-async function registerAndConnect(options: {
-	api: NonNullable<ReturnType<typeof createApp>["api"]>;
-	machineId: string;
-	name: string;
-	relayUrl: string;
-	localPort: number;
-}): Promise<void> {
-	try {
-		const host = await options.api.device.ensureV2Host.mutate({
-			machineId: options.machineId,
-			name: options.name,
-		});
-
-		console.log(`[host-service] registered as host ${host.id}`);
-
-		const tunnel = new TunnelClient({
-			relayUrl: options.relayUrl,
-			hostId: host.id,
-			getAuthToken: () => process.env.AUTH_TOKEN ?? null,
-			localPort: options.localPort,
-		});
-		tunnel.connect();
-	} catch (error) {
-		console.error("[host-service] failed to register host:", error);
-	}
 }
 
 void main().catch((error) => {

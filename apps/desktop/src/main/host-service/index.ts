@@ -12,17 +12,17 @@
 
 import { serve } from "@hono/node-server";
 import {
-	type CreateAppResult,
 	createApp,
 	JwtApiAuthProvider,
 	LocalGitCredentialProvider,
+	LocalModelProvider,
 	PskHostAuthProvider,
 } from "@superset/host-service";
 import {
 	initTerminalBaseEnv,
 	resolveTerminalBaseEnv,
 } from "@superset/host-service/terminal-env";
-import { TunnelClient } from "@superset/host-service/tunnel";
+import { connectRelay } from "@superset/host-service/tunnel";
 import {
 	HOST_SERVICE_PROTOCOL_VERSION,
 	removeManifest,
@@ -36,35 +36,33 @@ async function main(): Promise<void> {
 	const authToken = process.env.AUTH_TOKEN;
 	const cloudApiUrl = process.env.CLOUD_API_URL;
 	const dbPath = process.env.HOST_DB_PATH;
-	const deviceClientId = process.env.DEVICE_CLIENT_ID;
-	const deviceName = process.env.DEVICE_NAME;
 	const hostServiceSecret = process.env.HOST_SERVICE_SECRET;
 	const serviceVersion = process.env.HOST_SERVICE_VERSION ?? null;
-	const protocolVersion = HOST_SERVICE_PROTOCOL_VERSION;
 	const organizationId = process.env.ORGANIZATION_ID ?? "";
 	const desktopVitePort = process.env.DESKTOP_VITE_PORT ?? "5173";
 	const keepAliveAfterParent = process.env.KEEP_ALIVE_AFTER_PARENT === "1";
 
-	const auth =
-		authToken && cloudApiUrl ? new JwtApiAuthProvider(authToken) : undefined;
-	const hostAuth = hostServiceSecret
-		? new PskHostAuthProvider(hostServiceSecret)
-		: undefined;
+	if (!authToken || !cloudApiUrl || !dbPath || !hostServiceSecret) {
+		throw new Error(
+			"Missing required env vars: AUTH_TOKEN, CLOUD_API_URL, HOST_DB_PATH, HOST_SERVICE_SECRET",
+		);
+	}
 
 	const { app, injectWebSocket, api } = createApp({
-		credentials: new LocalGitCredentialProvider(),
-		auth,
-		hostAuth,
-		cloudApiUrl,
-		dbPath,
-		deviceClientId,
-		deviceName,
-		serviceVersion,
-		protocolVersion,
-		allowedOrigins: [
-			`http://localhost:${desktopVitePort}`,
-			`http://127.0.0.1:${desktopVitePort}`,
-		],
+		config: {
+			dbPath,
+			cloudApiUrl,
+			allowedOrigins: [
+				`http://localhost:${desktopVitePort}`,
+				`http://127.0.0.1:${desktopVitePort}`,
+			],
+		},
+		providers: {
+			auth: new JwtApiAuthProvider(authToken),
+			hostAuth: new PskHostAuthProvider(hostServiceSecret),
+			credentials: new LocalGitCredentialProvider(),
+			modelResolver: new LocalModelProvider(),
+		},
 	});
 
 	const startedAt = Date.now();
@@ -76,9 +74,9 @@ async function main(): Promise<void> {
 					writeManifest({
 						pid: process.pid,
 						endpoint: `http://127.0.0.1:${info.port}`,
-						authToken: hostServiceSecret ?? "",
+						authToken: hostServiceSecret,
 						serviceVersion: serviceVersion ?? "",
-						protocolVersion: protocolVersion ?? 0,
+						protocolVersion: HOST_SERVICE_PROTOCOL_VERSION ?? 0,
 						startedAt,
 						organizationId,
 					});
@@ -86,23 +84,24 @@ async function main(): Promise<void> {
 					console.error("[host-service] Failed to write manifest:", error);
 				}
 			}
+
+			// Notify parent Electron process
 			process.send?.({
 				type: "ready",
 				port: info.port,
 				serviceVersion,
-				protocolVersion,
+				protocolVersion: HOST_SERVICE_PROTOCOL_VERSION,
 				startedAt,
 			});
 
 			// Connect to relay if configured
 			const relayUrl = process.env.RELAY_URL;
-			if (api && deviceClientId && relayUrl) {
+			if (relayUrl) {
 				void connectRelay({
 					api,
-					machineId: deviceClientId,
-					name: deviceName ?? "unknown",
 					relayUrl,
 					localPort: info.port,
+					getAuthToken: () => process.env.AUTH_TOKEN ?? null,
 				});
 			}
 		},
@@ -132,32 +131,6 @@ async function main(): Promise<void> {
 			}
 		}, 2000);
 		parentCheck.unref();
-	}
-}
-
-async function connectRelay(options: {
-	api: NonNullable<CreateAppResult["api"]>;
-	machineId: string;
-	name: string;
-	relayUrl: string;
-	localPort: number;
-}): Promise<void> {
-	try {
-		const host = await options.api.device.ensureV2Host.mutate({
-			machineId: options.machineId,
-			name: options.name,
-		});
-		console.log(`[host-service] registered as host ${host.id}`);
-
-		const tunnel = new TunnelClient({
-			relayUrl: options.relayUrl,
-			hostId: host.id,
-			getAuthToken: () => process.env.AUTH_TOKEN ?? null,
-			localPort: options.localPort,
-		});
-		tunnel.connect();
-	} catch (error) {
-		console.error("[host-service] failed to register/connect relay:", error);
 	}
 }
 
