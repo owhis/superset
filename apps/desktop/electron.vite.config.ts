@@ -210,6 +210,16 @@ export default defineConfig({
 			),
 		},
 
+		resolve: {
+			dedupe: [
+				"@codemirror/state",
+				"@codemirror/view",
+				"@codemirror/language",
+				"@lezer/common",
+				"@lezer/highlight",
+			],
+		},
+
 		server: {
 			port: DEV_SERVER_PORT,
 			strictPort: false,
