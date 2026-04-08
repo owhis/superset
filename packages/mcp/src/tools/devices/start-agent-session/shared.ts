@@ -2,8 +2,7 @@ import { db } from "@superset/db/client";
 import { taskStatuses, tasks } from "@superset/db/schema";
 import {
 	type AGENT_TYPES,
-	buildAgentCommand,
-	buildAgentPromptCommand,
+	buildAgentFileCommand,
 	buildAgentTaskPrompt,
 } from "@superset/shared/agent-command";
 import {
@@ -161,18 +160,21 @@ export function buildTaskLaunchRequest({
 		};
 	}
 
+	const prompt = buildAgentTaskPrompt(task);
+	const taskPromptFileName = `task-${task.slug}.md`;
 	return {
 		kind: "terminal",
 		workspaceId,
 		agentType: agent,
 		source: "mcp",
 		terminal: {
-			command: buildAgentCommand({
-				task,
-				randomId: crypto.randomUUID(),
+			command: buildAgentFileCommand({
+				filePath: `.superset/${taskPromptFileName}`,
 				agent: agent as (typeof AGENT_TYPES)[number],
 			}),
 			name: task.slug,
+			taskPromptContent: prompt,
+			taskPromptFileName,
 			...(paneId ? { paneId } : {}),
 		},
 	};
@@ -203,18 +205,20 @@ export function buildPromptLaunchRequest({
 		};
 	}
 
+	const taskPromptFileName = `prompt-${crypto.randomUUID().slice(0, 8)}.md`;
 	return {
 		kind: "terminal",
 		workspaceId,
 		agentType: agent,
 		source: "mcp",
 		terminal: {
-			command: buildAgentPromptCommand({
-				prompt,
-				randomId: crypto.randomUUID(),
+			command: buildAgentFileCommand({
+				filePath: `.superset/${taskPromptFileName}`,
 				agent: agent as (typeof AGENT_TYPES)[number],
 			}),
 			name: STARTABLE_AGENT_LABELS[agent],
+			taskPromptContent: prompt,
+			taskPromptFileName,
 			...(paneId ? { paneId } : {}),
 		},
 	};

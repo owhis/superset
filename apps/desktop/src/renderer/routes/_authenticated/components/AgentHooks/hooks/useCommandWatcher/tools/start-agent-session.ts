@@ -1,12 +1,18 @@
+import type { AgentDefinitionId } from "@superset/shared/agent-catalog";
 import {
 	chatLaunchConfigSchema,
 	normalizeAgentLaunchRequest,
 	STARTABLE_AGENT_TYPES,
 } from "@superset/shared/agent-launch";
 import {
+	buildFileCommandFromAgentConfig,
+	type ResolvedAgentConfig,
+} from "shared/utils/agent-settings";
+import {
 	launchAgentSession,
 	queueAgentSessionLaunch,
 } from "renderer/lib/agent-session-orchestrator";
+import { electronTrpcClient } from "renderer/lib/trpc-client";
 import { z } from "zod";
 import type { CommandResult, ToolContext, ToolDefinition } from "./types";
 
@@ -56,6 +62,35 @@ async function execute(
 				? { ...fallbackRequest, ...(params.request as Record<string, unknown>) }
 				: fallbackRequest;
 		const request = normalizeAgentLaunchRequest(mergedRequest);
+
+		// Rebuild terminal command using device-local agent settings when possible.
+		// The MCP server sends a fallback command built from hardcoded builtins, but
+		// the user may have overridden agent settings on this device.
+		if (
+			request.kind === "terminal" &&
+			request.terminal.taskPromptFileName &&
+			request.agentType
+		) {
+			try {
+				const presets =
+					await electronTrpcClient.settings.getAgentPresets.query();
+				const agentId = request.agentType as AgentDefinitionId;
+				const config = presets.find(
+					(p: ResolvedAgentConfig) => p.id === agentId,
+				);
+				if (config && config.kind === "terminal" && config.enabled) {
+					const rebuilt = buildFileCommandFromAgentConfig({
+						filePath: `.superset/${request.terminal.taskPromptFileName}`,
+						config,
+					});
+					if (rebuilt) {
+						request.terminal.command = rebuilt;
+					}
+				}
+			} catch {
+				// Fall back to the MCP-provided command
+			}
+		}
 
 		if (request.workspaceId !== params.workspaceId) {
 			return {
