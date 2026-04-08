@@ -10,7 +10,6 @@ import {
 import { focusMainWindow, requestQuit } from "main/index";
 import {
 	getHostServiceManager,
-	type HostServiceStatus,
 	type HostServiceStatusEvent,
 } from "main/lib/host-service-manager";
 import { menuEmitter } from "main/lib/menu-events";
@@ -85,21 +84,6 @@ function openSettings(): void {
 	menuEmitter.emit("open-settings");
 }
 
-function formatStatusLabel(status: HostServiceStatus): string {
-	switch (status) {
-		case "running":
-			return "Running";
-		case "starting":
-			return "Starting...";
-		case "degraded":
-			return "Degraded";
-		case "restarting":
-			return "Restarting...";
-		case "stopped":
-			return "Stopped";
-	}
-}
-
 function buildHostServiceSubmenu(): MenuItemConstructorOptions[] {
 	const manager = getHostServiceManager();
 	const orgIds = manager.getActiveOrganizationIds();
@@ -115,54 +99,13 @@ function buildHostServiceSubmenu(): MenuItemConstructorOptions[] {
 			}
 			isFirst = false;
 
-			const info = manager.getServiceInfo(orgId);
-			const orgName = info.organizationName ?? orgId.slice(0, 8);
-			const statusLabel = formatStatusLabel(info.status);
-			const versionSuffix = info.serviceVersion
-				? ` (v${info.serviceVersion})`
-				: "";
-			const isRunning = info.status === "running";
+			const status = manager.getStatus(orgId);
+			const isRunning = status === "running";
 
 			menuItems.push({
-				label: orgName,
+				label: `  ${orgId.slice(0, 8)} — ${status}`,
 				enabled: false,
 			});
-
-			menuItems.push({
-				label: `  ${statusLabel}${versionSuffix}`,
-				enabled: false,
-			});
-
-			if (info.uptime !== null) {
-				const uptimeStr = formatUptime(info.uptime);
-				menuItems.push({
-					label: `  Uptime: ${uptimeStr}`,
-					enabled: false,
-				});
-			}
-
-			if (info.restartCount > 0) {
-				menuItems.push({
-					label: `  Restarts: ${info.restartCount}`,
-					enabled: false,
-				});
-			}
-
-			if (info.pendingRestart) {
-				menuItems.push({
-					label: "  Update required — restart to apply",
-					enabled: false,
-				});
-			} else if (
-				info.compatibility &&
-				"updateAvailable" in info.compatibility &&
-				info.compatibility.updateAvailable
-			) {
-				menuItems.push({
-					label: "  Update available",
-					enabled: false,
-				});
-			}
 
 			menuItems.push({
 				label: "  Restart",
@@ -192,7 +135,7 @@ function buildHostServiceSubmenu(): MenuItemConstructorOptions[] {
 	return menuItems;
 }
 
-function formatUptime(seconds: number): string {
+function _formatUptime(seconds: number): string {
 	if (seconds < 60) return `${seconds}s`;
 	if (seconds < 3600) return `${Math.floor(seconds / 60)}m`;
 	const hours = Math.floor(seconds / 3600);

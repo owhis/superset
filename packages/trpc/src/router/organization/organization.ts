@@ -55,6 +55,17 @@ function verificationMatchesInvitation({
 }
 
 export const organizationRouter = {
+	getActive: protectedProcedure.query(async ({ ctx }) => {
+		const orgId = ctx.session.session.activeOrganizationId;
+		if (!orgId) return null;
+
+		const org = await db.query.organizations.findFirst({
+			where: eq(organizations.id, orgId),
+			columns: { id: true, name: true, slug: true },
+		});
+		return org ?? null;
+	}),
+
 	getInvitation: protectedProcedure
 		.input(z.uuid())
 		.query(async ({ ctx, input }) => {

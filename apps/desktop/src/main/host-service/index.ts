@@ -1,10 +1,8 @@
 /**
  * Workspace Service — Desktop Entry Point
  *
- * Run with: ELECTRON_RUN_AS_NODE=1 electron dist/main/host-service.js
- *
- * Starts the host-service HTTP server on a random local port.
- * The parent Electron process reads the port from the IPC channel.
+ * Starts the host-service HTTP server on a port assigned by the coordinator.
+ * The coordinator polls health.check to know when it's ready.
  *
  * When KEEP_ALIVE_AFTER_PARENT=1, the service stays running even if the
  * parent Electron process exits (out-of-app durability mode).
@@ -23,43 +21,25 @@ import {
 	resolveTerminalBaseEnv,
 } from "@superset/host-service/terminal-env";
 import { connectRelay } from "@superset/host-service/tunnel";
-import {
-	HOST_SERVICE_PROTOCOL_VERSION,
-	removeManifest,
-	writeManifest,
-} from "main/lib/host-service-manifest";
+import { removeManifest, writeManifest } from "main/lib/host-service-manifest";
+import { env } from "./env";
 
 async function main(): Promise<void> {
 	const terminalBaseEnv = await resolveTerminalBaseEnv();
 	initTerminalBaseEnv(terminalBaseEnv);
 
-	const authToken = process.env.AUTH_TOKEN;
-	const cloudApiUrl = process.env.CLOUD_API_URL;
-	const dbPath = process.env.HOST_DB_PATH;
-	const hostServiceSecret = process.env.HOST_SERVICE_SECRET;
-	const serviceVersion = process.env.HOST_SERVICE_VERSION ?? null;
-	const organizationId = process.env.ORGANIZATION_ID ?? "";
-	const desktopVitePort = process.env.DESKTOP_VITE_PORT ?? "5173";
-	const keepAliveAfterParent = process.env.KEEP_ALIVE_AFTER_PARENT === "1";
-
-	if (!authToken || !cloudApiUrl || !dbPath || !hostServiceSecret) {
-		throw new Error(
-			"Missing required env vars: AUTH_TOKEN, CLOUD_API_URL, HOST_DB_PATH, HOST_SERVICE_SECRET",
-		);
-	}
-
 	const { app, injectWebSocket, api } = createApp({
 		config: {
-			dbPath,
-			cloudApiUrl,
+			dbPath: env.HOST_DB_PATH,
+			cloudApiUrl: env.CLOUD_API_URL,
 			allowedOrigins: [
-				`http://localhost:${desktopVitePort}`,
-				`http://127.0.0.1:${desktopVitePort}`,
+				`http://localhost:${env.DESKTOP_VITE_PORT}`,
+				`http://127.0.0.1:${env.DESKTOP_VITE_PORT}`,
 			],
 		},
 		providers: {
-			auth: new JwtApiAuthProvider(authToken),
-			hostAuth: new PskHostAuthProvider(hostServiceSecret),
+			auth: new JwtApiAuthProvider(env.AUTH_TOKEN),
+			hostAuth: new PskHostAuthProvider(env.HOST_SERVICE_SECRET),
 			credentials: new LocalGitCredentialProvider(),
 			modelResolver: new LocalModelProvider(),
 		},
@@ -67,39 +47,26 @@ async function main(): Promise<void> {
 
 	const startedAt = Date.now();
 	const server = serve(
-		{ fetch: app.fetch, port: 0, hostname: "127.0.0.1" },
+		{ fetch: app.fetch, port: env.HOST_SERVICE_PORT, hostname: "127.0.0.1" },
 		(info: { port: number }) => {
-			if (organizationId) {
+			if (env.ORGANIZATION_ID) {
 				try {
 					writeManifest({
 						pid: process.pid,
 						endpoint: `http://127.0.0.1:${info.port}`,
-						authToken: hostServiceSecret,
-						serviceVersion: serviceVersion ?? "",
-						protocolVersion: HOST_SERVICE_PROTOCOL_VERSION ?? 0,
+						authToken: env.HOST_SERVICE_SECRET,
 						startedAt,
-						organizationId,
+						organizationId: env.ORGANIZATION_ID,
 					});
 				} catch (error) {
 					console.error("[host-service] Failed to write manifest:", error);
 				}
 			}
 
-			// Notify parent Electron process
-			process.send?.({
-				type: "ready",
-				port: info.port,
-				serviceVersion,
-				protocolVersion: HOST_SERVICE_PROTOCOL_VERSION,
-				startedAt,
-			});
-
-			// Connect to relay if configured
-			const relayUrl = process.env.RELAY_URL;
-			if (relayUrl) {
+			if (env.RELAY_URL) {
 				void connectRelay({
 					api,
-					relayUrl,
+					relayUrl: env.RELAY_URL,
 					localPort: info.port,
 					getAuthToken: () => process.env.AUTH_TOKEN ?? null,
 				});
@@ -109,8 +76,8 @@ async function main(): Promise<void> {
 	injectWebSocket(server);
 
 	const shutdown = () => {
-		if (organizationId) {
-			removeManifest(organizationId);
+		if (env.ORGANIZATION_ID) {
+			removeManifest(env.ORGANIZATION_ID);
 		}
 		server.close();
 		process.exit(0);
@@ -119,7 +86,7 @@ async function main(): Promise<void> {
 	process.on("SIGTERM", shutdown);
 	process.on("SIGINT", shutdown);
 
-	if (!keepAliveAfterParent) {
+	if (!env.KEEP_ALIVE_AFTER_PARENT) {
 		const parentPid = process.ppid;
 		const parentCheck = setInterval(() => {
 			try {

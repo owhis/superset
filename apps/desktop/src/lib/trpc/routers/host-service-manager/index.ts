@@ -20,19 +20,10 @@ export const createHostServiceManagerRouter = () => {
 			.query(async ({ input }) => {
 				const manager = getHostServiceManager();
 				const { token } = await loadToken();
-				if (token) {
-					manager.setAuthToken(token);
-				}
-				manager.setCloudApiUrl(env.NEXT_PUBLIC_API_URL);
-				if (input.organizationName) {
-					manager.setOrganizationName(
-						input.organizationId,
-						input.organizationName,
-					);
-				}
-				const port = await manager.start(input.organizationId);
-				const secret = manager.getSecret(input.organizationId);
-				return { port, secret };
+				return manager.start(input.organizationId, {
+					authToken: token ?? "",
+					cloudApiUrl: env.NEXT_PUBLIC_API_URL,
+				});
 			}),
 
 		getStatus: publicProcedure
@@ -43,40 +34,23 @@ export const createHostServiceManagerRouter = () => {
 				return { status };
 			}),
 
-		getServiceInfo: publicProcedure
-			.input(z.object({ organizationId: z.string() }))
-			.query(({ input }) => {
-				const manager = getHostServiceManager();
-				return manager.getServiceInfo(input.organizationId);
-			}),
-
 		restart: publicProcedure
 			.input(z.object({ organizationId: z.string() }))
 			.mutation(async ({ input }) => {
 				const manager = getHostServiceManager();
 				const { token } = await loadToken();
-				if (token) {
-					manager.setAuthToken(token);
-				}
-				manager.setCloudApiUrl(env.NEXT_PUBLIC_API_URL);
-				const port = await manager.restart(input.organizationId);
-				const secret = manager.getSecret(input.organizationId);
-				return { port, secret };
+				return manager.restart(input.organizationId, {
+					authToken: token ?? "",
+					cloudApiUrl: env.NEXT_PUBLIC_API_URL,
+				});
 			}),
 
 		onStatusChange: publicProcedure.subscription(() => {
 			return observable<HostServiceStatusEvent>((emit) => {
 				const manager = getHostServiceManager();
-
-				const handler = (event: HostServiceStatusEvent) => {
-					emit.next(event);
-				};
-
+				const handler = (event: HostServiceStatusEvent) => emit.next(event);
 				manager.on("status-changed", handler);
-
-				return () => {
-					manager.off("status-changed", handler);
-				};
+				return () => manager.off("status-changed", handler);
 			});
 		}),
 	});

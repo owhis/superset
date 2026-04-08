@@ -80,7 +80,7 @@ function V2WorkspaceLayout() {
 
 	if (shouldWaitForDeviceInfo) {
 		return (
-			<div className="flex h-full items-center justify-center text-muted-foreground">
+			<div className="flex h-full w-full items-center justify-center text-muted-foreground">
 				Resolving workspace host...
 			</div>
 		);
@@ -88,7 +88,7 @@ function V2WorkspaceLayout() {
 
 	if (!hostUrl) {
 		return (
-			<div className="flex h-full items-center justify-center text-muted-foreground">
+			<div className="flex h-full w-full items-center justify-center text-muted-foreground">
 				Workspace host service not available
 			</div>
 		);
