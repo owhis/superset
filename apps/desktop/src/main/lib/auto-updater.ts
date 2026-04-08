@@ -271,8 +271,8 @@ export function setupAutoUpdater(): void {
 		// After an app update is ready, check if running host-service instances
 		// will need a restart once the new version is installed.
 		try {
-			const { getHostServiceManager } = require("../host-service-manager");
-			getHostServiceManager().checkAllCompatibility();
+			const { getHostServiceCoordinator } = require("../host-service-manager");
+			getHostServiceCoordinator().checkAllCompatibility();
 		} catch {
 			// Host service manager may not be initialized yet
 		}

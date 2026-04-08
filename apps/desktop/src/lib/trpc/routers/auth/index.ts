@@ -5,7 +5,7 @@ import { observable } from "@trpc/server/observable";
 import { shell } from "electron";
 import { env } from "main/env.main";
 import { getDeviceName, getHashedDeviceId } from "main/lib/device-info";
-import { getHostServiceManager } from "main/lib/host-service-manager";
+import { getHostServiceCoordinator } from "main/lib/host-service-manager";
 import { PLATFORM, PROTOCOL_SCHEME } from "shared/constants";
 import { env as sharedEnv } from "shared/env.shared";
 import { z } from "zod";
@@ -109,7 +109,7 @@ export const createAuthRouter = () => {
 			}),
 
 		signOut: publicProcedure.mutation(async () => {
-			getHostServiceManager().stopAll();
+			getHostServiceCoordinator().stopAll();
 			await fs.unlink(TOKEN_FILE).catch(() => {});
 			authEvents.emit("token-cleared");
 			return { success: true };

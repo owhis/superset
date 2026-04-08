@@ -94,7 +94,7 @@ async function pollHealthCheck(
 	return false;
 }
 
-export class HostServiceManager extends EventEmitter {
+export class HostServiceCoordinator extends EventEmitter {
 	private instances = new Map<string, HostServiceProcess>();
 	private pendingStarts = new Map<string, Promise<number>>();
 	private adoptedLivenessTimers = new Map<
@@ -177,7 +177,7 @@ export class HostServiceManager extends EventEmitter {
 		this.instances.clear();
 	}
 
-	async discoverAndAdoptAll(config: SpawnConfig): Promise<void> {
+	async discoverAll(config: SpawnConfig): Promise<void> {
 		const manifests = listManifests();
 		for (const manifest of manifests) {
 			if (this.instances.has(manifest.organizationId)) continue;
@@ -205,7 +205,7 @@ export class HostServiceManager extends EventEmitter {
 		return { port: instance.port, secret: instance.secret };
 	}
 
-	getStatus(organizationId: string): HostServiceStatus {
+	getProcessStatus(organizationId: string): HostServiceStatus {
 		if (this.pendingStarts.has(organizationId)) return "starting";
 		return this.instances.get(organizationId)?.status ?? "stopped";
 	}
@@ -421,11 +421,11 @@ export class HostServiceManager extends EventEmitter {
 	}
 }
 
-let manager: HostServiceManager | null = null;
+let manager: HostServiceCoordinator | null = null;
 
-export function getHostServiceManager(): HostServiceManager {
+export function getHostServiceCoordinator(): HostServiceCoordinator {
 	if (!manager) {
-		manager = new HostServiceManager();
+		manager = new HostServiceCoordinator();
 	}
 	return manager;
 }

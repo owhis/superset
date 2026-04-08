@@ -11,7 +11,7 @@ import { loadToken } from "lib/trpc/routers/auth/utils/auth-functions";
 import { env } from "main/env.main";
 import { focusMainWindow, requestQuit } from "main/index";
 import {
-	getHostServiceManager,
+	getHostServiceCoordinator,
 	type HostServiceStatusEvent,
 } from "main/lib/host-service-manager";
 import { menuEmitter } from "main/lib/menu-events";
@@ -87,7 +87,7 @@ function openSettings(): void {
 }
 
 function buildHostServiceSubmenu(): MenuItemConstructorOptions[] {
-	const manager = getHostServiceManager();
+	const manager = getHostServiceCoordinator();
 	const orgIds = manager.getActiveOrganizationIds();
 	const menuItems: MenuItemConstructorOptions[] = [];
 
@@ -101,7 +101,7 @@ function buildHostServiceSubmenu(): MenuItemConstructorOptions[] {
 			}
 			isFirst = false;
 
-			const status = manager.getStatus(orgId);
+			const status = manager.getProcessStatus(orgId);
 			const isRunning = status === "running";
 
 			menuItems.push({
@@ -157,7 +157,7 @@ function _formatUptime(seconds: number): string {
 function updateTrayMenu(): void {
 	if (!tray) return;
 
-	const manager = getHostServiceManager();
+	const manager = getHostServiceCoordinator();
 	const orgIds = manager.getActiveOrganizationIds();
 
 	const hasActive = orgIds.length > 0;
@@ -235,7 +235,7 @@ export function initTray(): void {
 
 		updateTrayMenu();
 
-		const manager = getHostServiceManager();
+		const manager = getHostServiceCoordinator();
 		manager.on("status-changed", (_event: HostServiceStatusEvent) => {
 			updateTrayMenu();
 		});
