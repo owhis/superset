@@ -32,9 +32,8 @@ export function useWorkspaceHostUrl(workspaceId: string): string | null {
 
 	return useMemo(() => {
 		if (!match) return null;
-		// TODO: uncomment for production — commented out to test relay routing
-		// const localService = services.get(match.hostOrgId);
-		// if (localService) return localService.url;
+		const localService = services.get(match.hostOrgId);
+		if (localService) return localService.url;
 		return getRemoteHostUrl(match.hostId);
-	}, [match]);
+	}, [match, services]);
 }
