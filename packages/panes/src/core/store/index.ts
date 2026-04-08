@@ -5,3 +5,4 @@ export type {
 	WorkspaceStore,
 } from "./store";
 export { createWorkspaceStore } from "./store";
+export { findPaneInDirection } from "./utils";

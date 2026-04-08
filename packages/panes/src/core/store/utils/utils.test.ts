@@ -3,6 +3,7 @@ import type { LayoutNode } from "../../../types";
 import {
 	equalizeAllSplits,
 	findFirstPaneId,
+	findPaneInDirection,
 	findPaneInLayout,
 	getNodeAtPath,
 	getOtherBranch,
@@ -318,5 +319,191 @@ describe("positionToDirection", () => {
 	it("maps top/bottom to vertical", () => {
 		expect(positionToDirection("top")).toBe("vertical");
 		expect(positionToDirection("bottom")).toBe("vertical");
+	});
+});
+
+// 2x2 grid:
+//  a | b
+//  -----
+//  c | d
+const GRID: LayoutNode = {
+	type: "split",
+	direction: "vertical",
+	first: {
+		type: "split",
+		direction: "horizontal",
+		first: { type: "pane", paneId: "a" },
+		second: { type: "pane", paneId: "b" },
+	},
+	second: {
+		type: "split",
+		direction: "horizontal",
+		first: { type: "pane", paneId: "c" },
+		second: { type: "pane", paneId: "d" },
+	},
+};
+
+// 3-column layout: a | b | c  (nested horizontal splits)
+const THREE_COLS: LayoutNode = {
+	type: "split",
+	direction: "horizontal",
+	first: { type: "pane", paneId: "a" },
+	second: {
+		type: "split",
+		direction: "horizontal",
+		first: { type: "pane", paneId: "b" },
+		second: { type: "pane", paneId: "c" },
+	},
+};
+
+// L-shaped:
+//  a | b
+//  -----
+//    c
+const L_SHAPE: LayoutNode = {
+	type: "split",
+	direction: "vertical",
+	first: {
+		type: "split",
+		direction: "horizontal",
+		first: { type: "pane", paneId: "a" },
+		second: { type: "pane", paneId: "b" },
+	},
+	second: { type: "pane", paneId: "c" },
+};
+
+describe("findPaneInDirection", () => {
+	describe("single pane", () => {
+		it("returns null for all directions", () => {
+			expect(findPaneInDirection(SINGLE, "a", "up")).toBeNull();
+			expect(findPaneInDirection(SINGLE, "a", "down")).toBeNull();
+			expect(findPaneInDirection(SINGLE, "a", "left")).toBeNull();
+			expect(findPaneInDirection(SINGLE, "a", "right")).toBeNull();
+		});
+	});
+
+	describe("horizontal two-pane split (a | b)", () => {
+		it("moves right from a to b", () => {
+			expect(findPaneInDirection(TWO_SPLIT, "a", "right")).toBe("b");
+		});
+
+		it("moves left from b to a", () => {
+			expect(findPaneInDirection(TWO_SPLIT, "b", "left")).toBe("a");
+		});
+
+		it("returns null moving left from a (no pane)", () => {
+			expect(findPaneInDirection(TWO_SPLIT, "a", "left")).toBeNull();
+		});
+
+		it("returns null moving right from b (no pane)", () => {
+			expect(findPaneInDirection(TWO_SPLIT, "b", "right")).toBeNull();
+		});
+
+		it("returns null for up/down (wrong axis)", () => {
+			expect(findPaneInDirection(TWO_SPLIT, "a", "up")).toBeNull();
+			expect(findPaneInDirection(TWO_SPLIT, "a", "down")).toBeNull();
+		});
+	});
+
+	describe("2x2 grid", () => {
+		it("moves right: a → b", () => {
+			expect(findPaneInDirection(GRID, "a", "right")).toBe("b");
+		});
+
+		it("moves left: b → a", () => {
+			expect(findPaneInDirection(GRID, "b", "left")).toBe("a");
+		});
+
+		it("moves down: a → c", () => {
+			expect(findPaneInDirection(GRID, "a", "down")).toBe("c");
+		});
+
+		it("moves up: c → a", () => {
+			expect(findPaneInDirection(GRID, "c", "up")).toBe("a");
+		});
+
+		it("moves down: b → d", () => {
+			expect(findPaneInDirection(GRID, "b", "down")).toBe("d");
+		});
+
+		it("moves up: d → b", () => {
+			expect(findPaneInDirection(GRID, "d", "up")).toBe("b");
+		});
+
+		it("moves right: c → d", () => {
+			expect(findPaneInDirection(GRID, "c", "right")).toBe("d");
+		});
+
+		it("moves left: d → c", () => {
+			expect(findPaneInDirection(GRID, "d", "left")).toBe("c");
+		});
+
+		it("returns null at edges", () => {
+			expect(findPaneInDirection(GRID, "a", "up")).toBeNull();
+			expect(findPaneInDirection(GRID, "a", "left")).toBeNull();
+			expect(findPaneInDirection(GRID, "b", "up")).toBeNull();
+			expect(findPaneInDirection(GRID, "b", "right")).toBeNull();
+			expect(findPaneInDirection(GRID, "c", "down")).toBeNull();
+			expect(findPaneInDirection(GRID, "c", "left")).toBeNull();
+			expect(findPaneInDirection(GRID, "d", "down")).toBeNull();
+			expect(findPaneInDirection(GRID, "d", "right")).toBeNull();
+		});
+	});
+
+	describe("three columns (a | b | c)", () => {
+		it("moves right through columns: a → b → c", () => {
+			expect(findPaneInDirection(THREE_COLS, "a", "right")).toBe("b");
+			expect(findPaneInDirection(THREE_COLS, "b", "right")).toBe("c");
+		});
+
+		it("moves left through columns: c → b → a", () => {
+			expect(findPaneInDirection(THREE_COLS, "c", "left")).toBe("b");
+			expect(findPaneInDirection(THREE_COLS, "b", "left")).toBe("a");
+		});
+
+		it("returns null at boundaries", () => {
+			expect(findPaneInDirection(THREE_COLS, "a", "left")).toBeNull();
+			expect(findPaneInDirection(THREE_COLS, "c", "right")).toBeNull();
+		});
+	});
+
+	describe("L-shaped layout (a|b over c)", () => {
+		it("moves down from a → c", () => {
+			expect(findPaneInDirection(L_SHAPE, "a", "down")).toBe("c");
+		});
+
+		it("moves down from b → c", () => {
+			expect(findPaneInDirection(L_SHAPE, "b", "down")).toBe("c");
+		});
+
+		it("moves up from c → a (picks first pane on top row)", () => {
+			expect(findPaneInDirection(L_SHAPE, "c", "up")).toBe("a");
+		});
+	});
+
+	describe("nested layout (NESTED: a | [b / c])", () => {
+		it("moves right from a → b (first pane in right subtree)", () => {
+			expect(findPaneInDirection(NESTED, "a", "right")).toBe("b");
+		});
+
+		it("moves left from b → a", () => {
+			expect(findPaneInDirection(NESTED, "b", "left")).toBe("a");
+		});
+
+		it("moves left from c → a", () => {
+			expect(findPaneInDirection(NESTED, "c", "left")).toBe("a");
+		});
+
+		it("moves down from b → c", () => {
+			expect(findPaneInDirection(NESTED, "b", "down")).toBe("c");
+		});
+
+		it("moves up from c → b", () => {
+			expect(findPaneInDirection(NESTED, "c", "up")).toBe("b");
+		});
+	});
+
+	it("returns null for unknown pane id", () => {
+		expect(findPaneInDirection(GRID, "unknown", "right")).toBeNull();
 	});
 });

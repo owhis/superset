@@ -1,6 +1,7 @@
 export {
 	equalizeAllSplits,
 	findFirstPaneId,
+	findPaneInDirection,
 	findPaneInLayout,
 	findSiblingPaneId,
 	generateId,

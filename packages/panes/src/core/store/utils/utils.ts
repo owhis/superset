@@ -166,6 +166,105 @@ export function positionToDirection(position: SplitPosition): SplitDirection {
 		: "vertical";
 }
 
+/**
+ * Find the pane in a given direction relative to the current pane.
+ *
+ * Walks up the layout tree from `currentPaneId` to find the nearest ancestor
+ * split whose direction matches the requested movement axis. Then crosses to
+ * the other branch and picks the closest pane on that side, preserving the
+ * pane's cross-axis position when possible.
+ *
+ * Returns `null` if no pane exists in the requested direction.
+ */
+export function findPaneInDirection(
+	root: LayoutNode,
+	currentPaneId: string,
+	direction: "up" | "down" | "left" | "right",
+): string | null {
+	const path = findPathToPane(root, currentPaneId);
+	if (!path) return null;
+
+	const axis: SplitDirection =
+		direction === "left" || direction === "right" ? "horizontal" : "vertical";
+	const targetBranch: SplitBranch =
+		direction === "right" || direction === "down" ? "second" : "first";
+
+	// Walk up the path to find the nearest ancestor split on the correct axis
+	// where the current pane is on the opposite side of where we want to go
+	for (let i = path.length - 1; i >= 0; i--) {
+		const { node, branch } = path[i];
+		if (node.type !== "split") continue;
+		if (node.direction !== axis) continue;
+		if (branch === targetBranch) continue;
+
+		// Collect cross-axis branches below step i to preserve position
+		const crossAxisHint: SplitBranch[] = [];
+		for (let j = i + 1; j < path.length; j++) {
+			const step = path[j];
+			if (step.node.type === "split" && step.node.direction !== axis) {
+				crossAxisHint.push(step.branch);
+			}
+		}
+
+		const entryEdge: "first" | "last" =
+			direction === "right" || direction === "down" ? "first" : "last";
+		return findNeighborPane(node[targetBranch], axis, entryEdge, crossAxisHint);
+	}
+
+	return null;
+}
+
+/** A step in the path from root to a pane: the split node and which branch was taken. */
+interface PathStep {
+	node: LayoutNode;
+	branch: SplitBranch;
+}
+
+/** Returns the path of split nodes from root to the pane, or null if not found. */
+function findPathToPane(node: LayoutNode, paneId: string): PathStep[] | null {
+	if (node.type === "pane") {
+		return node.paneId === paneId ? [] : null;
+	}
+
+	const inFirst = findPathToPane(node.first, paneId);
+	if (inFirst !== null) {
+		return [{ node, branch: "first" }, ...inFirst];
+	}
+
+	const inSecond = findPathToPane(node.second, paneId);
+	if (inSecond !== null) {
+		return [{ node, branch: "second" }, ...inSecond];
+	}
+
+	return null;
+}
+
+/**
+ * Find the best pane in a neighbor subtree, preserving cross-axis position.
+ *
+ * For same-axis splits, picks the near edge (`entryEdge`).
+ * For cross-axis splits, follows `crossAxisHint` to maintain alignment
+ * with the source pane's position. Falls back to "first" when hints run out.
+ */
+function findNeighborPane(
+	node: LayoutNode,
+	axis: SplitDirection,
+	entryEdge: "first" | "last",
+	crossAxisHint: SplitBranch[],
+): string | null {
+	if (node.type === "pane") return node.paneId;
+
+	if (node.direction === axis) {
+		const branch = entryEdge === "first" ? "first" : "second";
+		return findNeighborPane(node[branch], axis, entryEdge, crossAxisHint);
+	}
+
+	// Cross-axis split: use hint if available, otherwise default to "first"
+	const [hint, ...remainingHints] = crossAxisHint;
+	const branch = hint ?? "first";
+	return findNeighborPane(node[branch], axis, entryEdge, remainingHints);
+}
+
 export function generateId(prefix: string): string {
 	return `${prefix}-${crypto.randomUUID()}`;
 }

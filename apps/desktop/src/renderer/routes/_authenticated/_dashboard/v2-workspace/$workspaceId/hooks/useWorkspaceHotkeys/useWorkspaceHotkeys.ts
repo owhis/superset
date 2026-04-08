@@ -1,4 +1,4 @@
-import type { WorkspaceStore } from "@superset/panes";
+import { findPaneInDirection, type WorkspaceStore } from "@superset/panes";
 import { useCallback } from "react";
 import { useHotkey } from "renderer/hotkeys";
 import { useCollections } from "renderer/routes/_authenticated/providers/CollectionsProvider";
@@ -153,6 +153,30 @@ export function useWorkspaceHotkeys({
 		const nextIndex = index >= paneIds.length - 1 ? 0 : index + 1;
 		state.setActivePane({ tabId: tab.id, paneId: paneIds[nextIndex] });
 	});
+
+	// --- Directional pane focus ---
+
+	const focusDirection = useCallback(
+		(direction: "up" | "down" | "left" | "right") => {
+			const state = store.getState();
+			const tab = state.getActiveTab();
+			if (!tab || !tab.activePaneId) return;
+			const targetId = findPaneInDirection(
+				tab.layout,
+				tab.activePaneId,
+				direction,
+			);
+			if (targetId) {
+				state.setActivePane({ tabId: tab.id, paneId: targetId });
+			}
+		},
+		[store],
+	);
+
+	useHotkey("FOCUS_PANE_UP", () => focusDirection("up"));
+	useHotkey("FOCUS_PANE_DOWN", () => focusDirection("down"));
+	useHotkey("FOCUS_PANE_LEFT", () => focusDirection("left"));
+	useHotkey("FOCUS_PANE_RIGHT", () => focusDirection("right"));
 
 	useHotkey("SPLIT_AUTO", () => {
 		const state = store.getState();

@@ -4,7 +4,7 @@ export type {
 	CreateWorkspaceStoreOptions,
 	WorkspaceStore,
 } from "./core/store";
-export { createWorkspaceStore } from "./core/store";
+export { createWorkspaceStore, findPaneInDirection } from "./core/store";
 export type {
 	ContextMenuActionConfig,
 	PaneActionConfig,
