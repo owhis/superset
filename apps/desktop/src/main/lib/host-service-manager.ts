@@ -20,7 +20,7 @@ import {
 import { HOOK_PROTOCOL_VERSION } from "./terminal/env";
 
 /** Minimum host-service version this app can work with. */
-const _MIN_HOST_SERVICE_VERSION = "0.0.0";
+const MIN_HOST_SERVICE_VERSION = "0.1.0";
 
 export type HostServiceStatus =
 	| "starting"
@@ -236,6 +236,22 @@ export class HostServiceCoordinator extends EventEmitter {
 		const url = new URL(manifest.endpoint);
 		const port = Number(url.port);
 
+		// Check version — kill and respawn if too old
+		const version = await this.fetchHostVersion(
+			manifest.endpoint,
+			manifest.authToken,
+		);
+		if (version && version < MIN_HOST_SERVICE_VERSION) {
+			console.log(
+				`[host-service:${organizationId}] Adopted service version ${version} < ${MIN_HOST_SERVICE_VERSION}, killing`,
+			);
+			try {
+				process.kill(manifest.pid, "SIGTERM");
+			} catch {}
+			removeManifest(organizationId);
+			return null;
+		}
+
 		const instance: HostServiceProcess = {
 			process: null,
 			pid: manifest.pid,
@@ -254,6 +270,26 @@ export class HostServiceCoordinator extends EventEmitter {
 		);
 		this.emitStatus(organizationId, "running", null);
 		return port;
+	}
+
+	private async fetchHostVersion(
+		endpoint: string,
+		secret: string,
+	): Promise<string | null> {
+		try {
+			const controller = new AbortController();
+			const timeout = setTimeout(() => controller.abort(), 3_000);
+			const response = await fetch(`${endpoint}/trpc/host.info`, {
+				signal: controller.signal,
+				headers: { Authorization: `Bearer ${secret}` },
+			});
+			clearTimeout(timeout);
+			if (!response.ok) return null;
+			const data = await response.json();
+			return data?.result?.data?.version ?? null;
+		} catch {
+			return null;
+		}
 	}
 
 	private readAndValidateManifest(
