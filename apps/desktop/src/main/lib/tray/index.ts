@@ -13,7 +13,7 @@ import { focusMainWindow, requestQuit } from "main/index";
 import {
 	getHostServiceCoordinator,
 	type HostServiceStatusEvent,
-} from "main/lib/host-service-manager";
+} from "main/lib/host-service-coordinator";
 import { menuEmitter } from "main/lib/menu-events";
 
 const POLL_INTERVAL_MS = 5000;

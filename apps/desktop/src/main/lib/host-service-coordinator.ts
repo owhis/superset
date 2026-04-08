@@ -136,7 +136,7 @@ export class HostServiceCoordinator extends EventEmitter {
 		config: SpawnConfig,
 	): Promise<number> {
 		// Try adopting a running service first
-		const adopted = await this.tryAdopt(organizationId, config);
+		const adopted = await this.tryAdopt(organizationId);
 		if (adopted !== null) return adopted;
 
 		return this.spawn(organizationId, config);
@@ -177,12 +177,12 @@ export class HostServiceCoordinator extends EventEmitter {
 		this.instances.clear();
 	}
 
-	async discoverAll(config: SpawnConfig): Promise<void> {
+	async discoverAll(): Promise<void> {
 		const manifests = listManifests();
 		for (const manifest of manifests) {
 			if (this.instances.has(manifest.organizationId)) continue;
 			try {
-				await this.tryAdopt(manifest.organizationId, config);
+				await this.tryAdopt(manifest.organizationId);
 			} catch {
 				removeManifest(manifest.organizationId);
 			}
@@ -226,10 +226,7 @@ export class HostServiceCoordinator extends EventEmitter {
 
 	// ── Adoption ──────────────────────────────────────────────────────
 
-	private async tryAdopt(
-		organizationId: string,
-		config: SpawnConfig,
-	): Promise<number | null> {
+	private async tryAdopt(organizationId: string): Promise<number | null> {
 		const manifest = this.readAndValidateManifest(organizationId);
 		if (!manifest) return null;
 
@@ -263,7 +260,7 @@ export class HostServiceCoordinator extends EventEmitter {
 			startedAt: manifest.startedAt,
 		};
 		this.instances.set(organizationId, instance);
-		this.startAdoptedLivenessCheck(organizationId, manifest.pid, config);
+		this.startAdoptedLivenessCheck(organizationId, manifest.pid);
 
 		console.log(
 			`[host-service:${organizationId}] Adopted pid=${manifest.pid} port=${port}`,
@@ -394,7 +391,6 @@ export class HostServiceCoordinator extends EventEmitter {
 			HOST_SERVICE_SECRET: secret,
 			HOST_SERVICE_PORT: String(port),
 			HOST_MANIFEST_DIR: orgDir,
-			KEEP_ALIVE_AFTER_PARENT: "1",
 			HOST_DB_PATH: path.join(orgDir, "host.db"),
 			HOST_MIGRATIONS_FOLDER: app.isPackaged
 				? path.join(process.resourcesPath, "resources/host-migrations")
@@ -410,11 +406,7 @@ export class HostServiceCoordinator extends EventEmitter {
 
 	// ── Liveness ──────────────────────────────────────────────────────
 
-	private startAdoptedLivenessCheck(
-		organizationId: string,
-		pid: number,
-		_config: SpawnConfig,
-	): void {
+	private startAdoptedLivenessCheck(organizationId: string, pid: number): void {
 		this.stopAdoptedLivenessCheck(organizationId);
 		const timer = setInterval(() => {
 			if (!isProcessAlive(pid)) {

@@ -3,7 +3,7 @@ import { env } from "main/env.main";
 import {
 	getHostServiceCoordinator,
 	type HostServiceStatusEvent,
-} from "main/lib/host-service-manager";
+} from "main/lib/host-service-coordinator";
 import { z } from "zod";
 import { publicProcedure, router } from "../..";
 import { loadToken } from "../auth/utils/auth-functions";

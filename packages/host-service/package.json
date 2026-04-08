@@ -46,6 +46,7 @@
 		"@octokit/rest": "^22.0.1",
 		"@superset/trpc": "workspace:*",
 		"@superset/workspace-fs": "workspace:*",
+		"@t3-oss/env-core": "^0.13.8",
 		"@trpc/client": "^11.7.1",
 		"@trpc/server": "^11.7.1",
 		"better-sqlite3": "12.6.2",

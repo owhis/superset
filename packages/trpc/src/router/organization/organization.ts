@@ -59,6 +59,14 @@ export const organizationRouter = {
 		const orgId = ctx.session.session.activeOrganizationId;
 		if (!orgId) return null;
 
+		const membership = await db.query.members.findFirst({
+			where: and(
+				eq(members.userId, ctx.session.user.id),
+				eq(members.organizationId, orgId),
+			),
+		});
+		if (!membership) return null;
+
 		const org = await db.query.organizations.findFirst({
 			where: eq(organizations.id, orgId),
 			columns: { id: true, name: true, slug: true },

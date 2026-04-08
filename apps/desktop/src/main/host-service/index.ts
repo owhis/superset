@@ -86,20 +86,6 @@ async function main(): Promise<void> {
 
 	process.on("SIGTERM", shutdown);
 	process.on("SIGINT", shutdown);
-
-	if (!env.KEEP_ALIVE_AFTER_PARENT) {
-		const parentPid = process.ppid;
-		const parentCheck = setInterval(() => {
-			try {
-				process.kill(parentPid, 0);
-			} catch {
-				clearInterval(parentCheck);
-				console.log("[host-service] Parent process exited, shutting down");
-				shutdown();
-			}
-		}, 2000);
-		parentCheck.unref();
-	}
 }
 
 void main().catch((error) => {

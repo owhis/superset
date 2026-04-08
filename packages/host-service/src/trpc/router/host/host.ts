@@ -5,7 +5,6 @@ import type { ApiClient } from "../../../types";
 import { protectedProcedure, router } from "../../index";
 
 const HOST_SERVICE_VERSION = "0.1.0";
-const _processStartedAt = Date.now();
 
 let cachedOrganization: {
 	id: string;

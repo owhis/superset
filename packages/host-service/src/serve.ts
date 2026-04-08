@@ -12,22 +12,15 @@ async function main(): Promise<void> {
 	const terminalBaseEnv = await resolveTerminalBaseEnv();
 	initTerminalBaseEnv(terminalBaseEnv);
 
-	const authToken = process.env.AUTH_TOKEN;
-	const cloudApiUrl = process.env.CLOUD_API_URL;
-
-	if (!authToken || !cloudApiUrl) {
-		throw new Error("Missing required env vars: AUTH_TOKEN, CLOUD_API_URL");
-	}
-
 	const { app, injectWebSocket, api } = createApp({
 		config: {
 			dbPath: env.HOST_DB_PATH,
-			cloudApiUrl,
+			cloudApiUrl: env.CLOUD_API_URL,
 			migrationsFolder: env.HOST_MIGRATIONS_FOLDER,
 			allowedOrigins: env.CORS_ORIGINS ?? [],
 		},
 		providers: {
-			auth: new JwtApiAuthProvider(authToken),
+			auth: new JwtApiAuthProvider(env.AUTH_TOKEN),
 			hostAuth: new PskHostAuthProvider(env.HOST_SERVICE_SECRET),
 			credentials: new LocalGitCredentialProvider(),
 			modelResolver: new LocalModelProvider(),
@@ -37,13 +30,12 @@ async function main(): Promise<void> {
 	const server = serve({ fetch: app.fetch, port: env.PORT }, (info) => {
 		console.log(`[host-service] listening on http://localhost:${info.port}`);
 
-		const relayUrl = process.env.RELAY_URL;
-		if (relayUrl) {
+		if (env.RELAY_URL) {
 			void connectRelay({
 				api,
-				relayUrl,
+				relayUrl: env.RELAY_URL,
 				localPort: info.port,
-				getAuthToken: () => process.env.AUTH_TOKEN ?? null,
+				getAuthToken: () => env.AUTH_TOKEN,
 			});
 		}
 	});

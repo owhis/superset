@@ -5,7 +5,7 @@ import { observable } from "@trpc/server/observable";
 import { shell } from "electron";
 import { env } from "main/env.main";
 import { getDeviceName, getHashedDeviceId } from "main/lib/device-info";
-import { getHostServiceCoordinator } from "main/lib/host-service-manager";
+import { getHostServiceCoordinator } from "main/lib/host-service-coordinator";
 import { PLATFORM, PROTOCOL_SCHEME } from "shared/constants";
 import { env as sharedEnv } from "shared/env.shared";
 import { z } from "zod";
