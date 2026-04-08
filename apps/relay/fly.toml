@@ -5,7 +5,7 @@ primary_region = "iad"
   dockerfile = "Dockerfile"
 
 [env]
-  PORT = "8080"
+  RELAY_PORT = "8080"
 
 [http_service]
   internal_port = 8080

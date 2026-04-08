@@ -6,11 +6,12 @@ export type WorkspaceHostTarget =
 	| { kind: "host"; hostId: string };
 
 export function getCloudWorkspaceHostUrl(): string {
-	return `${env.NEXT_PUBLIC_API_URL}/api/v2-hosts/cloud/trpc`;
+	return `${env.NEXT_PUBLIC_API_URL}/api/hosts/cloud/trpc`;
 }
 
-export function getRemoteHostUrl(hostId: string): string {
-	return `${env.NEXT_PUBLIC_API_URL}/api/v2-hosts/${hostId}/trpc`;
+export function getRemoteHostUrl(hostId: string): string | null {
+	if (!env.RELAY_URL) return null;
+	return `${env.RELAY_URL}/hosts/${hostId}`;
 }
 
 export function resolveCreateWorkspaceHostUrl(

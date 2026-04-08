@@ -20,6 +20,10 @@
 			"types": "./src/runtime/git/index.ts",
 			"default": "./src/runtime/git/index.ts"
 		},
+		"./tunnel": {
+			"types": "./src/tunnel/index.ts",
+			"default": "./src/tunnel/index.ts"
+		},
 		"./trpc": {
 			"types": "./src/trpc/index.ts",
 			"default": "./src/trpc/index.ts"

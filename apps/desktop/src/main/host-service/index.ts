@@ -12,6 +12,7 @@
 
 import { serve } from "@hono/node-server";
 import {
+	type CreateAppResult,
 	createApp,
 	JwtApiAuthProvider,
 	LocalGitCredentialProvider,
@@ -21,6 +22,7 @@ import {
 	initTerminalBaseEnv,
 	resolveTerminalBaseEnv,
 } from "@superset/host-service/terminal-env";
+import { TunnelClient } from "@superset/host-service/tunnel";
 import {
 	HOST_SERVICE_PROTOCOL_VERSION,
 	removeManifest,
@@ -49,7 +51,7 @@ async function main(): Promise<void> {
 		? new PskHostAuthProvider(hostServiceSecret)
 		: undefined;
 
-	const { app, injectWebSocket } = createApp({
+	const { app, injectWebSocket, api } = createApp({
 		credentials: new LocalGitCredentialProvider(),
 		auth,
 		hostAuth,
@@ -91,6 +93,18 @@ async function main(): Promise<void> {
 				protocolVersion,
 				startedAt,
 			});
+
+			// Connect to relay if configured
+			const relayUrl = process.env.RELAY_URL;
+			if (api && deviceClientId && relayUrl) {
+				void connectRelay({
+					api,
+					machineId: deviceClientId,
+					name: deviceName ?? "unknown",
+					relayUrl,
+					localPort: info.port,
+				});
+			}
 		},
 	);
 	injectWebSocket(server);
@@ -118,6 +132,32 @@ async function main(): Promise<void> {
 			}
 		}, 2000);
 		parentCheck.unref();
+	}
+}
+
+async function connectRelay(options: {
+	api: NonNullable<CreateAppResult["api"]>;
+	machineId: string;
+	name: string;
+	relayUrl: string;
+	localPort: number;
+}): Promise<void> {
+	try {
+		const host = await options.api.device.ensureV2Host.mutate({
+			machineId: options.machineId,
+			name: options.name,
+		});
+		console.log(`[host-service] registered as host ${host.id}`);
+
+		const tunnel = new TunnelClient({
+			relayUrl: options.relayUrl,
+			hostId: host.id,
+			getAuthToken: () => process.env.AUTH_TOKEN ?? null,
+			localPort: options.localPort,
+		});
+		tunnel.connect();
+	} catch (error) {
+		console.error("[host-service] failed to register/connect relay:", error);
 	}
 }
 

@@ -4,7 +4,7 @@
 	"private": true,
 	"type": "module",
 	"scripts": {
-		"dev": "bun run --hot src/index.ts",
+		"dev": "bun run --env-file=../../.env --hot src/index.ts",
 		"start": "bun run src/index.ts",
 		"typecheck": "tsc --noEmit --emitDeclarationOnly false"
 	},

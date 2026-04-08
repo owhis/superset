@@ -1,6 +1,8 @@
 import { serve } from "@hono/node-server";
 import { createApp } from "./app";
+import { getDeviceName, getHashedDeviceId } from "./device-info";
 import { env } from "./env";
+import { JwtApiAuthProvider } from "./providers/auth";
 import { PskHostAuthProvider } from "./providers/host-auth";
 import { initTerminalBaseEnv, resolveTerminalBaseEnv } from "./terminal/env";
 import { TunnelClient } from "./tunnel";
@@ -10,22 +12,30 @@ async function main(): Promise<void> {
 	initTerminalBaseEnv(terminalBaseEnv);
 
 	const hostAuth = new PskHostAuthProvider(env.HOST_SERVICE_SECRET);
-	const { app, injectWebSocket, api, deviceClientId, deviceName } = createApp({
+	const authToken = process.env.AUTH_TOKEN;
+	const cloudApiUrl = process.env.CLOUD_API_URL;
+	const machineId = getHashedDeviceId();
+	const deviceName = getDeviceName();
+	const relayUrl = process.env.RELAY_URL;
+
+	const { app, injectWebSocket, api } = createApp({
 		dbPath: env.HOST_DB_PATH,
 		hostAuth,
 		allowedOrigins: env.CORS_ORIGINS ?? [],
+		auth: authToken ? new JwtApiAuthProvider(authToken) : undefined,
+		cloudApiUrl: cloudApiUrl ?? undefined,
+		deviceClientId: machineId,
+		deviceName,
 	});
 
 	const server = serve({ fetch: app.fetch, port: env.PORT }, (info) => {
 		console.log(`[host-service] listening on http://localhost:${info.port}`);
 
-		// Register host and connect to relay if configured
-		const relayUrl = process.env.RELAY_URL;
-		if (api && deviceClientId && deviceName && relayUrl) {
+		if (api && relayUrl) {
 			void registerAndConnect({
 				api,
-				deviceClientId,
-				deviceName,
+				machineId,
+				name: deviceName,
 				relayUrl,
 				localPort: info.port,
 			});
@@ -36,15 +46,15 @@ async function main(): Promise<void> {
 
 async function registerAndConnect(options: {
 	api: NonNullable<ReturnType<typeof createApp>["api"]>;
-	deviceClientId: string;
-	deviceName: string;
+	machineId: string;
+	name: string;
 	relayUrl: string;
 	localPort: number;
 }): Promise<void> {
 	try {
 		const host = await options.api.device.ensureV2Host.mutate({
-			machineId: options.deviceClientId,
-			name: options.deviceName,
+			machineId: options.machineId,
+			name: options.name,
 		});
 
 		console.log(`[host-service] registered as host ${host.id}`);
