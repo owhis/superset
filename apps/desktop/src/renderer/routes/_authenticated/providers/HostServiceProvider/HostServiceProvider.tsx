@@ -24,7 +24,6 @@ export interface OrgService {
 }
 
 interface HostServiceContextValue {
-	/** Map of organizationId → { port, url, client } for all running services */
 	services: Map<string, OrgService>;
 }
 
@@ -33,7 +32,7 @@ const HostServiceContext = createContext<HostServiceContextValue | null>(null);
 export function HostServiceProvider({ children }: { children: ReactNode }) {
 	const { data: session } = authClient.useSession();
 	const collections = useCollections();
-	const utils = electronTrpc.useUtils();
+	const startMutation = electronTrpc.hostServiceCoordinator.start.useMutation();
 
 	const activeOrganizationId = env.SKIP_ENV_VALIDATION
 		? MOCK_ORG_ID
@@ -52,73 +51,35 @@ export function HostServiceProvider({ children }: { children: ReactNode }) {
 	// Start a host service for every org
 	useEffect(() => {
 		for (const orgId of orgIds) {
-			const _org = organizations?.find((o) => o.id === orgId);
-			utils.hostServiceCoordinator.getLocalPort
-				.ensureData({
-					organizationId: orgId,
-				})
-				.catch((err) => {
-					console.error(
-						`[host-service] Failed to start for org ${orgId}:`,
-						err,
-					);
-				});
+			startMutation.mutate({ organizationId: orgId });
 		}
-	}, [orgIds, organizations, utils]);
+	}, [orgIds, startMutation.mutate]);
 
-	// Query the active org's port reactively
-	const _activeOrgName = organizations?.find(
-		(o) => o.id === activeOrganizationId,
-	)?.name;
-	const { data: activePortData } =
-		electronTrpc.hostServiceCoordinator.getLocalPort.useQuery(
-			{
-				organizationId: activeOrganizationId as string,
-			},
-			{ enabled: !!activeOrganizationId },
+	// Query active org's connection
+	const { data: activeConnection } =
+		electronTrpc.hostServiceCoordinator.getConnection.useQuery(
+			{ organizationId: activeOrganizationId as string },
+			{ enabled: !!activeOrganizationId, refetchInterval: 5_000 },
 		);
 
-	// Build the services map from cached query data
+	// Build the services map
 	const services = useMemo(() => {
 		const map = new Map<string, OrgService>();
 
-		const addOrg = (orgId: string, port: number, secret: string | null) => {
-			const url = `http://127.0.0.1:${port}`;
-			if (secret) {
-				setHostServiceSecret(url, secret);
+		if (activeOrganizationId && activeConnection?.port) {
+			const url = `http://127.0.0.1:${activeConnection.port}`;
+			if (activeConnection.secret) {
+				setHostServiceSecret(url, activeConnection.secret);
 			}
-			map.set(orgId, {
-				port,
+			map.set(activeOrganizationId, {
+				port: activeConnection.port,
 				url,
-				client: getHostServiceClient(port),
+				client: getHostServiceClient(activeConnection.port),
 			});
-		};
-
-		for (const orgId of orgIds) {
-			const _org = organizations?.find((o) => o.id === orgId);
-			const cached = utils.hostServiceCoordinator.getLocalPort.getData({
-				organizationId: orgId,
-			});
-			if (cached?.port) {
-				addOrg(orgId, cached.port, cached.secret ?? null);
-			}
-		}
-
-		// Ensure active org is included even if orgIds hasn't updated yet
-		if (
-			activeOrganizationId &&
-			activePortData?.port &&
-			!map.has(activeOrganizationId)
-		) {
-			addOrg(
-				activeOrganizationId,
-				activePortData.port,
-				activePortData.secret ?? null,
-			);
 		}
 
 		return map;
-	}, [orgIds, organizations, utils, activeOrganizationId, activePortData]);
+	}, [activeOrganizationId, activeConnection]);
 
 	const value = useMemo(() => ({ services }), [services]);
 

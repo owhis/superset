@@ -8,50 +8,50 @@ import { z } from "zod";
 import { publicProcedure, router } from "../..";
 import { loadToken } from "../auth/utils/auth-functions";
 
+const orgInput = z.object({ organizationId: z.string() });
+
 export const createHostServiceCoordinatorRouter = () => {
 	return router({
-		getLocalPort: publicProcedure
-			.input(z.object({ organizationId: z.string() }))
-			.query(async ({ input }) => {
-				const manager = getHostServiceCoordinator();
-				const { token } = await loadToken();
-				if (!token) {
-					throw new Error("No auth token available — user must be logged in");
-				}
-				return manager.start(input.organizationId, {
-					authToken: token,
-					cloudApiUrl: env.NEXT_PUBLIC_API_URL,
-				});
-			}),
+		start: publicProcedure.input(orgInput).mutation(async ({ input }) => {
+			const coordinator = getHostServiceCoordinator();
+			const { token } = await loadToken();
+			if (!token) {
+				throw new Error("No auth token available — user must be logged in");
+			}
+			return coordinator.start(input.organizationId, {
+				authToken: token,
+				cloudApiUrl: env.NEXT_PUBLIC_API_URL,
+			});
+		}),
 
-		getStatus: publicProcedure
-			.input(z.object({ organizationId: z.string() }))
-			.query(({ input }) => {
-				const manager = getHostServiceCoordinator();
-				const status = manager.getProcessStatus(input.organizationId);
-				return { status };
-			}),
+		getConnection: publicProcedure.input(orgInput).query(({ input }) => {
+			const coordinator = getHostServiceCoordinator();
+			return coordinator.getConnection(input.organizationId);
+		}),
 
-		restart: publicProcedure
-			.input(z.object({ organizationId: z.string() }))
-			.mutation(async ({ input }) => {
-				const manager = getHostServiceCoordinator();
-				const { token } = await loadToken();
-				if (!token) {
-					throw new Error("No auth token available — user must be logged in");
-				}
-				return manager.restart(input.organizationId, {
-					authToken: token,
-					cloudApiUrl: env.NEXT_PUBLIC_API_URL,
-				});
-			}),
+		getProcessStatus: publicProcedure.input(orgInput).query(({ input }) => {
+			const coordinator = getHostServiceCoordinator();
+			return { status: coordinator.getProcessStatus(input.organizationId) };
+		}),
+
+		restart: publicProcedure.input(orgInput).mutation(async ({ input }) => {
+			const coordinator = getHostServiceCoordinator();
+			const { token } = await loadToken();
+			if (!token) {
+				throw new Error("No auth token available — user must be logged in");
+			}
+			return coordinator.restart(input.organizationId, {
+				authToken: token,
+				cloudApiUrl: env.NEXT_PUBLIC_API_URL,
+			});
+		}),
 
 		onStatusChange: publicProcedure.subscription(() => {
 			return observable<HostServiceStatusEvent>((emit) => {
-				const manager = getHostServiceCoordinator();
+				const coordinator = getHostServiceCoordinator();
 				const handler = (event: HostServiceStatusEvent) => emit.next(event);
-				manager.on("status-changed", handler);
-				return () => manager.off("status-changed", handler);
+				coordinator.on("status-changed", handler);
+				return () => coordinator.off("status-changed", handler);
 			});
 		}),
 	});

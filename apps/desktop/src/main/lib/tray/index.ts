@@ -86,9 +86,38 @@ function openSettings(): void {
 	menuEmitter.emit("open-settings");
 }
 
+// Background cache of host.info data per org
+const hostInfoCache = new Map<
+	string,
+	{ organizationName: string; version: string; uptime: number }
+>();
+
+function refreshHostInfo(): void {
+	const coordinator = getHostServiceCoordinator();
+	for (const orgId of coordinator.getActiveOrganizationIds()) {
+		const connection = coordinator.getConnection(orgId);
+		if (!connection) continue;
+
+		void fetch(`http://127.0.0.1:${connection.port}/trpc/host.info`, {
+			headers: { Authorization: `Bearer ${connection.secret}` },
+		})
+			.then((res) => (res.ok ? res.json() : null))
+			.then((data) => {
+				if (!data?.result?.data) return;
+				const info = data.result.data;
+				hostInfoCache.set(orgId, {
+					organizationName: info.organization?.name ?? orgId.slice(0, 8),
+					version: info.version ?? "",
+					uptime: info.uptime ?? 0,
+				});
+			})
+			.catch(() => {});
+	}
+}
+
 function buildHostServiceSubmenu(): MenuItemConstructorOptions[] {
-	const manager = getHostServiceCoordinator();
-	const orgIds = manager.getActiveOrganizationIds();
+	const coordinator = getHostServiceCoordinator();
+	const orgIds = coordinator.getActiveOrganizationIds();
 	const menuItems: MenuItemConstructorOptions[] = [];
 
 	if (orgIds.length === 0) {
@@ -101,11 +130,19 @@ function buildHostServiceSubmenu(): MenuItemConstructorOptions[] {
 			}
 			isFirst = false;
 
-			const status = manager.getProcessStatus(orgId);
+			const status = coordinator.getProcessStatus(orgId);
+			const cached = hostInfoCache.get(orgId);
 			const isRunning = status === "running";
+			const label = cached?.organizationName ?? orgId.slice(0, 8);
+			const versionSuffix = cached?.version ? ` (v${cached.version})` : "";
 
 			menuItems.push({
-				label: `  ${orgId.slice(0, 8)} — ${status}`,
+				label,
+				enabled: false,
+			});
+
+			menuItems.push({
+				label: `  ${status}${versionSuffix}`,
 				enabled: false,
 			});
 
@@ -117,7 +154,7 @@ function buildHostServiceSubmenu(): MenuItemConstructorOptions[] {
 						try {
 							const { token } = await loadToken();
 							if (!token) return;
-							await manager.restart(orgId, {
+							await coordinator.restart(orgId, {
 								authToken: token,
 								cloudApiUrl: env.NEXT_PUBLIC_API_URL,
 							});
@@ -136,7 +173,7 @@ function buildHostServiceSubmenu(): MenuItemConstructorOptions[] {
 				label: "  Stop",
 				enabled: isRunning,
 				click: () => {
-					manager.stop(orgId);
+					coordinator.stop(orgId);
 					updateTrayMenu();
 				},
 			});
@@ -146,19 +183,13 @@ function buildHostServiceSubmenu(): MenuItemConstructorOptions[] {
 	return menuItems;
 }
 
-function _formatUptime(seconds: number): string {
-	if (seconds < 60) return `${seconds}s`;
-	if (seconds < 3600) return `${Math.floor(seconds / 60)}m`;
-	const hours = Math.floor(seconds / 3600);
-	const mins = Math.floor((seconds % 3600) / 60);
-	return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
-}
-
 function updateTrayMenu(): void {
 	if (!tray) return;
 
-	const manager = getHostServiceCoordinator();
-	const orgIds = manager.getActiveOrganizationIds();
+	refreshHostInfo();
+
+	const coordinator = getHostServiceCoordinator();
+	const orgIds = coordinator.getActiveOrganizationIds();
 
 	const hasActive = orgIds.length > 0;
 	const hostServiceLabel = hasActive
