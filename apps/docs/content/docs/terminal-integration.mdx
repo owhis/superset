@@ -48,9 +48,26 @@ Hold `Cmd` (macOS) or `Ctrl` and click links in terminal output:
 - File paths open in the built-in file viewer by default
 - Change file-path behavior in **Settings → Terminal**
 
+## Keyboard Compatibility
+
+The terminal supports the [Kitty keyboard protocol](https://sw.kovidgoyal.net/kitty/keyboard-protocol/), which enables enhanced key handling for programs that use it:
+
+- **neovim** - Modifier-aware keybindings (Ctrl+Shift combinations)
+- **fish 4+** - Enhanced key reporting
+- **Other TUI apps** - Key release events, distinct Enter vs Ctrl+M
+
+Programs that don't use the protocol continue to work normally.
+
 ## Environment Variables
 
 | Variable | Description |
 |----------|-------------|
 | `SUPERSET_ROOT_PATH` | Path to root repository |
 | `SUPERSET_WORKSPACE_NAME` | Current workspace name |
+| `SUPERSET_WORKSPACE_ID` | Unique workspace identifier |
+| `SUPERSET_WORKSPACE_PATH` | Absolute path to workspace directory |
+| `SUPERSET_TERMINAL_ID` | Unique terminal session identifier |
+| `SUPERSET_ENV` | Runtime environment (`development` or `production`) |
+| `SUPERSET_AGENT_HOOK_PORT` | Port for agent hook server |
+| `SUPERSET_AGENT_HOOK_VERSION` | Agent hook protocol version |
+| `TERM_PROGRAM` | Set to `Superset` for terminal detection |

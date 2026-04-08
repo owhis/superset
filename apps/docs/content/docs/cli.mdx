@@ -1,0 +1,55 @@
+---
+title: CLI
+description: Manage Superset from the terminal with the superset command
+---
+
+## Overview
+
+The `superset` CLI lets you manage your Superset account, organizations, and tasks from any terminal.
+
+## Authentication
+
+```bash
+superset auth login      # Sign in via browser (OAuth device flow)
+superset auth logout     # Sign out
+superset auth whoami     # Show current user
+```
+
+Login opens a browser window for approval, then stores credentials locally. No password is entered in the terminal.
+
+## Organizations
+
+```bash
+superset org list        # List your organizations
+superset org switch      # Interactive org picker (or pass name directly)
+```
+
+## Tasks
+
+```bash
+superset tasks list               # List tasks
+superset tasks get <slug>         # Get task details
+superset tasks create             # Create a new task
+superset tasks update <slug>      # Update a task
+superset tasks delete <slug...>   # Delete one or more tasks
+```
+
+## Output Modes
+
+| Flag | Behavior |
+|------|----------|
+| `--json` | JSON output |
+| `--quiet` | Suppress output |
+| `--no-json` | Plain text (overrides agent mode) |
+
+When running inside Claude Code, Cursor, or CI, the CLI defaults to JSON output automatically.
+
+## Help
+
+Every command supports `--help`:
+
+```bash
+superset --help
+superset tasks --help
+superset tasks create --help
+```
