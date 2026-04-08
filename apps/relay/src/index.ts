@@ -89,9 +89,11 @@ app.get(
 	}),
 );
 
-// ── HTTP proxy ──────────────────────────────────────────────────────
+// ── Host proxy (auth required) ──────────────────────────────────────
 
-app.all("/hosts/:hostId/trpc/*", authMiddleware, async (c) => {
+app.use("/hosts/:hostId/*", authMiddleware);
+
+app.all("/hosts/:hostId/trpc/*", async (c) => {
 	const hostId = c.req.param("hostId");
 	const path = c.req.path.replace(`/hosts/${hostId}`, "");
 	const body = (await c.req.text().catch(() => "")) || undefined;
@@ -120,11 +122,8 @@ app.all("/hosts/:hostId/trpc/*", authMiddleware, async (c) => {
 	}
 });
 
-// ── WS proxy ────────────────────────────────────────────────────────
-
 app.get(
 	"/hosts/:hostId/*",
-	authMiddleware,
 	upgradeWebSocket((c) => {
 		const hostId = c.req.param("hostId")!;
 		const path = c.req.path.replace(`/hosts/${hostId}`, "");
