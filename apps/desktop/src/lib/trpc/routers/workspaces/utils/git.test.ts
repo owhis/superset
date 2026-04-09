@@ -879,3 +879,101 @@ describe("parsePrUrl", () => {
 		).toBe(null);
 	});
 });
+
+describe("createWorktree from local-only branch (#3283)", () => {
+	beforeEach(() => {
+		mkdirSync(TEST_DIR, { recursive: true });
+	});
+
+	afterEach(() => {
+		if (existsSync(TEST_DIR)) {
+			rmSync(TEST_DIR, { recursive: true, force: true });
+		}
+	});
+
+	function createRepoWithLocalBranch(name: string): string {
+		const repoPath = createTestRepo(name);
+		seedCommit(repoPath);
+
+		// Add an origin remote (pointing to a bare clone) so the repo has a remote
+		const bareRepoPath = join(TEST_DIR, `${name}-bare`);
+		execSync(`git clone --bare "${repoPath}" "${bareRepoPath}"`, {
+			stdio: "ignore",
+		});
+		execSync(`git remote add origin "${bareRepoPath}"`, {
+			cwd: repoPath,
+			stdio: "ignore",
+		});
+		execSync("git fetch origin", { cwd: repoPath, stdio: "ignore" });
+
+		// Create a local-only branch (never pushed to origin)
+		execSync("git checkout -b local-feature-branch", {
+			cwd: repoPath,
+			stdio: "ignore",
+		});
+		writeFileSync(join(repoPath, "feature.txt"), "feature work\n");
+		execSync("git add . && git commit -m 'feature commit'", {
+			cwd: repoPath,
+			stdio: "ignore",
+		});
+		execSync("git checkout -", { cwd: repoPath, stdio: "ignore" });
+
+		return repoPath;
+	}
+
+	test("fails when using origin/ prefix for a local-only branch", async () => {
+		const repoPath = createRepoWithLocalBranch("local-branch-origin-fail");
+
+		// Verify: origin tracking ref does NOT exist for the local-only branch
+		try {
+			execSync('git rev-parse --verify --quiet "origin/local-feature-branch"', {
+				cwd: repoPath,
+				stdio: "pipe",
+			});
+			throw new Error("Expected rev-parse to fail");
+		} catch (e: unknown) {
+			if (e instanceof Error && e.message === "Expected rev-parse to fail")
+				throw e;
+			// Expected: the ref does not exist
+		}
+
+		// Bug reproduction: when workspace-init resolves to origin/<branch>
+		// for a local-only branch, createWorktree fails
+		const worktreePath = join(TEST_DIR, "wt-origin-fail");
+		await expect(
+			createWorktree(
+				repoPath,
+				"new-branch-from-origin",
+				worktreePath,
+				"origin/local-feature-branch",
+			),
+		).rejects.toThrow();
+	}, 10_000);
+
+	test("succeeds when using local branch ref directly", async () => {
+		const repoPath = createRepoWithLocalBranch("local-branch-direct");
+
+		// Verify: local branch exists
+		execSync('git rev-parse --verify --quiet "local-feature-branch"', {
+			cwd: repoPath,
+			stdio: "pipe",
+		});
+
+		// Fix: use the local branch ref directly as start point
+		const worktreePath = join(TEST_DIR, "wt-local-direct");
+		await createWorktree(
+			repoPath,
+			"new-branch-from-local",
+			worktreePath,
+			"local-feature-branch",
+		);
+
+		expect(existsSync(worktreePath)).toBe(true);
+		const currentBranch = execSync("git rev-parse --abbrev-ref HEAD", {
+			cwd: worktreePath,
+		})
+			.toString()
+			.trim();
+		expect(currentBranch).toBe("new-branch-from-local");
+	}, 10_000);
+});

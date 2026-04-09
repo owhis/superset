@@ -313,7 +313,20 @@ export async function initializeWorkspaceWorktree({
 		};
 
 		let startPoint: string;
-		if (hasRemote) {
+
+		// When start point is explicitly requested (e.g., branching from a source
+		// workspace), prefer the local branch ref. This handles local-only branches
+		// that were never pushed to the remote, and ensures we use the local branch
+		// state rather than a potentially stale remote tracking ref.
+		if (
+			requestedStartPoint &&
+			(await refExistsLocally(mainRepoPath, effectiveStartPoint))
+		) {
+			console.log(
+				`[workspace-init] Using explicitly requested local branch: ${effectiveStartPoint}`,
+			);
+			startPoint = effectiveStartPoint;
+		} else if (hasRemote) {
 			const branchCheck = await branchExistsOnRemote(
 				mainRepoPath,
 				effectiveStartPoint,
