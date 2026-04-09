@@ -5,17 +5,22 @@ import type { ApiClient } from "../../../types";
 import { protectedProcedure, router } from "../../index";
 
 const HOST_SERVICE_VERSION = "0.1.0";
+const ORGANIZATION_CACHE_TTL_MS = 60 * 60 * 1000;
 
 let cachedOrganization: {
-	id: string;
-	name: string;
-	slug: string;
+	data: { id: string; name: string; slug: string };
+	cachedAt: number;
 } | null = null;
 
 async function getOrganization(
 	api: ApiClient,
 ): Promise<{ id: string; name: string; slug: string }> {
-	if (cachedOrganization) return cachedOrganization;
+	if (
+		cachedOrganization &&
+		Date.now() - cachedOrganization.cachedAt < ORGANIZATION_CACHE_TTL_MS
+	) {
+		return cachedOrganization.data;
+	}
 
 	const organization = await api.organization.getActive.query();
 	if (!organization) {
@@ -25,7 +30,7 @@ async function getOrganization(
 		});
 	}
 
-	cachedOrganization = organization;
+	cachedOrganization = { data: organization, cachedAt: Date.now() };
 	return organization;
 }
 
