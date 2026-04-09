@@ -35,6 +35,21 @@ export default command({
 					}`,
 				);
 			}
+
+			// Wait for the process to actually exit so concurrent `host start`
+			// calls can't race ahead and spawn a duplicate.
+			const deadline = Date.now() + 10_000;
+			while (Date.now() < deadline) {
+				if (!isProcessAlive(manifest.pid)) break;
+				await new Promise((r) => setTimeout(r, 100));
+			}
+
+			if (isProcessAlive(manifest.pid)) {
+				// Escalate to SIGKILL if it refuses to exit
+				try {
+					process.kill(manifest.pid, "SIGKILL");
+				} catch {}
+			}
 		}
 
 		removeManifest(organizationId);
