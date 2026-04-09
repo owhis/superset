@@ -175,6 +175,7 @@ export function buildTaskLaunchRequest({
 			name: task.slug,
 			taskPromptContent: prompt,
 			taskPromptFileName,
+			taskInput: task,
 			...(paneId ? { paneId } : {}),
 		},
 	};

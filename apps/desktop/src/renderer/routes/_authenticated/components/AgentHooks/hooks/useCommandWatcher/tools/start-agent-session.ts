@@ -6,6 +6,7 @@ import {
 } from "@superset/shared/agent-launch";
 import {
 	buildFileCommandFromAgentConfig,
+	renderTaskPromptTemplate,
 	type ResolvedAgentConfig,
 } from "shared/utils/agent-settings";
 import {
@@ -63,7 +64,7 @@ async function execute(
 				: fallbackRequest;
 		const request = normalizeAgentLaunchRequest(mergedRequest);
 
-		// Rebuild terminal command using device-local agent settings when possible.
+		// Rebuild terminal command and prompt using device-local agent settings.
 		// The MCP server sends a fallback command built from hardcoded builtins, but
 		// the user may have overridden agent settings on this device.
 		if (
@@ -78,13 +79,27 @@ async function execute(
 				const config = presets.find(
 					(p: ResolvedAgentConfig) => p.id === agentId,
 				);
-				if (config && config.kind === "terminal" && config.enabled) {
+				if (config && !config.enabled) {
+					return {
+						success: false,
+						error: `Agent "${request.agentType}" is disabled on this device`,
+					};
+				}
+				if (config && config.kind === "terminal") {
 					const rebuilt = buildFileCommandFromAgentConfig({
 						filePath: `.superset/${request.terminal.taskPromptFileName}`,
 						config,
 					});
 					if (rebuilt) {
 						request.terminal.command = rebuilt;
+					}
+					// Re-render prompt with local template when task data is available
+					if (request.terminal.taskInput) {
+						request.terminal.taskPromptContent =
+							renderTaskPromptTemplate(
+								config.taskPromptTemplate,
+								request.terminal.taskInput,
+							);
 					}
 				}
 			} catch {

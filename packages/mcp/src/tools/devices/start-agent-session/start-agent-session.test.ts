@@ -114,6 +114,7 @@ describe("session launch MCP tools", () => {
 						command: string;
 						taskPromptContent?: string;
 						taskPromptFileName?: string;
+						taskInput?: typeof TASK;
 					};
 				};
 			};
@@ -125,6 +126,7 @@ describe("session launch MCP tools", () => {
 			terminal: {
 				name: "demo-task",
 				taskPromptFileName: "task-demo-task.md",
+				taskInput: TASK,
 			},
 		});
 		// Prompt delivered via file, not inlined into the command
