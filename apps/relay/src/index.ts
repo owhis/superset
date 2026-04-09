@@ -112,7 +112,7 @@ app.use("/hosts/:hostId/*", authMiddleware);
 
 app.all("/hosts/:hostId/trpc/*", async (c) => {
 	const hostId = c.get("hostId");
-	const path = c.req.path.replace(`/hosts/${hostId}`, "");
+	const path = `/${c.req.param("*")}`;
 	const body = (await c.req.text().catch(() => "")) || undefined;
 
 	const headers: Record<string, string> = {};
@@ -143,8 +143,8 @@ app.get(
 	"/hosts/:hostId/*",
 	upgradeWebSocket((c) => {
 		const hostId = c.get("hostId");
-		const path = c.req.path.replace(`/hosts/${hostId}`, "");
-		const query = c.req.url.split("?")[1];
+		const path = `/${c.req.param("*")}`;
+		const query = new URL(c.req.url).search.slice(1) || undefined;
 		let channelId: string | null = null;
 
 		return {
