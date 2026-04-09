@@ -1,5 +1,6 @@
 import { EventEmitter } from "node:events";
 import { clipboard, Menu, shell, webContents } from "electron";
+import { sanitizeUrl } from "lib/browser/sanitize-url";
 
 interface ConsoleEntry {
 	level: "log" | "warn" | "error" | "info" | "debug";
@@ -8,19 +9,6 @@ interface ConsoleEntry {
 }
 
 const MAX_CONSOLE_ENTRIES = 500;
-
-function sanitizeUrl(url: string): string {
-	if (/^https?:\/\//i.test(url) || url.startsWith("about:")) {
-		return url;
-	}
-	if (url.startsWith("localhost") || url.startsWith("127.0.0.1")) {
-		return `http://${url}`;
-	}
-	if (url.includes(".")) {
-		return `https://${url}`;
-	}
-	return `https://www.google.com/search?q=${encodeURIComponent(url)}`;
-}
 
 class BrowserManager extends EventEmitter {
 	private paneWebContentsIds = new Map<string, number>();
