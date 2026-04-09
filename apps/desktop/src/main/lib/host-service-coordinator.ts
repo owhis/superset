@@ -294,12 +294,13 @@ export class HostServiceCoordinator extends EventEmitter {
 		const port = await findFreePort();
 		const secret = randomBytes(32).toString("hex");
 
-		this.instances.set(organizationId, {
-			pid: 0, // Updated after spawn
+		const instance: HostServiceProcess = {
+			pid: 0,
 			port,
 			secret,
 			status: "starting",
-		});
+		};
+		this.instances.set(organizationId, instance);
 		this.emitStatus(organizationId, "starting", null);
 
 		const env = await this.buildEnv(organizationId, port, secret, config);
@@ -314,7 +315,6 @@ export class HostServiceCoordinator extends EventEmitter {
 			throw new Error("Failed to spawn host service process");
 		}
 
-		const instance = this.instances.get(organizationId)!;
 		instance.pid = childPid;
 
 		child.stdout?.on("data", (data: Buffer) => {
