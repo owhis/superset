@@ -182,7 +182,7 @@ function copyPackageWithDeps(
 	}
 }
 
-function copyNativePackages(target: Target, libDir: string): void {
+function copyNativePackages(libDir: string): void {
 	const repoRoot = resolve(import.meta.dir, "../../..");
 	const destModules = join(libDir, "node_modules");
 	mkdirSync(destModules, { recursive: true });
@@ -264,7 +264,7 @@ async function main(): Promise<void> {
 	await downloadAndExtractNode(target, join(stagingRoot, "lib"));
 
 	console.log("[build-dist] copying native addon packages");
-	copyNativePackages(target, join(stagingRoot, "lib"));
+	copyNativePackages(join(stagingRoot, "lib"));
 
 	console.log("[build-dist] copying migrations");
 	const migrationsSrc = resolve(import.meta.dir, "../../host-service/drizzle");
