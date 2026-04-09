@@ -232,7 +232,20 @@ export const deviceRouter = {
 
 	setHostOnline: protectedProcedure
 		.input(z.object({ hostId: z.string().uuid(), isOnline: z.boolean() }))
-		.mutation(async ({ input }) => {
+		.mutation(async ({ ctx, input }) => {
+			const access = await db.query.v2UsersHosts.findFirst({
+				where: and(
+					eq(v2UsersHosts.userId, ctx.session.user.id),
+					eq(v2UsersHosts.hostId, input.hostId),
+				),
+				columns: { id: true },
+			});
+			if (!access) {
+				throw new TRPCError({
+					code: "FORBIDDEN",
+					message: "No access to this host",
+				});
+			}
 			await db
 				.update(v2Hosts)
 				.set({ isOnline: input.isOnline })
