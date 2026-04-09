@@ -108,7 +108,7 @@ export class TunnelClient {
 
 		// Handle keepalive
 		if (message.type === "ping") {
-			this.send({ type: "pong" } as unknown as TunnelResponse);
+			this.send({ type: "pong" });
 			return;
 		}
 
