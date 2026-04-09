@@ -154,7 +154,11 @@ export class TunnelClient {
 				headers,
 				body,
 			});
-		} catch {
+		} catch (error) {
+			console.error(
+				`[host-service:tunnel] HTTP proxy failed ${request.method} ${request.path}:`,
+				error,
+			);
 			this.send({
 				type: "http:response",
 				id: request.id,
@@ -188,9 +192,12 @@ export class TunnelClient {
 			this.send({ type: "ws:close", id: request.id, code: event.code });
 		};
 
-		localWs.onerror = () => {
-			this.localChannels.delete(request.id);
-			this.send({ type: "ws:close", id: request.id, code: 1011 });
+		localWs.onerror = (event) => {
+			// onclose always follows onerror; ws:close is sent from onclose
+			console.error(
+				`[host-service:tunnel] local WS error on ${request.path}`,
+				event,
+			);
 		};
 
 		this.localChannels.set(request.id, localWs);

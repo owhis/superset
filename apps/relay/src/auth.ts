@@ -34,7 +34,8 @@ export async function verifyJWT(
 		}
 
 		return { sub, email: email ?? "", organizationIds };
-	} catch {
+	} catch (error) {
+		console.error("[relay] JWT verification failed:", error);
 		return null;
 	}
 }

@@ -113,7 +113,8 @@ app.use("/hosts/:hostId/*", authMiddleware);
 app.all("/hosts/:hostId/trpc/*", async (c) => {
 	const hostId = c.get("hostId");
 	const prefix = `/hosts/${hostId}`;
-	const path = c.req.path.slice(prefix.length) || "/";
+	const url = new URL(c.req.url);
+	const path = `${url.pathname.slice(prefix.length) || "/"}${url.search}`;
 	const body = (await c.req.text().catch(() => "")) || undefined;
 
 	const headers: Record<string, string> = {};
