@@ -25,11 +25,13 @@ const IS_AUTO_UPDATE_PLATFORM = PLATFORM.IS_MAC || PLATFORM.IS_LINUX;
 
 // Use explicit feed URLs to ensure we always fetch platform-specific manifests
 // (for example latest-mac.yml and latest-linux.yml) from the correct release.
-// - Stable: fetches from /releases/latest/download/ (latest non-prerelease)
+// Both channels use rolling GitHub release tags so that non-desktop releases
+// (e.g. CLI) never shadow the desktop update feed.
+// - Stable: fetches from /releases/download/desktop-stable/ (rolling stable tag)
 // - Canary: fetches from /releases/download/desktop-canary/ (rolling canary tag)
 const UPDATE_FEED_URL = IS_PRERELEASE
 	? "https://github.com/superset-sh/superset/releases/download/desktop-canary"
-	: "https://github.com/superset-sh/superset/releases/latest/download";
+	: "https://github.com/superset-sh/superset/releases/download/desktop-stable";
 
 export interface AutoUpdateStatusEvent {
 	status: AutoUpdateStatus;
