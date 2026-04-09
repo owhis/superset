@@ -1,4 +1,3 @@
-import type { ChildProcess } from "node:child_process";
 import * as childProcess from "node:child_process";
 import { randomBytes } from "node:crypto";
 import { EventEmitter } from "node:events";
@@ -22,11 +21,13 @@ import { HOOK_PROTOCOL_VERSION } from "./terminal/env";
 /** Minimum host-service version this app can work with. */
 const MIN_HOST_SERVICE_VERSION = "0.1.0";
 
-export type HostServiceStatus =
-	| "starting"
-	| "running"
-	| "restarting"
-	| "stopped";
+export type HostServiceStatus = "starting" | "running" | "stopped";
+
+export interface Connection {
+	port: number;
+	secret: string;
+	machineId: string;
+}
 
 export interface HostServiceStatusEvent {
 	organizationId: string;
@@ -40,14 +41,10 @@ export interface SpawnConfig {
 }
 
 interface HostServiceProcess {
-	process: ChildProcess | null;
-	pid: number | null;
+	pid: number;
 	port: number;
 	secret: string;
 	status: HostServiceStatus;
-	restartCount: number;
-	organizationId: string;
-	startedAt: number;
 }
 
 const HEALTH_POLL_INTERVAL = 200;
@@ -96,50 +93,42 @@ async function pollHealthCheck(
 
 export class HostServiceCoordinator extends EventEmitter {
 	private instances = new Map<string, HostServiceProcess>();
-	private pendingStarts = new Map<string, Promise<number>>();
+	private pendingStarts = new Map<string, Promise<Connection>>();
 	private adoptedLivenessTimers = new Map<
 		string,
 		ReturnType<typeof setInterval>
 	>();
 	private scriptPath = path.join(__dirname, "host-service.js");
+	private machineId = getHashedDeviceId();
 
 	async start(
 		organizationId: string,
 		config: SpawnConfig,
-	): Promise<{ port: number; secret: string }> {
+	): Promise<Connection> {
 		const existing = this.instances.get(organizationId);
 		if (existing?.status === "running") {
-			return { port: existing.port, secret: existing.secret };
+			return {
+				port: existing.port,
+				secret: existing.secret,
+				machineId: this.machineId,
+			};
 		}
 
 		const pending = this.pendingStarts.get(organizationId);
-		if (pending) {
-			const port = await pending;
-			const secret = this.instances.get(organizationId)?.secret ?? "";
-			return { port, secret };
-		}
+		if (pending) return pending;
 
-		const startPromise = this.doStart(organizationId, config);
+		const startPromise = (async (): Promise<Connection> => {
+			const adopted = await this.tryAdopt(organizationId);
+			if (adopted) return adopted;
+			return this.spawn(organizationId, config);
+		})();
 		this.pendingStarts.set(organizationId, startPromise);
 
 		try {
-			const port = await startPromise;
-			const secret = this.instances.get(organizationId)?.secret ?? "";
-			return { port, secret };
+			return await startPromise;
 		} finally {
 			this.pendingStarts.delete(organizationId);
 		}
-	}
-
-	private async doStart(
-		organizationId: string,
-		config: SpawnConfig,
-	): Promise<number> {
-		// Try adopting a running service first
-		const adopted = await this.tryAdopt(organizationId);
-		if (adopted !== null) return adopted;
-
-		return this.spawn(organizationId, config);
 	}
 
 	stop(organizationId: string): void {
@@ -151,13 +140,9 @@ export class HostServiceCoordinator extends EventEmitter {
 		const previousStatus = instance.status;
 		instance.status = "stopped";
 
-		if (instance.process) {
-			instance.process.kill("SIGTERM");
-		} else if (instance.pid) {
-			try {
-				process.kill(instance.pid, "SIGTERM");
-			} catch {}
-		}
+		try {
+			process.kill(instance.pid, "SIGTERM");
+		} catch {}
 
 		this.instances.delete(organizationId);
 		removeManifest(organizationId);
@@ -192,17 +177,19 @@ export class HostServiceCoordinator extends EventEmitter {
 	async restart(
 		organizationId: string,
 		config: SpawnConfig,
-	): Promise<{ port: number; secret: string }> {
+	): Promise<Connection> {
 		this.stop(organizationId);
 		return this.start(organizationId, config);
 	}
 
-	getConnection(
-		organizationId: string,
-	): { port: number; secret: string } | null {
+	getConnection(organizationId: string): Connection | null {
 		const instance = this.instances.get(organizationId);
 		if (!instance || instance.status !== "running") return null;
-		return { port: instance.port, secret: instance.secret };
+		return {
+			port: instance.port,
+			secret: instance.secret,
+			machineId: this.machineId,
+		};
 	}
 
 	getProcessStatus(organizationId: string): HostServiceStatus {
@@ -226,14 +213,13 @@ export class HostServiceCoordinator extends EventEmitter {
 
 	// ── Adoption ──────────────────────────────────────────────────────
 
-	private async tryAdopt(organizationId: string): Promise<number | null> {
+	private async tryAdopt(organizationId: string): Promise<Connection | null> {
 		const manifest = this.readAndValidateManifest(organizationId);
 		if (!manifest) return null;
 
 		const url = new URL(manifest.endpoint);
 		const port = Number(url.port);
 
-		// Check version — kill and respawn if too old
 		const version = await this.fetchHostVersion(
 			manifest.endpoint,
 			manifest.authToken,
@@ -249,24 +235,19 @@ export class HostServiceCoordinator extends EventEmitter {
 			return null;
 		}
 
-		const instance: HostServiceProcess = {
-			process: null,
+		this.instances.set(organizationId, {
 			pid: manifest.pid,
 			port,
 			secret: manifest.authToken,
 			status: "running",
-			restartCount: 0,
-			organizationId,
-			startedAt: manifest.startedAt,
-		};
-		this.instances.set(organizationId, instance);
+		});
 		this.startAdoptedLivenessCheck(organizationId, manifest.pid);
 
 		console.log(
 			`[host-service:${organizationId}] Adopted pid=${manifest.pid} port=${port}`,
 		);
 		this.emitStatus(organizationId, "running", null);
-		return port;
+		return { port, secret: manifest.authToken, machineId: this.machineId };
 	}
 
 	private async fetchHostVersion(
@@ -308,24 +289,16 @@ export class HostServiceCoordinator extends EventEmitter {
 	private async spawn(
 		organizationId: string,
 		config: SpawnConfig,
-	): Promise<number> {
-		const previousInstance = this.instances.get(organizationId);
-		const restartCount = previousInstance?.restartCount ?? 0;
-
+	): Promise<Connection> {
 		const port = await findFreePort();
 		const secret = randomBytes(32).toString("hex");
 
-		const instance: HostServiceProcess = {
-			process: null,
-			pid: null,
+		this.instances.set(organizationId, {
+			pid: 0, // Updated after spawn
 			port,
 			secret,
 			status: "starting",
-			restartCount,
-			organizationId,
-			startedAt: Date.now(),
-		};
-		this.instances.set(organizationId, instance);
+		});
 		this.emitStatus(organizationId, "starting", null);
 
 		const env = await this.buildEnv(organizationId, port, secret, config);
@@ -333,8 +306,15 @@ export class HostServiceCoordinator extends EventEmitter {
 			stdio: ["ignore", "pipe", "pipe"],
 			env,
 		});
-		instance.process = child;
-		instance.pid = child.pid ?? null;
+
+		const childPid = child.pid;
+		if (!childPid) {
+			this.instances.delete(organizationId);
+			throw new Error("Failed to spawn host service process");
+		}
+
+		const instance = this.instances.get(organizationId)!;
+		instance.pid = childPid;
 
 		child.stdout?.on("data", (data: Buffer) => {
 			console.log(`[host-service:${organizationId}] ${data.toString().trim()}`);
@@ -347,7 +327,7 @@ export class HostServiceCoordinator extends EventEmitter {
 		child.on("exit", (code) => {
 			console.log(`[host-service:${organizationId}] exited with code ${code}`);
 			const current = this.instances.get(organizationId);
-			if (!current || current.process !== child || current.status === "stopped")
+			if (!current || current.pid !== childPid || current.status === "stopped")
 				return;
 
 			this.instances.delete(organizationId);
@@ -367,11 +347,10 @@ export class HostServiceCoordinator extends EventEmitter {
 		}
 
 		instance.status = "running";
-		instance.restartCount = 0;
 
 		console.log(`[host-service:${organizationId}] listening on port ${port}`);
 		this.emitStatus(organizationId, "running", "starting");
-		return port;
+		return { port, secret, machineId: this.machineId };
 	}
 
 	private async buildEnv(
@@ -380,7 +359,7 @@ export class HostServiceCoordinator extends EventEmitter {
 		secret: string,
 		config: SpawnConfig,
 	): Promise<Record<string, string>> {
-		const orgDir = manifestDir(organizationId);
+		const organizationDir = manifestDir(organizationId);
 
 		return getProcessEnvWithShellPath({
 			...(process.env as Record<string, string>),
@@ -390,8 +369,8 @@ export class HostServiceCoordinator extends EventEmitter {
 			DEVICE_NAME: getDeviceName(),
 			HOST_SERVICE_SECRET: secret,
 			HOST_SERVICE_PORT: String(port),
-			HOST_MANIFEST_DIR: orgDir,
-			HOST_DB_PATH: path.join(orgDir, "host.db"),
+			HOST_MANIFEST_DIR: organizationDir,
+			HOST_DB_PATH: path.join(organizationDir, "host.db"),
 			HOST_MIGRATIONS_FOLDER: app.isPackaged
 				? path.join(process.resourcesPath, "resources/host-migrations")
 				: path.join(app.getAppPath(), "../../packages/host-service/drizzle"),
@@ -434,7 +413,7 @@ export class HostServiceCoordinator extends EventEmitter {
 		}
 	}
 
-	// ── Restart ───────────────────────────────────────────────────────
+	// ── Events ────────────────────────────────────────────────────────
 
 	private emitStatus(
 		organizationId: string,
@@ -449,11 +428,11 @@ export class HostServiceCoordinator extends EventEmitter {
 	}
 }
 
-let manager: HostServiceCoordinator | null = null;
+let coordinator: HostServiceCoordinator | null = null;
 
 export function getHostServiceCoordinator(): HostServiceCoordinator {
-	if (!manager) {
-		manager = new HostServiceCoordinator();
+	if (!coordinator) {
+		coordinator = new HostServiceCoordinator();
 	}
-	return manager;
+	return coordinator;
 }
