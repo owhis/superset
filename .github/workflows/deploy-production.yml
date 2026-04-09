@@ -465,10 +465,26 @@ jobs:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
         run: flyctl deploy . --config fly.toml --remote-only
 
+  check-relay-changes:
+    name: Check relay changes
+    runs-on: ubuntu-latest
+    outputs:
+      changed: ${{ steps.filter.outputs.relay }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            relay:
+              - 'apps/relay/**'
+
   deploy-relay:
     name: Deploy Relay to Fly.io
     runs-on: ubuntu-latest
     environment: production
+    needs: check-relay-changes
+    if: needs.check-relay-changes.outputs.changed == 'true'
 
     steps:
       - name: Checkout repository
