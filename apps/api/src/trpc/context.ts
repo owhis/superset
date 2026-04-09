@@ -17,7 +17,9 @@ async function resolveSession(req: Request): Promise<Session | null> {
 					},
 				} as Session;
 			}
-		} catch {}
+		} catch (error) {
+			console.debug("[trpc] JWT verification failed:", error);
+		}
 	}
 
 	// Cookie / opaque session token fallback

@@ -69,7 +69,7 @@ async function main(): Promise<void> {
 					api,
 					relayUrl: env.RELAY_URL,
 					localPort: info.port,
-					getAuthToken: () => process.env.AUTH_TOKEN ?? null,
+					getAuthToken: () => env.AUTH_TOKEN,
 				});
 			}
 		},

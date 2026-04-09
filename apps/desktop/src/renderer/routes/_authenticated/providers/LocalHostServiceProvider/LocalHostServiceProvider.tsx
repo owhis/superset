@@ -28,7 +28,8 @@ export function LocalHostServiceProvider({
 }) {
 	const { data: session } = authClient.useSession();
 	const collections = useCollections();
-	const startMutation = electronTrpc.hostServiceCoordinator.start.useMutation();
+	const { mutate: startHostService } =
+		electronTrpc.hostServiceCoordinator.start.useMutation();
 
 	const activeOrganizationId = env.SKIP_ENV_VALIDATION
 		? MOCK_ORG_ID
@@ -46,9 +47,9 @@ export function LocalHostServiceProvider({
 
 	useEffect(() => {
 		for (const organizationId of organizationIds) {
-			startMutation.mutate({ organizationId });
+			startHostService({ organizationId });
 		}
-	}, [organizationIds, startMutation.mutate]);
+	}, [organizationIds, startHostService]);
 
 	const { data: activeConnection } =
 		electronTrpc.hostServiceCoordinator.getConnection.useQuery(
