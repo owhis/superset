@@ -13,7 +13,7 @@ import { z } from "zod";
 import { jwtProcedure, protectedProcedure } from "../../trpc";
 
 export const deviceRouter = {
-	ensureV2Host: protectedProcedure
+	ensureV2Host: jwtProcedure
 		.input(
 			z.object({
 				machineId: z.string().min(1),
@@ -21,23 +21,20 @@ export const deviceRouter = {
 			}),
 		)
 		.mutation(async ({ ctx, input }) => {
-			const organizationId = ctx.session.session.activeOrganizationId;
-			if (!organizationId) {
+			if (!ctx.activeOrganizationId) {
 				throw new TRPCError({
 					code: "BAD_REQUEST",
 					message: "No active organization selected",
 				});
 			}
 
-			const userId = ctx.session.user.id;
-
 			const [host] = await dbWs
 				.insert(v2Hosts)
 				.values({
-					organizationId,
+					organizationId: ctx.activeOrganizationId,
 					machineId: input.machineId,
 					name: input.name,
-					createdByUserId: userId,
+					createdByUserId: ctx.userId,
 				})
 				.onConflictDoUpdate({
 					target: [v2Hosts.organizationId, v2Hosts.machineId],
@@ -57,8 +54,8 @@ export const deviceRouter = {
 			await dbWs
 				.insert(v2UsersHosts)
 				.values({
-					organizationId,
-					userId,
+					organizationId: ctx.activeOrganizationId,
+					userId: ctx.userId,
 					hostId: host.id,
 					role: "owner",
 				})
