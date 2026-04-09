@@ -1,24 +1,19 @@
 import { toast } from "@superset/ui/sonner";
 import { useNavigate } from "@tanstack/react-router";
 import { useCallback, useState } from "react";
+import { env } from "renderer/env.renderer";
 import { electronTrpc } from "renderer/lib/electron-trpc";
-import {
-	getHostServiceClientByUrl,
-	type HostServiceClient,
-} from "renderer/lib/host-service-client";
-import {
-	resolveCreateWorkspaceHostUrl,
-	type WorkspaceHostTarget,
-} from "renderer/lib/v2-workspace-host";
+import { getHostServiceClientByUrl } from "renderer/lib/host-service-client";
 import { navigateToV2Workspace } from "renderer/routes/_authenticated/_dashboard/utils/workspace-navigation";
 import { useDashboardSidebarState } from "renderer/routes/_authenticated/hooks/useDashboardSidebarState";
+import { useLocalHostService } from "renderer/routes/_authenticated/providers/LocalHostServiceProvider";
 import {
 	useClearPendingWorkspace,
 	useSetPendingWorkspace,
 	useSetPendingWorkspaceStatus,
 } from "renderer/stores/new-workspace-modal";
 import { sanitizeBranchNameWithMaxLength } from "shared/utils/branch";
-import { useWorkspaceHostOptions } from "../../components/DashboardNewWorkspaceForm/components/DevicePicker/hooks/useWorkspaceHostOptions";
+import type { WorkspaceHostTarget } from "../../components/DashboardNewWorkspaceForm/components/DevicePicker";
 import type {
 	LinkedIssue,
 	LinkedPR,
@@ -49,6 +44,14 @@ function revokeDetachedFiles(files: Array<{ url: string }>): void {
 	}
 }
 
+function resolveHostUrl(
+	target: WorkspaceHostTarget,
+	activeHostUrl: string | null,
+): string | null {
+	if (target.kind === "local") return activeHostUrl;
+	return `${env.RELAY_URL}/hosts/${target.hostId}`;
+}
+
 // ── Types ────────────────────────────────────────────────────────────
 
 export interface CreateWorkspaceInput {
@@ -70,7 +73,7 @@ export interface CreateWorkspaceInput {
 export function useCreateDashboardWorkspace() {
 	const [isPending, setIsPending] = useState(false);
 	const navigate = useNavigate();
-	const { localHostService } = useWorkspaceHostOptions();
+	const { activeHostUrl } = useLocalHostService();
 	const { ensureWorkspaceInSidebar } = useDashboardSidebarState();
 	const setPendingWorkspace = useSetPendingWorkspace();
 	const setPendingWorkspaceStatus = useSetPendingWorkspaceStatus();
@@ -143,25 +146,21 @@ export function useCreateDashboardWorkspace() {
 						? sanitizeBranchNameWithMaxLength(
 								input.branchName.trim(),
 								undefined,
-								{ preserveCase: true },
+								{
+									preserveCase: true,
+								},
 							)
 						: aiBranchName) || undefined;
 
 				// 4. Call host-service
 				setPendingWorkspaceStatus(pendingId, "creating");
 
-				const hostUrl = resolveCreateWorkspaceHostUrl(
-					input.hostTarget,
-					localHostService?.url ?? null,
-				);
+				const hostUrl = resolveHostUrl(input.hostTarget, activeHostUrl);
 				if (!hostUrl) {
 					throw new Error("Host service not available");
 				}
 
-				const client: HostServiceClient =
-					input.hostTarget.kind === "local" && localHostService
-						? localHostService.client
-						: getHostServiceClientByUrl(hostUrl);
+				const client = getHostServiceClientByUrl(hostUrl);
 
 				// Map linked issues into typed ID arrays
 				const internalIssueIds = input.linkedIssues
@@ -219,11 +218,11 @@ export function useCreateDashboardWorkspace() {
 			}
 		},
 		[
+			activeHostUrl,
 			clearPendingWorkspace,
 			ensureWorkspaceInSidebar,
 			generateBranchNameMutation,
 			isPending,
-			localHostService,
 			navigate,
 			setPendingWorkspace,
 			setPendingWorkspaceStatus,

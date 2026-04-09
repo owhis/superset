@@ -1,5 +1,6 @@
 import { existsSync, mkdirSync } from "node:fs";
 import { dirname, join, resolve, sep } from "node:path";
+import { getDeviceName, getHashedDeviceId } from "@superset/shared/device-info";
 import { TRPCError } from "@trpc/server";
 import { eq } from "drizzle-orm";
 import simpleGit from "simple-git";
@@ -280,17 +281,12 @@ export const workspaceCreationRouter = router({
 			}),
 		)
 		.mutation(async ({ ctx, input }) => {
-			if (!ctx.api) {
-				throw new TRPCError({
-					code: "PRECONDITION_FAILED",
-					message: "Cloud API not configured",
-				});
-			}
-
 			const branchName =
 				input.names.branchName || input.names.workspaceName || "workspace";
 			const workspaceName =
 				input.names.workspaceName || input.names.branchName || "workspace";
+			const deviceClientId = getHashedDeviceId();
+			const deviceName = getDeviceName();
 
 			// 1. Resolve / ensure project locally
 			let localProject = ctx.db.query.projects
@@ -393,16 +389,10 @@ export const workspaceCreationRouter = router({
 				}
 
 				// External worktree — adopt it (create cloud + local rows)
-				if (!ctx.deviceClientId || !ctx.deviceName) {
-					throw new TRPCError({
-						code: "PRECONDITION_FAILED",
-						message: "Host device metadata not configured",
-					});
-				}
-
 				const host = await ctx.api.device.ensureV2Host.mutate({
-					machineId: ctx.deviceClientId,
-					name: ctx.deviceName,
+					organizationId: ctx.organizationId,
+					machineId: deviceClientId,
+					name: deviceName,
 				});
 
 				const cloudRow = await ctx.api.v2Workspace.create.mutate({
@@ -437,13 +427,6 @@ export const workspaceCreationRouter = router({
 			}
 
 			// 4. Create worktree + cloud workspace row
-			if (!ctx.deviceClientId || !ctx.deviceName) {
-				throw new TRPCError({
-					code: "PRECONDITION_FAILED",
-					message: "Host device metadata not configured",
-				});
-			}
-
 			const git = await ctx.git(localProject.repoPath);
 
 			// Create worktree — first try adding for an existing branch; if
@@ -469,8 +452,9 @@ export const workspaceCreationRouter = router({
 			}
 
 			const host = await ctx.api.device.ensureV2Host.mutate({
-				machineId: ctx.deviceClientId,
-				name: ctx.deviceName,
+				organizationId: ctx.organizationId,
+				machineId: deviceClientId,
+				name: deviceName,
 			});
 
 			const rollbackWorktree = async () => {
