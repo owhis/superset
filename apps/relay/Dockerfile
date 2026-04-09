@@ -9,6 +9,7 @@ RUN bunx turbo prune @superset/relay --docker
 # Stage 2: Install deps + copy full source
 FROM base AS builder
 COPY --from=prune /app/out/json/ ./
+COPY patches patches
 RUN bun install --frozen-lockfile --ignore-scripts
 COPY --from=prune /app/out/full/ ./
 
@@ -16,8 +17,8 @@ COPY --from=prune /app/out/full/ ./
 FROM base AS runner
 ENV NODE_ENV=production
 
-RUN addgroup --system --gid 1001 relay && \
-    adduser --system --uid 1001 --ingroup relay relay
+RUN groupadd --system --gid 1001 relay && \
+    useradd --system --uid 1001 --gid relay relay
 
 COPY --from=builder --chown=relay:relay /app /app
 
