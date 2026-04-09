@@ -7,6 +7,7 @@ export interface ConnectRelayOptions {
 	api: ApiClient;
 	relayUrl: string;
 	localPort: number;
+	organizationId: string;
 	authProvider: JwtApiAuthProvider;
 	hostServiceSecret: string;
 }
@@ -16,6 +17,7 @@ export async function connectRelay(
 ): Promise<TunnelClient | null> {
 	try {
 		const host = await options.api.device.ensureV2Host.mutate({
+			organizationId: options.organizationId,
 			machineId: getHashedDeviceId(),
 			name: getDeviceName(),
 		});

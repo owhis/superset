@@ -32,6 +32,7 @@ async function main(): Promise<void> {
 
 	const { app, injectWebSocket, api } = createApp({
 		config: {
+			organizationId: env.ORGANIZATION_ID,
 			dbPath: env.HOST_DB_PATH,
 			cloudApiUrl: env.CLOUD_API_URL,
 			migrationsFolder: env.HOST_MIGRATIONS_FOLDER,
@@ -66,11 +67,12 @@ async function main(): Promise<void> {
 				}
 			}
 
-			if (env.RELAY_URL) {
+			if (env.RELAY_URL && env.ORGANIZATION_ID) {
 				void connectRelay({
 					api,
 					relayUrl: env.RELAY_URL,
 					localPort: info.port,
+					organizationId: env.ORGANIZATION_ID,
 					authProvider,
 					hostServiceSecret: env.HOST_SERVICE_SECRET,
 				});

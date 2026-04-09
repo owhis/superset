@@ -91,6 +91,7 @@ export const workspaceRouter = router({
 			}
 
 			const host = await ctx.api.device.ensureV2Host.mutate({
+				organizationId: ctx.organizationId,
 				machineId: deviceClientId,
 				name: deviceName,
 			});

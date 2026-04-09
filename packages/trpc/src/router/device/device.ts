@@ -16,22 +16,23 @@ export const deviceRouter = {
 	ensureV2Host: jwtProcedure
 		.input(
 			z.object({
+				organizationId: z.string().uuid(),
 				machineId: z.string().min(1),
 				name: z.string().min(1),
 			}),
 		)
 		.mutation(async ({ ctx, input }) => {
-			if (!ctx.activeOrganizationId) {
+			if (!ctx.organizationIds.includes(input.organizationId)) {
 				throw new TRPCError({
-					code: "BAD_REQUEST",
-					message: "No active organization selected",
+					code: "FORBIDDEN",
+					message: "Not a member of this organization",
 				});
 			}
 
 			const [host] = await dbWs
 				.insert(v2Hosts)
 				.values({
-					organizationId: ctx.activeOrganizationId,
+					organizationId: input.organizationId,
 					machineId: input.machineId,
 					name: input.name,
 					createdByUserId: ctx.userId,
@@ -54,7 +55,7 @@ export const deviceRouter = {
 			await dbWs
 				.insert(v2UsersHosts)
 				.values({
-					organizationId: ctx.activeOrganizationId,
+					organizationId: input.organizationId,
 					userId: ctx.userId,
 					hostId: host.id,
 					role: "owner",

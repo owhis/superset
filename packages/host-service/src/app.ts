@@ -21,6 +21,7 @@ import type { ApiClient } from "./types";
 
 export interface CreateAppOptions {
 	config: {
+		organizationId: string;
 		dbPath: string;
 		cloudApiUrl: string;
 		migrationsFolder: string;
@@ -117,6 +118,7 @@ export function createApp(options: CreateAppOptions): CreateAppResult {
 					api,
 					db,
 					runtime,
+					organizationId: config.organizationId,
 					isAuthenticated,
 				} as Record<string, unknown>;
 			},

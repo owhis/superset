@@ -8,6 +8,7 @@ export const env = createEnv({
 			.string()
 			.min(1)
 			.default(randomBytes(32).toString("hex")),
+		ORGANIZATION_ID: z.string().uuid(),
 		HOST_DB_PATH: z.string().min(1),
 		HOST_MIGRATIONS_FOLDER: z.string().min(1),
 		AUTH_TOKEN: z.string().min(1),

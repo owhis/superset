@@ -59,12 +59,13 @@ export const jwtProcedure = t.procedure.use(async ({ ctx, next }) => {
 			throw new TRPCError({ code: "UNAUTHORIZED", message: "Invalid JWT" });
 		}
 
+		const organizationIds = (payload.organizationIds as string[]) ?? [];
 		return next({
 			ctx: {
 				userId: payload.sub,
 				email: (payload.email as string) ?? "",
-				activeOrganizationId:
-					(payload.organizationIds as string[])?.[0] ?? null,
+				organizationIds,
+				activeOrganizationId: organizationIds[0] ?? null,
 			},
 		});
 	} catch (error) {
