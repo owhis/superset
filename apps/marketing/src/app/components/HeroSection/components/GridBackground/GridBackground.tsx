@@ -48,14 +48,15 @@ export function GridBackground() {
 					fill="url(#hero-grid)"
 					mask="url(#grid-mask)"
 				/>
-				{/* Pixelated stars */}
+				{/* Pixelated stars - gold (glowstone) */}
 				<rect
 					x="10%"
 					y="8%"
-					width="2"
-					height="2"
+					width="3"
+					height="3"
 					fill="#FCDC5F"
 					opacity="0.6"
+					className="mc-twinkle"
 				/>
 				<rect
 					x="25%"
@@ -64,14 +65,16 @@ export function GridBackground() {
 					height="2"
 					fill="#F5E6D0"
 					opacity="0.4"
+					className="mc-twinkle mc-twinkle-delay-1"
 				/>
 				<rect
 					x="40%"
 					y="12%"
-					width="2"
-					height="2"
+					width="3"
+					height="3"
 					fill="#FCDC5F"
 					opacity="0.5"
+					className="mc-twinkle mc-twinkle-delay-2"
 				/>
 				<rect
 					x="55%"
@@ -80,14 +83,16 @@ export function GridBackground() {
 					height="2"
 					fill="#F5E6D0"
 					opacity="0.3"
+					className="mc-twinkle mc-twinkle-delay-3"
 				/>
 				<rect
 					x="70%"
 					y="9%"
-					width="2"
-					height="2"
+					width="3"
+					height="3"
 					fill="#FCDC5F"
 					opacity="0.7"
+					className="mc-twinkle"
 				/>
 				<rect
 					x="85%"
@@ -96,14 +101,17 @@ export function GridBackground() {
 					height="2"
 					fill="#F5E6D0"
 					opacity="0.5"
+					className="mc-twinkle mc-twinkle-delay-2"
 				/>
+				{/* Emerald sparkles */}
 				<rect
 					x="15%"
 					y="18%"
 					width="2"
 					height="2"
-					fill="#F5E6D0"
+					fill="#17dd62"
 					opacity="0.3"
+					className="mc-twinkle mc-twinkle-delay-1"
 				/>
 				<rect
 					x="35%"
@@ -112,22 +120,26 @@ export function GridBackground() {
 					height="2"
 					fill="#FCDC5F"
 					opacity="0.4"
+					className="mc-twinkle mc-twinkle-delay-3"
 				/>
+				{/* Diamond sparkles */}
 				<rect
 					x="60%"
 					y="15%"
 					width="2"
 					height="2"
-					fill="#F5E6D0"
-					opacity="0.4"
+					fill="#4aedd9"
+					opacity="0.35"
+					className="mc-twinkle mc-twinkle-delay-2"
 				/>
 				<rect
 					x="80%"
 					y="22%"
-					width="2"
-					height="2"
+					width="3"
+					height="3"
 					fill="#FCDC5F"
 					opacity="0.3"
+					className="mc-twinkle mc-twinkle-delay-1"
 				/>
 				<rect
 					x="5%"
@@ -136,6 +148,7 @@ export function GridBackground() {
 					height="2"
 					fill="#FCDC5F"
 					opacity="0.5"
+					className="mc-twinkle mc-twinkle-delay-3"
 				/>
 				<rect
 					x="48%"
@@ -144,22 +157,26 @@ export function GridBackground() {
 					height="2"
 					fill="#F5E6D0"
 					opacity="0.6"
+					className="mc-twinkle"
 				/>
 				<rect
 					x="92%"
 					y="14%"
 					width="2"
 					height="2"
-					fill="#FCDC5F"
-					opacity="0.4"
+					fill="#4aedd9"
+					opacity="0.3"
+					className="mc-twinkle mc-twinkle-delay-2"
 				/>
+				{/* Redstone sparkles */}
 				<rect
 					x="20%"
 					y="28%"
 					width="2"
 					height="2"
-					fill="#F5E6D0"
+					fill="#c13b3b"
 					opacity="0.3"
+					className="mc-twinkle mc-twinkle-delay-1"
 				/>
 				<rect
 					x="75%"
@@ -168,6 +185,26 @@ export function GridBackground() {
 					height="2"
 					fill="#F5E6D0"
 					opacity="0.5"
+					className="mc-twinkle mc-twinkle-delay-3"
+				/>
+				{/* Extra enchant purple particles */}
+				<rect
+					x="30%"
+					y="10%"
+					width="2"
+					height="2"
+					fill="#a855f7"
+					opacity="0.25"
+					className="mc-twinkle mc-twinkle-delay-2"
+				/>
+				<rect
+					x="88%"
+					y="18%"
+					width="2"
+					height="2"
+					fill="#a855f7"
+					opacity="0.2"
+					className="mc-twinkle mc-twinkle-delay-1"
 				/>
 			</svg>
 		</motion.div>

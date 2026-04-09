@@ -26,7 +26,10 @@ export function HeroSection() {
 						<div className="space-y-4 sm:space-y-6">
 							<h1
 								className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-medium tracking-tight leading-[1.1] text-foreground relative"
-								style={{ fontFamily: "var(--font-geist-pixel-grid)" }}
+								style={{
+									fontFamily: "var(--font-geist-pixel-grid)",
+									textShadow: "2px 2px 0 rgba(0,0,0,0.5)",
+								}}
 							>
 								<span className="invisible" aria-hidden="true">
 									The Code Editor for AI Agents.
@@ -44,6 +47,7 @@ export function HeroSection() {
 												text: "AI Agents.",
 												style: {
 													fontFamily: "var(--font-geist-pixel-grid)",
+													color: "#FCDC5F",
 												},
 											},
 										]}

@@ -27,10 +27,7 @@ function SupersetLogo() {
 
 export function Footer() {
 	return (
-		<footer
-			className="border-t-4 bg-[#1A0E06]"
-			style={{ borderColor: "#8B8B8B" }}
-		>
+		<footer className="mc-dirt-bg border-t-3 border-[#6B4D30]">
 			<motion.div
 				initial={{ opacity: 0 }}
 				whileInView={{ opacity: 1 }}
@@ -85,7 +82,7 @@ export function Footer() {
 								style={{ fontFamily: "var(--font-geist-pixel-square)" }}
 							>
 								Status
-								<ArrowUpRight className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+								<ArrowUpRight className="w-3 h-3 opacity-0 group-hover:opacity-100" />
 							</a>
 						</nav>
 					</div>
@@ -95,8 +92,11 @@ export function Footer() {
 				</div>
 
 				{/* Bottom - Copyright */}
-				<div className="mt-10 pt-6 border-t-2 border-[#6B4D30]">
-					<p className="text-[#8B6542] text-sm">
+				<div className="mt-10 pt-6 border-t-3 border-[#6B4D30]">
+					<p
+						className="text-[#8B6542] text-sm"
+						style={{ fontFamily: "var(--font-geist-pixel-square)" }}
+					>
 						© {new Date().getFullYear()} Superset Inc. All rights reserved.
 					</p>
 				</div>

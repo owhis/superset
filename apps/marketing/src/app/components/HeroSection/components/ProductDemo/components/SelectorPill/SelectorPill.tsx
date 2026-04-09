@@ -22,15 +22,13 @@ export function SelectorPill({
 				inline-flex items-center justify-center py-2 text-xs sm:text-sm whitespace-nowrap cursor-pointer shrink-0
 				${
 					active
-						? "bg-[#4A3525] border-2 text-[#FCDC5F]"
-						: "bg-[#3D2817] border-2 text-foreground/50 hover:bg-[#4A3525] hover:text-foreground/70"
+						? "mc-slot mc-slot-active text-[#FCDC5F]"
+						: "mc-slot text-foreground/50 hover:text-foreground/70"
 				}
 			`}
 			style={{
 				fontFamily: "var(--font-geist-pixel-square)",
-				borderColor: active
-					? "#FCDC5F #8B6542 #8B6542 #FCDC5F"
-					: "#6B4D30 #2C1A0E #2C1A0E #6B4D30",
+				textShadow: active ? "0 0 8px rgba(252, 220, 95, 0.4)" : "none",
 			}}
 			animate={{
 				paddingLeft: active ? 18 : 12,

@@ -16,7 +16,7 @@ function FAQAccordionItem({
 	onToggle: () => void;
 }) {
 	return (
-		<div className="border-b-2 border-[#6B4D30]">
+		<div className="border-b-3 border-[#6B4D30]">
 			<button
 				type="button"
 				onClick={onToggle}
@@ -28,11 +28,12 @@ function FAQAccordionItem({
 				>
 					{item.question}
 				</span>
-				<HiPlus
-					className={`h-5 w-5 shrink-0 text-muted-foreground mc-pixelated ${
-						isOpen ? "rotate-45" : ""
-					}`}
-				/>
+				<div className="flex items-center justify-center size-8 shrink-0 mc-slot">
+					<HiPlus
+						className={`h-4 w-4 text-[#FCDC5F] ${isOpen ? "rotate-45" : ""}`}
+						style={{ transition: "transform 0.15s" }}
+					/>
+				</div>
 			</button>
 			<AnimatePresence initial={false}>
 				{isOpen && (
@@ -68,7 +69,10 @@ export function FAQSection() {
 					<div className="xl:sticky xl:top-24 xl:self-start">
 						<h2
 							className="text-3xl sm:text-4xl xl:text-5xl font-medium tracking-tight text-foreground leading-[1.1]"
-							style={{ fontFamily: "var(--font-geist-pixel-square)" }}
+							style={{
+								fontFamily: "var(--font-geist-pixel-square)",
+								textShadow: "2px 2px 0 rgba(0,0,0,0.4)",
+							}}
 						>
 							Frequently
 							<br />
@@ -78,6 +82,8 @@ export function FAQSection() {
 
 					{/* Right Column - Accordion */}
 					<div>
+						{/* Top border of accordion */}
+						<div className="border-t-3 border-[#6B4D30]" />
 						<div className="w-full">
 							{FAQ_ITEMS.map((item, index) => (
 								<FAQAccordionItem
