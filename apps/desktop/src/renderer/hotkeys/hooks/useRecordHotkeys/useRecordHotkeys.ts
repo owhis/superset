@@ -38,6 +38,19 @@ const TERMINAL_RESERVED = new Set([
 	"ctrl+s",
 	"ctrl+q",
 	"ctrl+\\",
+	// Readline shortcuts — must stay in terminal, not bubble to app hotkeys
+	"ctrl+r",
+	"ctrl+l",
+	"ctrl+a",
+	"ctrl+e",
+	"ctrl+w",
+	"ctrl+k",
+	"ctrl+u",
+	"ctrl+p",
+	"ctrl+n",
+	"ctrl+b",
+	"ctrl+f",
+	"ctrl+y",
 ]);
 
 const OS_RESERVED: Record<Platform, string[]> = {
