@@ -9,16 +9,14 @@ import { FileIcon } from "renderer/screens/main/components/WorkspaceView/RightSi
 import { FileContextMenu } from "./components/FileContextMenu";
 import { FolderContextMenu } from "./components/FolderContextMenu";
 
-// Tailwind classes mirroring ChangesFileList.tsx:19-27 so the tree and the
-// Changes tab stay visually consistent.
 const STATUS_TEXT_CLASS: Record<FileStatus, string> = {
-	added: "text-diff-added",
-	copied: "text-diff-copied",
-	changed: "text-diff-modified",
-	deleted: "text-diff-deleted",
-	modified: "text-diff-modified",
-	renamed: "text-diff-renamed",
-	untracked: "text-diff-added",
+	added: "text-green-600 dark:text-green-400",
+	copied: "text-purple-700 dark:text-purple-400",
+	changed: "text-amber-600 dark:text-amber-300",
+	deleted: "text-red-600 dark:text-red-400",
+	modified: "text-amber-600 dark:text-amber-300",
+	renamed: "text-blue-700 dark:text-blue-400",
+	untracked: "text-green-600 dark:text-green-400",
 };
 
 // Single-letter badge shown on the right of changed file rows, VS Code style.
