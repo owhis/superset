@@ -164,30 +164,31 @@ export class GitWatcher {
 
 		if (this.closed || this.watched.has(workspaceId)) return;
 
+		// Start the worktree watch first so we have a dispose handle to capture
+		// in the .git watcher's error handler closure. This avoids a race where
+		// the error handler could fire before `this.watched.set(...)` runs.
+		const disposeWorktreeWatch = this.startWorktreeWatch(
+			workspaceId,
+			worktreePath,
+		);
+
 		let watcher: FSWatcher;
 		try {
 			watcher = watch(gitDir, { recursive: true }, () => {
 				this.debouncedEmit(workspaceId);
 			});
-
-			watcher.on("error", () => {
-				// Watcher died — remove it so rescan can re-add
-				const entry = this.watched.get(workspaceId);
-				if (entry) {
-					entry.disposeWorktreeWatch();
-					this.watched.delete(workspaceId);
-				}
-				watcher.close();
-			});
 		} catch {
 			// fs.watch failed (e.g. directory doesn't exist)
+			disposeWorktreeWatch();
 			return;
 		}
 
-		const disposeWorktreeWatch = this.startWorktreeWatch(
-			workspaceId,
-			worktreePath,
-		);
+		watcher.on("error", () => {
+			// Watcher died — clean up so rescan can re-add
+			disposeWorktreeWatch();
+			this.watched.delete(workspaceId);
+			watcher.close();
+		});
 
 		this.watched.set(workspaceId, {
 			workspaceId,

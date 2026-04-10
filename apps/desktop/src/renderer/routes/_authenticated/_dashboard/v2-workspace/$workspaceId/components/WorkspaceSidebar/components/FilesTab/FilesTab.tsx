@@ -533,7 +533,9 @@ export function FilesTab({
 					</div>
 				</div>
 
-				{fileTree.rootEntries.length === 0 && !isCreatingAtRoot ? (
+				{fileTree.rootEntries.length === 0 &&
+				!fileTree.isLoadingRoot &&
+				!isCreatingAtRoot ? (
 					<div className="px-2 py-3 text-sm text-muted-foreground">
 						No files found
 					</div>

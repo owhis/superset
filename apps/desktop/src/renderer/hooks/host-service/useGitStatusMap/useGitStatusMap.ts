@@ -34,11 +34,13 @@ const STATUS_SEVERITY: Record<FileStatus, number> = {
 	copied: 0,
 };
 
-const EMPTY_RESULT: UseGitStatusMapResult = {
-	fileStatusByPath: new Map(),
-	folderStatusByPath: new Map(),
-	ignoredPaths: new Set(),
-};
+function emptyResult(): UseGitStatusMapResult {
+	return {
+		fileStatusByPath: new Map(),
+		folderStatusByPath: new Map(),
+		ignoredPaths: new Set(),
+	};
+}
 
 /**
  * Pure derivation over `git.getStatus` data. Returns lookup maps for
@@ -48,7 +50,7 @@ export function useGitStatusMap(
 	status: GitStatusData | undefined,
 ): UseGitStatusMapResult {
 	return useMemo(() => {
-		if (!status) return EMPTY_RESULT;
+		if (!status) return emptyResult();
 
 		// Union of all changes — later writes win so uncommitted state
 		// overrides committed state. Same pattern as useChangesTab's "all" filter.

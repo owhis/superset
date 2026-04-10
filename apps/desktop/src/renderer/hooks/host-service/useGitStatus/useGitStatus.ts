@@ -29,7 +29,6 @@ export function useGitStatus(workspaceId: string) {
 
 	const invalidate = useCallback(() => {
 		void utils.git.getStatus.invalidate({ workspaceId });
-		void utils.git.listCommits.invalidate({ workspaceId });
 	}, [utils, workspaceId]);
 
 	useWorkspaceEvent("git:changed", workspaceId, invalidate);

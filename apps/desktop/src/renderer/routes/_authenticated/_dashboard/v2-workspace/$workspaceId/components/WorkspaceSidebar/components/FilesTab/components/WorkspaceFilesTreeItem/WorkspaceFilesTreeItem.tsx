@@ -100,7 +100,7 @@ function WorkspaceFilesTreeItemComponent({
 							? {
 									position: "sticky" as const,
 									top: (depth - 1) * rowHeight,
-									zIndex: 50 - depth,
+									zIndex: Math.max(1, 50 - depth),
 								}
 							: {}),
 					}}
@@ -166,7 +166,4 @@ function WorkspaceFilesTreeItemComponent({
 	);
 }
 
-// Memoized so that after a git-status refresh, only rows whose `decoration`
-// or `isMuted` actually changed re-render. Other props (node, callbacks,
-// selectedFilePath) are stable across renders in practice.
 export const WorkspaceFilesTreeItem = memo(WorkspaceFilesTreeItemComponent);
