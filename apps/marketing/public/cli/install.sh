@@ -48,7 +48,6 @@ detect_target() {
 }
 
 resolve_latest_cli_tag() {
-    # /releases/latest is reserved for desktop, so resolve via the API.
     api_url="https://api.github.com/repos/${REPO}/releases?per_page=100"
     resolved="$(curl -fsSL "$api_url" \
         | grep -oE '"tag_name": *"cli-v[^"]+"' \

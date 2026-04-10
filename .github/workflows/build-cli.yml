@@ -72,9 +72,6 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # --latest=false: never let CLI releases occupy the repo-wide
-          # "Latest" slot. (Also enforced at publish time by bump-homebrew.yml
-          # since --make_latest defaults to true when a draft is published.)
           gh release create "${{ github.ref_name }}" \
             release-artifacts/*.tar.gz \
             --title "Superset CLI ${{ github.ref_name }}" \

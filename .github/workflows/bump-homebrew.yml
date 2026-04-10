@@ -14,12 +14,6 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  # Re-assert --latest=false at publish time. `gh release create --draft
-  # --latest=false` in build-cli.yml sets the flag on the draft, but when
-  # the draft transitions to published GitHub re-evaluates make_latest and
-  # defaults it back to true. Without this step, publishing a CLI draft
-  # (via UI or gh release edit --draft=false) would re-hijack the
-  # repo-wide "Latest" slot and break desktop auto-updates.
   enforce-not-latest:
     if: startsWith(github.event.release.tag_name, 'cli-v')
     runs-on: ubuntu-latest

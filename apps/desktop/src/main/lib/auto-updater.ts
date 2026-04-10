@@ -23,8 +23,10 @@ function isPrereleaseBuild(): boolean {
 const IS_PRERELEASE = isPrereleaseBuild();
 const IS_AUTO_UPDATE_PLATFORM = PLATFORM.IS_MAC || PLATFORM.IS_LINUX;
 
-// Rolling tags per channel, not /releases/latest/ (which can be hijacked
-// by releases from other products in the monorepo).
+// Use explicit feed URLs to ensure we always fetch platform-specific manifests
+// (for example latest-mac.yml and latest-linux.yml) from the correct release.
+// - Stable: fetches from /releases/download/desktop/ (rolling desktop tag)
+// - Canary: fetches from /releases/download/desktop-canary/ (rolling canary tag)
 const UPDATE_FEED_URL = IS_PRERELEASE
 	? "https://github.com/superset-sh/superset/releases/download/desktop-canary"
 	: "https://github.com/superset-sh/superset/releases/download/desktop";

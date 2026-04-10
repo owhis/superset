@@ -1,9 +1,7 @@
 name: Promote Desktop Release
 
 # Recreates a rolling `desktop` tag+release pointing at the latest published
-# desktop-v* release, so the auto-updater and download buttons can target
-# /releases/download/desktop/ instead of the hijackable /releases/latest/.
-# Mirrors the pattern in release-desktop-canary.yml.
+# desktop-v* release, so consumers can target /releases/download/desktop/.
 
 on:
   release:
@@ -82,14 +80,8 @@ jobs:
           REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
-          cat > release-notes.md <<NOTES
-          Rolling pointer to the latest stable desktop release. Currently
-          tracks [\`${SRC_TAG}\`](https://github.com/${REPO}/releases/tag/${SRC_TAG}).
-          Recreated on every \`desktop-v*\` publish by \`.github/workflows/promote-desktop.yml\`.
-          NOTES
-
           gh release create desktop assets/* \
             --repo "${REPO}" \
             --title "Superset Desktop (rolling)" \
-            --notes-file release-notes.md \
+            --notes "Rolling pointer to [\`${SRC_TAG}\`](https://github.com/${REPO}/releases/tag/${SRC_TAG}). Recreated by \`.github/workflows/promote-desktop.yml\`." \
             --latest=false
