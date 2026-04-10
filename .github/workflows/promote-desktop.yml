@@ -1,14 +1,9 @@
 name: Promote Desktop Release
 
-# Maintains a rolling `desktop` tag/release that always points at the latest
-# published stable desktop-v* release. Consumers (auto-updater, marketing
-# download buttons) hit /releases/download/desktop/ instead of
-# /releases/latest/, so they never depend on the repo-wide "Latest" slot
-# and can't be hijacked by releases from other products (CLI, etc).
-#
-# Mirrors the pattern used by release-desktop-canary.yml for the canary
-# channel: delete the existing release/tag, recreate with fresh assets
-# downloaded from the source release.
+# Recreates a rolling `desktop` tag+release pointing at the latest published
+# desktop-v* release, so the auto-updater and download buttons can target
+# /releases/download/desktop/ instead of the hijackable /releases/latest/.
+# Mirrors the pattern in release-desktop-canary.yml.
 
 on:
   release:
@@ -20,15 +15,12 @@ on:
         required: false
         type: string
 
-# Serialize so two concurrent desktop publishes can't race and drop a promotion.
 concurrency:
   group: desktop-promotion
   cancel-in-progress: false
 
 jobs:
   promote:
-    # Release trigger: only desktop-v* non-prerelease publishes.
-    # workflow_dispatch always runs (for manual seeding or re-promotion).
     if: >-
       github.event_name == 'workflow_dispatch' ||
       (startsWith(github.event.release.tag_name, 'desktop-v') &&
@@ -52,9 +44,7 @@ jobs:
           elif [ -n "$INPUT_TAG" ]; then
             tag="$INPUT_TAG"
           else
-            # Pick the newest published desktop-v* release (non-draft,
-            # non-prerelease). Sorted newest-first by the API.
-            tag="$(gh api repos/${{ github.repository }}/releases \
+            tag="$(gh api --paginate repos/${{ github.repository }}/releases \
               --jq '[.[] | select(.draft==false and .prerelease==false and (.tag_name | startswith("desktop-v")))] | .[0].tag_name')"
           fi
           if ! printf '%s' "$tag" | grep -Eq '^desktop-v[0-9]+\.[0-9]+\.[0-9]+([-.][A-Za-z0-9.]+)?$'; then
@@ -74,15 +64,12 @@ jobs:
           gh release download "$SRC_TAG" \
             --repo ${{ github.repository }} \
             --dir assets
-          echo "Downloaded assets:"
-          ls -la assets/
 
       - name: Delete existing desktop release and tag
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
-          # --cleanup-tag removes the tag alongside the release.
           gh release delete desktop \
             --repo ${{ github.repository }} \
             --yes \
@@ -98,18 +85,9 @@ jobs:
           cat > release-notes.md <<NOTES
           Rolling pointer to the latest stable desktop release. Currently
           tracks [\`${SRC_TAG}\`](https://github.com/${REPO}/releases/tag/${SRC_TAG}).
-
-          This release exists so the desktop auto-updater and marketing
-          download buttons can target a stable URL
-          (\`/releases/download/desktop/\`) without depending on the
-          repo-wide "Latest" slot. Do not manually modify — it is
-          recreated on every \`desktop-v*\` publish by
-          \`.github/workflows/promote-desktop.yml\`.
+          Recreated on every \`desktop-v*\` publish by \`.github/workflows/promote-desktop.yml\`.
           NOTES
 
-          # --latest=false: the rolling tag is a consumer endpoint, not
-          # the repo's public "Latest" slot. That slot stays on the
-          # versioned desktop-v* release for GitHub UI discoverability.
           gh release create desktop assets/* \
             --repo "${REPO}" \
             --title "Superset Desktop (rolling)" \

@@ -53,7 +53,7 @@ This creates a draft release. Publish it manually at GitHub Releases.
 
 ## Auto-update
 
-The app checks for updates at launch and every x hours using the rolling
+The app checks for updates at launch and every 4 hours using the rolling
 `desktop` tag (maintained by `.github/workflows/promote-desktop.yml`,
 which republishes assets from every new `desktop-v*` release):
 

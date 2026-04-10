@@ -48,10 +48,8 @@ detect_target() {
 }
 
 resolve_latest_cli_tag() {
-    # /releases/latest is repo-wide and may point at a desktop release, so
-    # we can't use it. Instead, ask the releases API (newest first) and pick
-    # the first cli-v* tag. POSIX grep + sed only — no jq dependency.
-    api_url="https://api.github.com/repos/${REPO}/releases"
+    # /releases/latest is reserved for desktop, so resolve via the API.
+    api_url="https://api.github.com/repos/${REPO}/releases?per_page=100"
     resolved="$(curl -fsSL "$api_url" \
         | grep -oE '"tag_name": *"cli-v[^"]+"' \
         | head -n 1 \

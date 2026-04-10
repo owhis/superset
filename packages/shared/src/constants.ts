@@ -32,9 +32,7 @@ export const COMPANY = {
 // Theme
 export const THEME_STORAGE_KEY = "superset-theme";
 
-// Download URLs. Points at the rolling `desktop` tag (maintained by
-// .github/workflows/promote-desktop.yml) rather than /releases/latest/ so
-// it can't be hijacked by releases from other products in this repo.
+// Download URLs
 export const DOWNLOAD_URL_MAC_ARM64 = `${COMPANY.GITHUB_URL}/releases/download/desktop/Superset-arm64.dmg`;
 
 // Auth token configuration
