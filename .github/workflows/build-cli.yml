@@ -72,8 +72,16 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          # CLI releases must never occupy the repo-wide "Latest" slot.
+          # That slot is reserved for desktop-v* — /releases/latest/download/
+          # URLs would 404 against CLI tarballs, and old desktop clients
+          # still in the wild depend on those URLs for auto-updates.
+          # This is a permanent guardrail, not a temporary mitigation:
+          # keep it forever so new code that naively references
+          # /releases/latest/ can't silently break desktop.
           gh release create "${{ github.ref_name }}" \
             release-artifacts/*.tar.gz \
             --title "Superset CLI ${{ github.ref_name }}" \
             --generate-notes \
-            --draft
+            --draft \
+            --latest=false

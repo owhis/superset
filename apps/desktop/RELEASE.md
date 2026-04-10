@@ -53,14 +53,21 @@ This creates a draft release. Publish it manually at GitHub Releases.
 
 ## Auto-update
 
-The app checks for updates at launch and every x hours using:
+The app checks for updates at launch and every x hours using the rolling
+`desktop` tag (maintained by `.github/workflows/promote-desktop.yml`,
+which republishes assets from every new `desktop-v*` release):
 
-- **macOS manifest**: `https://github.com/superset-sh/superset/releases/latest/download/latest-mac.yml`
-- **Linux manifest**: `https://github.com/superset-sh/superset/releases/latest/download/latest-linux.yml`
-- **macOS installer**: `https://github.com/superset-sh/superset/releases/latest/download/Superset-arm64.dmg`
-- **Linux installer**: `https://github.com/superset-sh/superset/releases/latest/download/Superset-x64.AppImage`
+- **macOS manifest**: `https://github.com/superset-sh/superset/releases/download/desktop/latest-mac.yml`
+- **Linux manifest**: `https://github.com/superset-sh/superset/releases/download/desktop/latest-linux.yml`
+- **macOS installer**: `https://github.com/superset-sh/superset/releases/download/desktop/Superset-arm64.dmg`
+- **Linux installer**: `https://github.com/superset-sh/superset/releases/download/desktop/Superset-x64.AppImage`
 
-The workflow creates stable-named copies (without version) so these URLs always point to the latest build.
+Canary follows the same pattern with the `desktop-canary` tag.
+
+**Do not** point consumers at `/releases/latest/download/`. That URL resolves
+to the repo-wide "Latest" release and can be hijacked by releases from
+other products in the monorepo (e.g. `cli-v*`). The `desktop` tag is
+owned exclusively by the promote workflow and is the only safe endpoint.
 
 ## Code Signing
 

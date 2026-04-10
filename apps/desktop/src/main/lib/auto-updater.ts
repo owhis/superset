@@ -23,13 +23,16 @@ function isPrereleaseBuild(): boolean {
 const IS_PRERELEASE = isPrereleaseBuild();
 const IS_AUTO_UPDATE_PLATFORM = PLATFORM.IS_MAC || PLATFORM.IS_LINUX;
 
-// Use explicit feed URLs to ensure we always fetch platform-specific manifests
-// (for example latest-mac.yml and latest-linux.yml) from the correct release.
-// - Stable: fetches from /releases/latest/download/ (latest non-prerelease)
-// - Canary: fetches from /releases/download/desktop-canary/ (rolling canary tag)
+// Use explicit rolling tags per channel so updates never depend on the
+// repo-wide "Latest" release slot (which can be hijacked by unrelated
+// releases like the CLI). Both tags are maintained automatically:
+// - Stable: rolling `desktop` tag, recreated on every desktop-v* publish
+//   by .github/workflows/promote-desktop.yml
+// - Canary: rolling `desktop-canary` tag, recreated on every canary build
+//   by .github/workflows/release-desktop-canary.yml
 const UPDATE_FEED_URL = IS_PRERELEASE
 	? "https://github.com/superset-sh/superset/releases/download/desktop-canary"
-	: "https://github.com/superset-sh/superset/releases/latest/download";
+	: "https://github.com/superset-sh/superset/releases/download/desktop";
 
 export interface AutoUpdateStatusEvent {
 	status: AutoUpdateStatus;
