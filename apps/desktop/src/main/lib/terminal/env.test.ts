@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import {
 	buildSafeEnv,
 	buildTerminalEnv,
+	exportMacosKeychainCerts,
 	FALLBACK_SHELL,
 	getLocale,
 	normalizeDefaultShell,
@@ -9,6 +10,7 @@ import {
 	resetTerminalEnvCachesForTests,
 	SHELL_CRASH_THRESHOLD_MS,
 	sanitizeEnv,
+	setMacosCertCachesForTests,
 } from "./env";
 
 describe("env", () => {
@@ -727,19 +729,71 @@ describe("env", () => {
 			expect(result.SUPERSET_HOOK_VERSION).toBe("2");
 		});
 
-		describe("SSL_CERT_FILE fallback on macOS", () => {
-			it("should set SSL_CERT_FILE to system cert bundle on macOS when not already set", () => {
+		describe("SSL_CERT_FILE fallback on macOS (issue #3357)", () => {
+			it("should prefer exported keychain cert bundle on macOS", () => {
 				delete process.env.SSL_CERT_FILE;
-				const result = buildTerminalEnv(baseParams);
-				if (process.platform === "darwin") {
-					expect(result.SSL_CERT_FILE).toBe("/etc/ssl/cert.pem");
-				}
+				// Simulate a successful keychain cert export
+				setMacosCertCachesForTests({
+					exportedCertPath: "/tmp/superset-certs/ca-bundle.pem",
+				});
+				const result = buildTerminalEnv({
+					...baseParams,
+					platform: "darwin",
+				});
+				expect(result.SSL_CERT_FILE).toBe("/tmp/superset-certs/ca-bundle.pem");
+			});
+
+			it("should fall back to /etc/ssl/cert.pem when cert export is unavailable", () => {
+				delete process.env.SSL_CERT_FILE;
+				// Simulate: export failed but static cert file exists
+				setMacosCertCachesForTests({
+					exportedCertPath: null,
+					systemCertAvailable: true,
+				});
+				const result = buildTerminalEnv({
+					...baseParams,
+					platform: "darwin",
+				});
+				expect(result.SSL_CERT_FILE).toBe("/etc/ssl/cert.pem");
+			});
+
+			it("should not set SSL_CERT_FILE when no cert source available on macOS", () => {
+				delete process.env.SSL_CERT_FILE;
+				// Simulate: both cert sources unavailable
+				setMacosCertCachesForTests({
+					exportedCertPath: null,
+					systemCertAvailable: false,
+				});
+				const result = buildTerminalEnv({
+					...baseParams,
+					platform: "darwin",
+				});
+				expect(result.SSL_CERT_FILE).toBeUndefined();
 			});
 
 			it("should not override user-set SSL_CERT_FILE", () => {
 				process.env.SSL_CERT_FILE = "/custom/certs/ca-bundle.crt";
-				const result = buildTerminalEnv(baseParams);
+				setMacosCertCachesForTests({
+					exportedCertPath: "/tmp/superset-certs/ca-bundle.pem",
+				});
+				const result = buildTerminalEnv({
+					...baseParams,
+					platform: "darwin",
+				});
 				expect(result.SSL_CERT_FILE).toBe("/custom/certs/ca-bundle.crt");
+			});
+
+			it("should not set SSL_CERT_FILE on non-macOS platforms", () => {
+				delete process.env.SSL_CERT_FILE;
+				setMacosCertCachesForTests({
+					exportedCertPath: "/tmp/superset-certs/ca-bundle.pem",
+					systemCertAvailable: true,
+				});
+				const result = buildTerminalEnv({
+					...baseParams,
+					platform: "linux",
+				});
+				expect(result.SSL_CERT_FILE).toBeUndefined();
 			});
 		});
 
@@ -764,6 +818,31 @@ describe("env", () => {
 				});
 				expect(result.COLORFGBG).toBe("0;15");
 			});
+		});
+	});
+
+	describe("exportMacosKeychainCerts", () => {
+		it("should return null on non-macOS platforms", () => {
+			// On Linux/Windows CI, this should return null since `security` command
+			// does not exist and os.platform() !== "darwin"
+			if (process.platform !== "darwin") {
+				const result = exportMacosKeychainCerts();
+				expect(result).toBeNull();
+			}
+		});
+
+		it("should return cached result on repeated calls", () => {
+			const first = exportMacosKeychainCerts();
+			const second = exportMacosKeychainCerts();
+			expect(first).toBe(second);
+		});
+
+		it("should respect pre-set cache for testing", () => {
+			setMacosCertCachesForTests({
+				exportedCertPath: "/fake/cert/path.pem",
+			});
+			const result = exportMacosKeychainCerts();
+			expect(result).toBe("/fake/cert/path.pem");
 		});
 	});
 });

@@ -1,11 +1,17 @@
-import { exec } from "node:child_process";
+import { exec, execSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
+import path from "node:path";
 import defaultShell from "default-shell";
 import { env } from "shared/env.shared";
 import { getShellEnv } from "../agent-setup/shell-wrappers";
 
 const MACOS_SYSTEM_CERT_FILE = "/etc/ssl/cert.pem";
+const MACOS_EXPORTED_CERT_DIR = path.join(os.tmpdir(), "superset-certs");
+const MACOS_EXPORTED_CERT_FILE = path.join(
+	MACOS_EXPORTED_CERT_DIR,
+	"ca-bundle.pem",
+);
 let cachedUtf8Locale: string | null = null;
 let localeProbeInFlight = false;
 const PROCESS_ENV_SNAPSHOT_CACHE_TTL_MS = 1_000;
@@ -16,6 +22,8 @@ let cachedProcessEnvSnapshot: {
 	expiresAt: number;
 } | null = null;
 let cachedMacosSystemCertAvailable: boolean | null = null;
+let cachedExportedCertPath: string | null = null;
+let certExportAttempted = false;
 
 function startLocaleProbe(): void {
 	if (cachedUtf8Locale || localeProbeInFlight) return;
@@ -122,9 +130,20 @@ export function prewarmTerminalEnv(): void {
 			: null;
 	if (directLocale) {
 		cachedUtf8Locale = directLocale;
-		return;
+	} else {
+		startLocaleProbe();
 	}
-	startLocaleProbe();
+
+	// Pre-export macOS keychain certificates for terminal environments.
+	// This runs in the main Electron process which has keychain access;
+	// child processes (terminals, agents) do not.
+	if (os.platform() === "darwin") {
+		try {
+			exportMacosKeychainCerts();
+		} catch {
+			// Non-fatal: buildTerminalEnv falls back to /etc/ssl/cert.pem
+		}
+	}
 }
 
 export function sanitizeEnv(
@@ -169,11 +188,97 @@ function hasMacosSystemCertBundle(): boolean {
 	return cachedMacosSystemCertAvailable;
 }
 
+/**
+ * Export trusted certificates from all macOS keychains to a PEM bundle file.
+ *
+ * Electron child processes can't access the macOS Keychain (Security.framework)
+ * for TLS cert verification due to hardened runtime restrictions. This causes
+ * "x509: OSStatus -26276" errors in Go binaries like `gh`.
+ *
+ * This function runs `security find-certificate` in the main Electron process
+ * (which *does* have keychain access) and writes the combined PEM output to a
+ * temp file. The resulting path is then used as SSL_CERT_FILE in terminal envs,
+ * giving child processes a file-based certificate bundle that includes both
+ * system root CAs and any user-installed CAs (e.g. corporate proxy certs).
+ *
+ * Must be called from the main Electron process. Result is cached.
+ */
+export function exportMacosKeychainCerts(): string | null {
+	if (certExportAttempted) return cachedExportedCertPath;
+	certExportAttempted = true;
+
+	if (os.platform() !== "darwin") return null;
+
+	try {
+		// Export from system root certificates and system keychain.
+		// These keychains are always readable on a running macOS system.
+		const systemCerts = execSync(
+			"security find-certificate -a -p" +
+				" /System/Library/Keychains/SystemRootCertificates.keychain" +
+				" /Library/Keychains/System.keychain",
+			{ encoding: "utf-8", timeout: 10_000 },
+		);
+
+		if (!systemCerts || systemCerts.trim().length === 0) {
+			return null;
+		}
+
+		// Also try the user's login keychain — may contain corporate/custom CAs
+		// installed by IT or the user. Non-fatal if locked or missing.
+		let userCerts = "";
+		try {
+			const loginKeychain = path.join(
+				os.homedir(),
+				"Library/Keychains/login.keychain-db",
+			);
+			if (fs.existsSync(loginKeychain)) {
+				userCerts = execSync(
+					`security find-certificate -a -p "${loginKeychain}"`,
+					{ encoding: "utf-8", timeout: 10_000 },
+				);
+			}
+		} catch {
+			// Login keychain may be locked or unavailable — not fatal
+		}
+
+		fs.mkdirSync(MACOS_EXPORTED_CERT_DIR, { recursive: true });
+		fs.writeFileSync(
+			MACOS_EXPORTED_CERT_FILE,
+			systemCerts + userCerts,
+			"utf-8",
+		);
+		cachedExportedCertPath = MACOS_EXPORTED_CERT_FILE;
+		return cachedExportedCertPath;
+	} catch {
+		return null;
+	}
+}
+
 export function resetTerminalEnvCachesForTests(): void {
 	cachedProcessEnvSnapshot = null;
 	cachedMacosSystemCertAvailable = null;
 	cachedUtf8Locale = null;
 	localeProbeInFlight = false;
+	cachedExportedCertPath = null;
+	certExportAttempted = false;
+}
+
+/**
+ * Pre-set cert-related caches for testing on non-macOS platforms.
+ * Allows tests to simulate macOS cert availability without running
+ * `security find-certificate`.
+ */
+export function setMacosCertCachesForTests(params: {
+	exportedCertPath?: string | null;
+	systemCertAvailable?: boolean;
+}): void {
+	if (params.exportedCertPath !== undefined) {
+		cachedExportedCertPath = params.exportedCertPath;
+		certExportAttempted = true;
+	}
+	if (params.systemCertAvailable !== undefined) {
+		cachedMacosSystemCertAvailable = params.systemCertAvailable;
+	}
 }
 
 /**
@@ -437,6 +542,8 @@ export function buildTerminalEnv(params: {
 	workspacePath?: string;
 	rootPath?: string;
 	themeType?: "dark" | "light";
+	/** Override platform detection (for testing). */
+	platform?: NodeJS.Platform;
 }): Record<string, string> {
 	const {
 		shell,
@@ -447,7 +554,9 @@ export function buildTerminalEnv(params: {
 		workspacePath,
 		rootPath,
 		themeType,
+		platform: platformOverride,
 	} = params;
+	const platform = platformOverride ?? os.platform();
 
 	// Get Electron's process.env and filter to only allowlisted safe vars
 	// This prevents secrets and app config from leaking to user terminals
@@ -484,14 +593,20 @@ export function buildTerminalEnv(params: {
 
 	delete terminalEnv.GOOGLE_API_KEY;
 
-	// Electron child processes can't access macOS Keychain for TLS cert verification,
-	// causing "x509: OSStatus -26276" in Go binaries like `gh`. File-based fallback.
-	if (
-		os.platform() === "darwin" &&
-		!terminalEnv.SSL_CERT_FILE &&
-		hasMacosSystemCertBundle()
-	) {
-		terminalEnv.SSL_CERT_FILE = MACOS_SYSTEM_CERT_FILE;
+	// Electron child processes can't access macOS Keychain (Security.framework)
+	// for TLS cert verification, causing "x509: OSStatus -26276" in Go binaries
+	// like `gh`. Provide a file-based cert bundle instead.
+	//
+	// Prefer the exported keychain bundle (includes user-installed CAs such as
+	// corporate proxy certs) over the static system cert file which only has
+	// Apple's root CAs.
+	if (platform === "darwin" && !terminalEnv.SSL_CERT_FILE) {
+		const exportedCerts = exportMacosKeychainCerts();
+		if (exportedCerts) {
+			terminalEnv.SSL_CERT_FILE = exportedCerts;
+		} else if (hasMacosSystemCertBundle()) {
+			terminalEnv.SSL_CERT_FILE = MACOS_SYSTEM_CERT_FILE;
+		}
 	}
 
 	return terminalEnv;
