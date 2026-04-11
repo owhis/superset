@@ -2,7 +2,7 @@ import { eq } from "@tanstack/db";
 import { useLiveQuery } from "@tanstack/react-db";
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { GoGitBranch } from "react-icons/go";
 import { HiCheck, HiExclamationTriangle } from "react-icons/hi2";
 import { env } from "renderer/env.renderer";
@@ -15,6 +15,7 @@ import {
 import { useCreateDashboardWorkspace } from "renderer/routes/_authenticated/components/DashboardNewWorkspaceModal/hooks/useCreateDashboardWorkspace";
 import { useCollections } from "renderer/routes/_authenticated/providers/CollectionsProvider";
 import { useLocalHostService } from "renderer/routes/_authenticated/providers/LocalHostServiceProvider";
+import { ProjectSetupStep } from "./components/ProjectSetupStep";
 
 /**
  * Pending workspace progress page.
@@ -122,6 +123,13 @@ function useRetryCreate(
 	}, [collections, createWorkspace, pending, pendingId]);
 }
 
+const SETUP_ERROR_CODES = ["PROJECT_NOT_SETUP", "PROJECT_PATH_MISSING"];
+
+function isSetupError(error: string | null): boolean {
+	if (!error) return false;
+	return SETUP_ERROR_CODES.some((code) => error.includes(code));
+}
+
 function PendingWorkspacePage() {
 	const { pendingId } = Route.useParams();
 	const navigate = useNavigate();
@@ -140,6 +148,22 @@ function PendingWorkspacePage() {
 	);
 	const pending = pendingRows?.[0] ?? null;
 	const retryCreate = useRetryCreate(pendingId, pending);
+
+	// Resolve project name from v2Projects collection
+	const { data: v2Projects } = useLiveQuery(
+		(q) =>
+			q
+				.from({ projects: collections.v2Projects })
+				.select(({ projects }) => ({ id: projects.id, name: projects.name })),
+		[collections],
+	);
+	const projectName = useMemo(() => {
+		if (!pending?.projectId || !v2Projects) return null;
+		return v2Projects.find((p) => p.id === pending.projectId)?.name ?? null;
+	}, [pending?.projectId, v2Projects]);
+
+	const needsSetup =
+		pending?.status === "failed" && isSetupError(pending.error);
 
 	// Poll host-service for step-by-step progress
 	const hostUrl =
@@ -292,7 +316,16 @@ function PendingWorkspacePage() {
 					</div>
 				)}
 
-				{pending.status === "failed" && (
+				{pending.status === "failed" && needsSetup && hostUrl && (
+					<ProjectSetupStep
+						projectId={pending.projectId}
+						projectName={projectName ?? pending.name}
+						hostUrl={hostUrl}
+						onSetupComplete={() => void retryCreate()}
+					/>
+				)}
+
+				{pending.status === "failed" && !needsSetup && (
 					<div className="space-y-4">
 						<div className="flex items-start gap-2 text-sm text-destructive">
 							<HiExclamationTriangle className="size-4 mt-0.5 shrink-0" />
