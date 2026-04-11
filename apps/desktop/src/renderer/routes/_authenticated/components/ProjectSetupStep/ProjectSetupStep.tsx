@@ -15,6 +15,7 @@ interface ProjectSetupStepProps {
 	projectName: string;
 	hostUrl: string;
 	onSetupComplete: () => void;
+	submitLabel?: string;
 }
 
 export function ProjectSetupStep({
@@ -22,6 +23,7 @@ export function ProjectSetupStep({
 	projectName,
 	hostUrl,
 	onSetupComplete,
+	submitLabel = "Set Up & Create Workspace",
 }: ProjectSetupStepProps) {
 	const [mode, setMode] = useState<SetupMode>("import");
 	const [localPath, setLocalPath] = useState("");
@@ -161,7 +163,7 @@ export function ProjectSetupStep({
 						Setting up...
 					</>
 				) : (
-					"Set Up & Create Workspace"
+					submitLabel
 				)}
 			</Button>
 		</div>

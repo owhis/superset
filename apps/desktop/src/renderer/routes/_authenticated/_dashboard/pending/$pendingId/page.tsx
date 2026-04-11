@@ -15,7 +15,7 @@ import {
 import { useCreateDashboardWorkspace } from "renderer/routes/_authenticated/components/DashboardNewWorkspaceModal/hooks/useCreateDashboardWorkspace";
 import { useCollections } from "renderer/routes/_authenticated/providers/CollectionsProvider";
 import { useLocalHostService } from "renderer/routes/_authenticated/providers/LocalHostServiceProvider";
-import { ProjectSetupStep } from "./components/ProjectSetupStep";
+import { ProjectSetupStep } from "renderer/routes/_authenticated/components/ProjectSetupStep";
 
 /**
  * Pending workspace progress page.
