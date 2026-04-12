@@ -38,6 +38,19 @@ function asCurrentMessage(
 	return message as unknown as DisplayStateOutput["currentMessage"];
 }
 
+function completedAssistantMessage(
+	id: string,
+	text: string,
+): ListMessagesOutput[number] {
+	return {
+		id,
+		role: "assistant",
+		content: [{ type: "text", text }],
+		createdAt: new Date("2026-02-26T00:00:00.000Z"),
+		stopReason: "stop",
+	} as unknown as ListMessagesOutput[number];
+}
+
 describe("withoutActiveTurnAssistantHistory", () => {
 	it("drops active-turn assistant history while streaming an assistant currentMessage", () => {
 		const messages = withoutActiveTurnAssistantHistory({
@@ -83,6 +96,71 @@ describe("withoutActiveTurnAssistantHistory", () => {
 		});
 
 		expect(messages.map((message) => message.id)).toEqual(["u_1", "a_1"]);
+	});
+
+	it("preserves completed assistant messages when displayState races ahead of listMessages", () => {
+		// Race condition: getDisplayState returns isRunning=true for a new turn,
+		// but listMessages hasn't yet included the user message that triggered it.
+		// The completed assistant from the previous turn should NOT be stripped.
+		const messages = withoutActiveTurnAssistantHistory({
+			messages: [
+				userMessage("u_1", "hello"),
+				completedAssistantMessage("a_1", "Hi there! How can I help?"),
+			],
+			currentMessage: asCurrentMessage(
+				assistantMessage("a_streaming", "Let me look at that file..."),
+			),
+			isRunning: true,
+		});
+
+		expect(messages.map((message) => message.id)).toEqual(["u_1", "a_1"]);
+	});
+
+	it("preserves multi-turn history when new turn's user message is missing from stale data", () => {
+		// Multiple completed turns exist, but the latest user message hasn't
+		// arrived yet in the messages query.
+		const messages = withoutActiveTurnAssistantHistory({
+			messages: [
+				userMessage("u_1", "first"),
+				completedAssistantMessage("a_1", "done"),
+				userMessage("u_2", "second"),
+				completedAssistantMessage("a_2", "also done"),
+			],
+			currentMessage: asCurrentMessage(
+				assistantMessage("a_streaming", "working on third request"),
+			),
+			isRunning: true,
+		});
+
+		expect(messages.map((message) => message.id)).toEqual([
+			"u_1",
+			"a_1",
+			"u_2",
+			"a_2",
+		]);
+	});
+
+	it("still drops in-progress assistant snapshots that lack stopReason", () => {
+		// Normal streaming case: the active turn has a partial assistant snapshot
+		// without stopReason — it should still be removed.
+		const messages = withoutActiveTurnAssistantHistory({
+			messages: [
+				userMessage("u_1", "first"),
+				completedAssistantMessage("a_1", "done"),
+				userMessage("u_2", "second"),
+				assistantMessage("a_2_partial", "partial response..."),
+			],
+			currentMessage: asCurrentMessage(
+				assistantMessage("a_current", "full streaming response"),
+			),
+			isRunning: true,
+		});
+
+		expect(messages.map((message) => message.id)).toEqual([
+			"u_1",
+			"a_1",
+			"u_2",
+		]);
 	});
 });
 

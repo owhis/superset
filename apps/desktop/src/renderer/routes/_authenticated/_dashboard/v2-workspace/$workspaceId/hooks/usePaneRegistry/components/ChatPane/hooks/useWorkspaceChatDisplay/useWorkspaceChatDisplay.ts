@@ -70,10 +70,24 @@ function withoutActiveTurnAssistantHistory({
 	}
 
 	const turnStartIndex = findLastUserMessageIndex(messages) + 1;
+	const activeTurnMessages = messages.slice(turnStartIndex);
+
+	// If any assistant message in the active turn has a finalized stopReason,
+	// it belongs to a completed turn — not the current streaming turn. This
+	// happens when getDisplayState (isRunning) updates before listMessages
+	// includes the new user message that triggered the stream.
+	const hasCompletedAssistant = activeTurnMessages.some((message) => {
+		const m = message as { role?: string; stopReason?: string };
+		return m.role === "assistant" && m.stopReason !== undefined;
+	});
+	if (hasCompletedAssistant) {
+		return messages;
+	}
+
 	const previousTurns = messages.slice(0, turnStartIndex);
-	const activeTurnNonAssistant = messages
-		.slice(turnStartIndex)
-		.filter((message) => message.role !== "assistant");
+	const activeTurnNonAssistant = activeTurnMessages.filter(
+		(message) => message.role !== "assistant",
+	);
 
 	return [...previousTurns, ...activeTurnNonAssistant];
 }
