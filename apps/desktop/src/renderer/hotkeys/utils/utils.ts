@@ -5,12 +5,12 @@ const TERMINAL_RESERVED = new Set([
 	"ctrl+z",
 	"ctrl+s",
 	"ctrl+q",
-	"ctrl+\\",
+	"ctrl+backslash",
 ]);
 
 export function isTerminalReservedEvent(event: KeyboardEvent): boolean {
 	if (!event.ctrlKey || event.metaKey || event.altKey || event.shiftKey)
 		return false;
-	const key = event.key.toLowerCase();
+	const key = event.code.replace(/^Key/, "").toLowerCase();
 	return TERMINAL_RESERVED.has(`ctrl+${key}`);
 }
