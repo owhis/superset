@@ -65,16 +65,12 @@ class PortManager extends EventEmitter {
 	private pendingHintScans = new Map<string, ReturnType<typeof setTimeout>>();
 	private isScanning = false;
 
-	constructor() {
-		super();
-		this.startPeriodicScan();
-	}
-
 	/**
 	 * Register a terminal session for port scanning
 	 */
 	registerSession(session: TerminalSession, workspaceId: string): void {
 		this.sessions.set(session.paneId, { session, workspaceId });
+		this.ensurePeriodicScanRunning();
 	}
 
 	/**
@@ -84,6 +80,7 @@ class PortManager extends EventEmitter {
 		this.sessions.delete(paneId);
 		this.removePortsForPane(paneId);
 		this.clearPendingHintScan(paneId);
+		this.pausePeriodicScanIfEmpty();
 	}
 
 	/**
@@ -97,6 +94,7 @@ class PortManager extends EventEmitter {
 		pid: number | null,
 	): void {
 		this.daemonSessions.set(paneId, { workspaceId, pid });
+		this.ensurePeriodicScanRunning();
 	}
 
 	/**
@@ -106,6 +104,23 @@ class PortManager extends EventEmitter {
 		this.daemonSessions.delete(paneId);
 		this.removePortsForPane(paneId);
 		this.clearPendingHintScan(paneId);
+		this.pausePeriodicScanIfEmpty();
+	}
+
+	private hasAnySessions(): boolean {
+		return this.sessions.size > 0 || this.daemonSessions.size > 0;
+	}
+
+	private ensurePeriodicScanRunning(): void {
+		if (!this.scanInterval) {
+			this.startPeriodicScan();
+		}
+	}
+
+	private pausePeriodicScanIfEmpty(): void {
+		if (!this.hasAnySessions()) {
+			this.stopPeriodicScan();
+		}
 	}
 
 	checkOutputForHint(data: string, paneId: string): void {
@@ -184,7 +199,13 @@ class PortManager extends EventEmitter {
 		}
 	}
 
+	/**
+	 * Scan a single pane for port changes.
+	 * Skips if a bulk scan is already in progress to prevent concurrent lsof processes.
+	 */
 	private async scanPane(paneId: string): Promise<void> {
+		if (this.isScanning) return;
+
 		const registered = this.sessions.get(paneId);
 		if (registered) {
 			const { session, workspaceId } = registered;
@@ -209,6 +230,13 @@ class PortManager extends EventEmitter {
 				errorContext: `daemon pane ${paneId}`,
 			});
 		}
+	}
+
+	/**
+	 * Force-scan a single pane. Exposed for testing the isScanning guard.
+	 */
+	async forceScanPane(paneId: string): Promise<void> {
+		await this.scanPane(paneId);
 	}
 
 	private createScanState(): ScanState {
@@ -354,6 +382,7 @@ class PortManager extends EventEmitter {
 
 	private async scanAllSessions(): Promise<void> {
 		if (this.isScanning) return;
+		if (!this.hasAnySessions()) return;
 		this.isScanning = true;
 
 		try {
