@@ -13,17 +13,19 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@superset/ui/select";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useV2ProjectList } from "renderer/routes/_authenticated/hooks/useV2ProjectList";
 import { useLocalHostService } from "renderer/routes/_authenticated/providers/LocalHostServiceProvider";
 import {
 	useAddRepositoryDialogOpen,
+	useAddRepositoryPreSelectedId,
 	useCloseAddRepositoryDialog,
 } from "renderer/stores/add-repository-dialog";
 import { ProjectSetupStep } from "../ProjectSetupStep";
 
 export function AddRepositoryDialog() {
 	const isOpen = useAddRepositoryDialogOpen();
+	const preSelectedProjectId = useAddRepositoryPreSelectedId();
 	const closeDialog = useCloseAddRepositoryDialog();
 	const { activeHostUrl } = useLocalHostService();
 	const [selectedProjectId, setSelectedProjectId] = useState<string | null>(
@@ -36,6 +38,15 @@ export function AddRepositoryDialog() {
 		() => (v2Projects ?? []).filter((p) => p.githubOwner && p.githubRepoName),
 		[v2Projects],
 	);
+
+	// Sync preselection from the store into local selection state each time
+	// the dialog opens. Only apply if the project exists in the list.
+	useEffect(() => {
+		if (!isOpen) return;
+		if (!preSelectedProjectId) return;
+		if (!projectsWithRepo.some((p) => p.id === preSelectedProjectId)) return;
+		setSelectedProjectId(preSelectedProjectId);
+	}, [isOpen, preSelectedProjectId, projectsWithRepo]);
 
 	const selectedProject = projectsWithRepo.find(
 		(p) => p.id === selectedProjectId,
