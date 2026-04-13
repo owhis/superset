@@ -276,9 +276,16 @@ export function useTerminalLifecycle({
 		}
 
 		const scheduleScrollToBottom = () => {
+			// Double RAF: the write callback fires when the parser is done, but
+			// the renderer updates baseY asynchronously. A single RAF can fire
+			// before the renderer finishes, leaving the viewport mid-content.
+			// The second RAF ensures the renderer has had at least one full
+			// frame to update. (#3431)
 			requestAnimationFrame(() => {
-				if (isUnmounted || xtermRef.current !== xterm) return;
-				scrollToBottom(xterm);
+				requestAnimationFrame(() => {
+					if (isUnmounted || xtermRef.current !== xterm) return;
+					scrollToBottom(xterm);
+				});
 			});
 		};
 

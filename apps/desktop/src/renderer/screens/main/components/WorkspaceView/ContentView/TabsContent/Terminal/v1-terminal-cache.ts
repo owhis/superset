@@ -117,6 +117,23 @@ export function attachToContainer(
 		entry.lastRows = entry.xterm.rows;
 	}
 
+	// Deferred re-fit: when xterm was opened into a detached wrapper, its
+	// internal cell-dimension metrics are stale. The synchronous fit() above
+	// may compute the wrong column count. After one animation frame the
+	// renderer has had a paint cycle to measure actual glyphs, so a second
+	// fit() produces correct dimensions. (#3431)
+	requestAnimationFrame(() => {
+		if (container.clientWidth === 0 || container.clientHeight === 0) return;
+		const prevCols = entry.lastCols;
+		const prevRows = entry.lastRows;
+		entry.fitAddon.fit();
+		entry.lastCols = entry.xterm.cols;
+		entry.lastRows = entry.xterm.rows;
+		if (entry.lastCols !== prevCols || entry.lastRows !== prevRows) {
+			onResize?.();
+		}
+	});
+
 	// Renderer may have skipped frames while the wrapper was detached.
 	entry.xterm.refresh(0, Math.max(0, entry.xterm.rows - 1));
 

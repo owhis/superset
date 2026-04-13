@@ -121,10 +121,17 @@ export function useTerminalRestore({
 		const restoreSequence = restoreSequenceRef.current;
 		try {
 			const scheduleScrollToBottom = () => {
+				// Double RAF: the write callback fires when the parser is done,
+				// but the renderer updates baseY asynchronously. A single RAF
+				// can fire before the renderer finishes, leaving the viewport
+				// mid-content. The second RAF ensures the renderer has had at
+				// least one full frame to update. (#3431)
 				requestAnimationFrame(() => {
-					if (xtermRef.current !== xterm) return;
-					if (restoreSequenceRef.current !== restoreSequence) return;
-					scrollToBottom(xterm);
+					requestAnimationFrame(() => {
+						if (xtermRef.current !== xterm) return;
+						if (restoreSequenceRef.current !== restoreSequence) return;
+						scrollToBottom(xterm);
+					});
 				});
 			};
 
