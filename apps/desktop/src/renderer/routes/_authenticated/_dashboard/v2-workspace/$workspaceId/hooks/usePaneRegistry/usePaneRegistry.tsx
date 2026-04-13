@@ -271,7 +271,7 @@ export function usePaneRegistry(
 							return new URL(data.url).hostname;
 						} catch {}
 					}
-					return undefined;
+					return "Browser";
 				},
 				renderPane: (ctx: RendererContext<PaneViewerData>) => (
 					<BrowserPane ctx={ctx} />
