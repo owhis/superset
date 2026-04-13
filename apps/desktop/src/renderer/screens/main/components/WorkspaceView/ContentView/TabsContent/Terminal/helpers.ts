@@ -449,6 +449,27 @@ export function setupKeyboardHandler(
 	const isWindows = platform.includes("win");
 
 	const handler = (event: KeyboardEvent): boolean => {
+		// Cmd+V (macOS) / Ctrl+V (Windows/Linux): let the browser handle paste.
+		// Without this, when the Kitty keyboard protocol is active (e.g. TUI apps
+		// like opencode that send CSI > flags u), xterm encodes Meta+V as a CSI u
+		// escape sequence and calls preventDefault(), blocking the browser paste event
+		// that setupPasteHandler relies on.
+		const isPaste = isMac
+			? event.key === "v" &&
+				event.metaKey &&
+				!event.ctrlKey &&
+				!event.altKey &&
+				!event.shiftKey
+			: event.key === "v" &&
+				event.ctrlKey &&
+				!event.metaKey &&
+				!event.altKey &&
+				!event.shiftKey;
+
+		if (isPaste) {
+			return false;
+		}
+
 		const isShiftEnter =
 			event.key === "Enter" &&
 			event.shiftKey &&
