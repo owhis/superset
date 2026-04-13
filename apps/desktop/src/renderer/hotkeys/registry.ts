@@ -101,24 +101,6 @@ export const HOTKEYS_REGISTRY = {
 		label: "Switch to Workspace 9",
 		category: "Workspace",
 	},
-	PREV_WORKSPACE: {
-		key: {
-			mac: "meta+alt+up",
-			windows: "ctrl+shift+alt+up",
-			linux: "ctrl+shift+alt+up",
-		},
-		label: "Previous Workspace",
-		category: "Workspace",
-	},
-	NEXT_WORKSPACE: {
-		key: {
-			mac: "meta+alt+down",
-			windows: "ctrl+shift+alt+down",
-			linux: "ctrl+shift+alt+down",
-		},
-		label: "Next Workspace",
-		category: "Workspace",
-	},
 	CLOSE_WORKSPACE: {
 		key: {
 			mac: "meta+shift+backspace",
@@ -334,24 +316,6 @@ export const HOTKEYS_REGISTRY = {
 		category: "Terminal",
 		description: "Scroll the active terminal to the bottom",
 	},
-	PREV_TAB: {
-		key: {
-			mac: "meta+alt+left",
-			windows: "ctrl+shift+alt+left",
-			linux: "ctrl+shift+alt+left",
-		},
-		label: "Previous Tab",
-		category: "Terminal",
-	},
-	NEXT_TAB: {
-		key: {
-			mac: "meta+alt+right",
-			windows: "ctrl+shift+alt+right",
-			linux: "ctrl+shift+alt+right",
-		},
-		label: "Next Tab",
-		category: "Terminal",
-	},
 	PREV_TAB_ALT: {
 		key: {
 			mac: "ctrl+shift+tab",
@@ -385,6 +349,46 @@ export const HOTKEYS_REGISTRY = {
 		label: "Next Pane",
 		category: "Terminal",
 		description: "Focus the next pane in the current tab",
+	},
+	FOCUS_PANE_LEFT: {
+		key: {
+			mac: "meta+alt+left",
+			windows: "ctrl+alt+left",
+			linux: "ctrl+alt+left",
+		},
+		label: "Focus Pane Left",
+		category: "Terminal",
+		description: "Focus the pane to the left of the active pane",
+	},
+	FOCUS_PANE_RIGHT: {
+		key: {
+			mac: "meta+alt+right",
+			windows: "ctrl+alt+right",
+			linux: "ctrl+alt+right",
+		},
+		label: "Focus Pane Right",
+		category: "Terminal",
+		description: "Focus the pane to the right of the active pane",
+	},
+	FOCUS_PANE_UP: {
+		key: {
+			mac: "meta+alt+up",
+			windows: "ctrl+alt+up",
+			linux: "ctrl+alt+up",
+		},
+		label: "Focus Pane Up",
+		category: "Terminal",
+		description: "Focus the pane above the active pane",
+	},
+	FOCUS_PANE_DOWN: {
+		key: {
+			mac: "meta+alt+down",
+			windows: "ctrl+alt+down",
+			linux: "ctrl+alt+down",
+		},
+		label: "Focus Pane Down",
+		category: "Terminal",
+		description: "Focus the pane below the active pane",
 	},
 	JUMP_TO_TAB_1: {
 		key: {
