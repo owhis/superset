@@ -268,7 +268,7 @@ export function usePaneRegistry(
 					if (data.pageTitle) return data.pageTitle;
 					if (data.url && data.url !== "about:blank") {
 						try {
-							return new URL(data.url).hostname;
+							return new URL(data.url).host;
 						} catch {}
 					}
 					return "Browser";
