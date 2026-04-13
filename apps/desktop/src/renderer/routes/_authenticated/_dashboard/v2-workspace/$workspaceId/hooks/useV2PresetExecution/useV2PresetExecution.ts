@@ -84,7 +84,7 @@ export function useV2PresetExecution({
 							preset.commands[0] as string,
 						);
 						state.addTab({
-							titleOverride: preset.name || "Terminal",
+							titleOverride: preset.name || undefined,
 							panes: [makeTerminalPane(id)],
 						});
 						break;
@@ -96,7 +96,7 @@ export function useV2PresetExecution({
 						);
 						const panes = ids.map((id) => makeTerminalPane(id));
 						state.addTab({
-							titleOverride: preset.name || "Terminal",
+							titleOverride: preset.name || undefined,
 							panes:
 								panes.length > 0
 									? (panes as [
@@ -114,7 +114,7 @@ export function useV2PresetExecution({
 						);
 						for (let i = 0; i < ids.length; i++) {
 							state.addTab({
-								titleOverride: preset.name || "Terminal",
+								titleOverride: preset.name || undefined,
 								panes: [makeTerminalPane(ids[i] as string)],
 							});
 						}
@@ -127,7 +127,7 @@ export function useV2PresetExecution({
 						);
 						if (!activeTabId) {
 							state.addTab({
-								titleOverride: preset.name || "Terminal",
+								titleOverride: preset.name || undefined,
 								panes: [makeTerminalPane(id)],
 							});
 							break;
@@ -146,7 +146,7 @@ export function useV2PresetExecution({
 						if (!activeTabId) {
 							const panes = ids.map((id) => makeTerminalPane(id));
 							state.addTab({
-								titleOverride: preset.name || "Terminal",
+								titleOverride: preset.name || undefined,
 								panes:
 									panes.length > 0
 										? (panes as [
