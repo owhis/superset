@@ -3,6 +3,10 @@ import type { inferRouterInputs, inferRouterOutputs } from "@trpc/server";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ChatRuntimeServiceRouter } from "../../../server/trpc";
 import { chatRuntimeServiceTrpc } from "../../provider";
+import {
+	getChatMessagesQueryOptions,
+	getChatPollingQueryOptions,
+} from "./chat-polling-config";
 
 type RouterInputs = inferRouterInputs<ChatRuntimeServiceRouter>;
 type RouterOutputs = inferRouterOutputs<ChatRuntimeServiceRouter>;
@@ -22,12 +26,6 @@ export interface UseChatDisplayOptions {
 	sessionId: string | null;
 	cwd?: string;
 	enabled?: boolean;
-	fps?: number;
-}
-
-function toRefetchIntervalMs(fps: number): number {
-	if (!Number.isFinite(fps) || fps <= 0) return Math.floor(1000 / 60);
-	return Math.max(16, Math.floor(1000 / fps));
 }
 
 function findLastUserMessageIndex(messages: ListMessagesOutput): number {
@@ -113,31 +111,34 @@ function getLegacyImagePayload(
 }
 
 export function useChatDisplay(options: UseChatDisplayOptions) {
-	const { sessionId, cwd, enabled = true, fps = 60 } = options;
+	const { sessionId, cwd, enabled = true } = options;
 	const utils = chatRuntimeServiceTrpc.useUtils();
 	const [commandError, setCommandError] = useState<unknown>(null);
 	const sessionCommandInput =
 		sessionId === null ? null : { sessionId, ...(cwd ? { cwd } : {}) };
 	const queryInput = sessionCommandInput ?? skipToken;
 	const isQueryEnabled = enabled && Boolean(sessionId);
-	const refetchIntervalMs = toRefetchIntervalMs(fps);
-	const queryOptions = {
+
+	const displayQueryOptions = getChatPollingQueryOptions({
 		enabled: isQueryEnabled,
-		refetchInterval: refetchIntervalMs,
-		refetchIntervalInBackground: true,
-		refetchOnWindowFocus: false,
-		staleTime: 0,
-		gcTime: 0,
-	} as const;
+	});
 
 	const displayQuery = chatRuntimeServiceTrpc.session.getDisplayState.useQuery(
 		queryInput,
-		queryOptions,
+		displayQueryOptions,
 	);
+
+	const isRunningRef = useRef(false);
+	isRunningRef.current = displayQuery.data?.isRunning ?? false;
+
+	const messagesQueryOptions = getChatMessagesQueryOptions({
+		enabled: isQueryEnabled,
+		isRunningGetter: () => isRunningRef.current,
+	});
 
 	const messagesQuery = chatRuntimeServiceTrpc.session.listMessages.useQuery(
 		queryInput,
-		queryOptions,
+		messagesQueryOptions,
 	);
 
 	const displayState = displayQuery.data ?? null;

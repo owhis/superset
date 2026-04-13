@@ -2,17 +2,15 @@ import type { AppRouter } from "@superset/host-service";
 import { workspaceTrpc } from "@superset/workspace-client";
 import type { inferRouterInputs, inferRouterOutputs } from "@trpc/server";
 import { useEffect, useMemo, useRef, useState } from "react";
+import {
+	getChatMessagesQueryOptions,
+	getChatPollingQueryOptions,
+} from "./chat-polling-config";
 
 interface UseChatDisplayOptions {
 	sessionId: string | null;
 	workspaceId: string;
 	enabled?: boolean;
-	fps?: number;
-}
-
-function toRefetchIntervalMs(fps: number): number {
-	if (!Number.isFinite(fps) || fps <= 0) return Math.floor(1000 / 60);
-	return Math.max(16, Math.floor(1000 / fps));
 }
 
 type RouterInputs = inferRouterInputs<AppRouter>;
@@ -107,30 +105,34 @@ function getLegacyImagePayload(
 }
 
 export function useChatDisplay(options: UseChatDisplayOptions) {
-	const { sessionId, workspaceId, enabled = true, fps = 60 } = options;
+	const { sessionId, workspaceId, enabled = true } = options;
 	const utils = workspaceTrpc.useUtils();
 	const [commandError, setCommandError] = useState<unknown>(null);
 	const queryInput =
 		sessionId === null ? undefined : { sessionId, workspaceId };
-	const isQueryEnabled = enabled && Boolean(sessionId);
-	const refetchIntervalMs = toRefetchIntervalMs(fps);
-	const queryOptions = {
-		enabled: isQueryEnabled && queryInput !== undefined,
-		refetchInterval: refetchIntervalMs,
-		refetchIntervalInBackground: true,
-		refetchOnWindowFocus: false,
-		staleTime: 0,
-		gcTime: 0,
-	} as const;
+	const isQueryEnabled =
+		enabled && Boolean(sessionId) && queryInput !== undefined;
+
+	const displayQueryOptions = getChatPollingQueryOptions({
+		enabled: isQueryEnabled,
+	});
 
 	const displayQuery = workspaceTrpc.chat.getDisplayState.useQuery(
 		queryInput as { sessionId: string; workspaceId: string },
-		queryOptions,
+		displayQueryOptions,
 	);
+
+	const isRunningRef = useRef(false);
+	isRunningRef.current = displayQuery.data?.isRunning ?? false;
+
+	const messagesQueryOptions = getChatMessagesQueryOptions({
+		enabled: isQueryEnabled,
+		isRunningGetter: () => isRunningRef.current,
+	});
 
 	const messagesQuery = workspaceTrpc.chat.listMessages.useQuery(
 		queryInput as { sessionId: string; workspaceId: string },
-		queryOptions,
+		messagesQueryOptions,
 	);
 
 	const sendMessageMutation = workspaceTrpc.chat.sendMessage.useMutation();

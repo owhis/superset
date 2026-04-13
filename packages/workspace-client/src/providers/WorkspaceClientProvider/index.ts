@@ -1,4 +1,6 @@
 export {
+	getWorkspaceClientsCacheSize,
+	releaseWorkspaceClients,
 	useWorkspaceClient,
 	useWorkspaceHostUrl,
 	useWorkspaceWsUrl,

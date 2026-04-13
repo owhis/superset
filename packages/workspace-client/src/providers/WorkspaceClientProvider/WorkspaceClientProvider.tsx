@@ -32,6 +32,24 @@ const workspaceClientsCache = new Map<string, WorkspaceClients>();
 const WorkspaceClientContext =
 	createContext<WorkspaceClientContextValue | null>(null);
 
+/** Release a cached workspace client and clear its QueryClient. */
+export function releaseWorkspaceClients(
+	cacheKey: string,
+	hostUrl: string,
+): boolean {
+	const clientKey = `${cacheKey}:${hostUrl}`;
+	const cached = workspaceClientsCache.get(clientKey);
+	if (!cached) return false;
+	cached.queryClient.clear();
+	workspaceClientsCache.delete(clientKey);
+	return true;
+}
+
+/** Return the current number of cached workspace client entries (for testing). */
+export function getWorkspaceClientsCacheSize(): number {
+	return workspaceClientsCache.size;
+}
+
 function getWorkspaceClients(
 	cacheKey: string,
 	hostUrl: string,
