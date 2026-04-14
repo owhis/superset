@@ -69,6 +69,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 						err,
 					);
 				}
+				try {
+					const res = await authClient.token();
+					if (res.data?.token) {
+						setJwt(res.data.token);
+					}
+				} catch (err) {
+					console.warn(
+						"[AuthProvider] JWT fetch failed after token change",
+						err,
+					);
+				}
 				setIsHydrated(true);
 			} else if (data === null) {
 				setAuthToken(null);
