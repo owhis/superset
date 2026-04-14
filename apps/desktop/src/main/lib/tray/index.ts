@@ -16,8 +16,6 @@ import {
 } from "main/lib/host-service-coordinator";
 import { menuEmitter } from "main/lib/menu-events";
 
-const POLL_INTERVAL_MS = 5000;
-
 /** Must have "Template" suffix for macOS dark/light mode support */
 const TRAY_ICON_FILENAME = "iconTemplate.png";
 
@@ -51,7 +49,6 @@ function getTrayIconPath(): string | null {
 }
 
 let tray: Tray | null = null;
-let pollIntervalId: ReturnType<typeof setInterval> | null = null;
 
 function createTrayIcon(): Electron.NativeImage | null {
 	const iconPath = getTrayIconPath();
@@ -258,12 +255,16 @@ export function initTray(): void {
 			updateTrayMenu();
 		});
 
-		// Periodic refresh as a fallback
-		pollIntervalId = setInterval(() => {
+		// Rebuild the menu on-demand when the user clicks the tray icon,
+		// instead of polling on a timer. Continuous setContextMenu() calls
+		// cause macOS WindowServer to re-register the NSStatusItem, leading
+		// to menu bar reshuffling and cursor flicker on multi-display setups.
+		tray.on("click", () => {
 			updateTrayMenu();
-		}, POLL_INTERVAL_MS);
-		// Don't keep Electron alive just for tray updates
-		pollIntervalId.unref();
+		});
+		tray.on("right-click", () => {
+			updateTrayMenu();
+		});
 
 		console.log("[Tray] Initialized successfully");
 	} catch (error) {
@@ -273,11 +274,6 @@ export function initTray(): void {
 
 /** Call on app quit */
 export function disposeTray(): void {
-	if (pollIntervalId) {
-		clearInterval(pollIntervalId);
-		pollIntervalId = null;
-	}
-
 	if (tray) {
 		tray.destroy();
 		tray = null;
