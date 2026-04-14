@@ -321,8 +321,8 @@ export const HOTKEYS_REGISTRY = {
 	SCROLL_TO_BOTTOM: {
 		key: {
 			mac: "meta+shift+down",
-			windows: "ctrl+shift+alt+down",
-			linux: "ctrl+shift+alt+down",
+			windows: "ctrl+end",
+			linux: "ctrl+end",
 		},
 		label: "Scroll to Bottom",
 		category: "Terminal",
