@@ -14,8 +14,8 @@ import {
 	SquareSplitHorizontal,
 	TerminalSquare,
 } from "lucide-react";
-import { FaGithub } from "react-icons/fa";
 import { useMemo } from "react";
+import { FaGithub } from "react-icons/fa";
 import {
 	LuArrowDownToLine,
 	LuArrowUpRight,
@@ -314,6 +314,9 @@ export function usePaneRegistry(
 			comment: {
 				getIcon: (ctx: RendererContext<PaneViewerData>) => {
 					const data = ctx.pane.data as CommentPaneData;
+					if (!data.avatarUrl) {
+						return <MessageSquare className="size-4" />;
+					}
 					return (
 						<img src={data.avatarUrl} alt="" className="size-4 rounded-full" />
 					);

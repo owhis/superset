@@ -1,6 +1,12 @@
 import type { RendererContext } from "@superset/panes";
 import { Avatar, AvatarFallback, AvatarImage } from "@superset/ui/avatar";
-import { type ReactNode, useCallback, useRef, useState } from "react";
+import {
+	type ReactNode,
+	useCallback,
+	useEffect,
+	useRef,
+	useState,
+} from "react";
 import { LuCheck, LuCopy } from "react-icons/lu";
 import ReactMarkdown from "react-markdown";
 import rehypeRaw from "rehype-raw";
@@ -17,11 +23,22 @@ interface CommentPaneProps {
 export function CommentPane({ context }: CommentPaneProps) {
 	const data = context.pane.data as CommentPaneData;
 	const [copied, setCopied] = useState(false);
+	const copyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+	useEffect(() => {
+		return () => {
+			if (copyTimerRef.current) clearTimeout(copyTimerRef.current);
+		};
+	}, []);
 
 	const handleCopyAll = useCallback(() => {
 		void electronTrpcClient.external.copyText.mutate(data.body).then(() => {
+			if (copyTimerRef.current) clearTimeout(copyTimerRef.current);
 			setCopied(true);
-			setTimeout(() => setCopied(false), 1500);
+			copyTimerRef.current = setTimeout(() => {
+				setCopied(false);
+				copyTimerRef.current = null;
+			}, 1500);
 		});
 	}, [data.body]);
 
@@ -87,6 +104,13 @@ const commentComponents = {
 function CopyableTable({ children }: { children?: ReactNode }) {
 	const tableRef = useRef<HTMLTableElement>(null);
 	const [copied, setCopied] = useState(false);
+	const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+	useEffect(() => {
+		return () => {
+			if (timerRef.current) clearTimeout(timerRef.current);
+		};
+	}, []);
 
 	const handleCopy = useCallback(() => {
 		const el = tableRef.current;
@@ -104,8 +128,12 @@ function CopyableTable({ children }: { children?: ReactNode }) {
 		}
 		const text = lines.join("\n");
 		void electronTrpcClient.external.copyText.mutate(text).then(() => {
+			if (timerRef.current) clearTimeout(timerRef.current);
 			setCopied(true);
-			setTimeout(() => setCopied(false), 1500);
+			timerRef.current = setTimeout(() => {
+				setCopied(false);
+				timerRef.current = null;
+			}, 1500);
 		});
 	}, []);
 

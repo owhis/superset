@@ -76,6 +76,7 @@ export function useReviewTab({
 			pr={pr}
 			comments={comments}
 			isLoading={prQuery.isLoading}
+			isError={prQuery.isError}
 			isCommentsLoading={threadsQuery.isLoading}
 			onOpenComment={onOpenComment}
 		/>

@@ -9,6 +9,7 @@ interface ReviewTabContentProps {
 	pr: NormalizedPR | null;
 	comments: NormalizedComment[];
 	isLoading: boolean;
+	isError: boolean;
 	isCommentsLoading: boolean;
 	onOpenComment?: (comment: CommentPaneData) => void;
 }
@@ -17,9 +18,18 @@ export const ReviewTabContent = memo(function ReviewTabContent({
 	pr,
 	comments,
 	isLoading,
+	isError,
 	isCommentsLoading,
 	onOpenComment,
 }: ReviewTabContentProps) {
+	if (isError) {
+		return (
+			<div className="flex h-full items-center justify-center px-4 text-center text-sm text-muted-foreground">
+				Unable to load review status
+			</div>
+		);
+	}
+
 	if (isLoading && !pr) {
 		return (
 			<div className="flex h-full items-center justify-center text-sm text-muted-foreground">

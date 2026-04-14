@@ -41,7 +41,10 @@ export function PRHeader({ pr }: PRHeaderProps) {
 				>
 					{pr.title}
 				</span>
-				<LuArrowUpRight className="size-3.5 shrink-0 text-muted-foreground/70 opacity-0 transition-opacity group-hover:opacity-100" />
+				<LuArrowUpRight
+					aria-hidden="true"
+					className="size-3.5 shrink-0 text-muted-foreground/70 opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100"
+				/>
 			</a>
 			<div className="flex items-center gap-1.5">
 				<span

@@ -306,6 +306,7 @@ function CommentRow({
 				type="button"
 				onClick={handleClick}
 				className="flex min-w-0 flex-1 items-start gap-2 text-left"
+				aria-label={`View comment by ${comment.authorLogin}`}
 			>
 				{content}
 			</button>
