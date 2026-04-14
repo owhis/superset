@@ -246,6 +246,20 @@ export const trpcThemeStorage = createJSONStorage(() =>
 );
 
 /**
+ * Zustand storage adapter for hotkey overrides using tRPC.
+ * Persists overrides to disk so they survive localStorage clearing across app updates.
+ */
+export const trpcHotkeyOverridesStorage = createJSONStorage(() =>
+	createTrpcStorageAdapter({
+		get: () => electronTrpcClient.uiState.hotkeyOverrides.get.query(),
+		set: (input) =>
+			electronTrpcClient.uiState.hotkeyOverrides.set.mutate(
+				input as Record<string, string | null>,
+			),
+	}),
+);
+
+/**
  * Zustand storage adapter for ringtone state using tRPC.
  * Only the selectedRingtoneId is persisted.
  */

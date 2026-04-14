@@ -30,6 +30,10 @@ function ensureValidShape(data: Partial<AppState>): AppState {
 				...(data.hotkeysState?.byPlatform ?? {}),
 			},
 		},
+		hotkeyOverrides: {
+			...defaultAppState.hotkeyOverrides,
+			...(data.hotkeyOverrides ?? {}),
+		},
 	};
 }
 

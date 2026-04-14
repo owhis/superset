@@ -270,5 +270,20 @@ export const createUiStateRouter = () => {
 				return appState.data.hotkeysState;
 			}),
 		}),
+
+		// Disk-backed hotkey overrides (survives localStorage clearing across app updates)
+		hotkeyOverrides: router({
+			get: publicProcedure.query((): Record<string, string | null> => {
+				return appState.data.hotkeyOverrides;
+			}),
+
+			set: publicProcedure
+				.input(z.record(z.string(), z.string().nullable()))
+				.mutation(async ({ input }) => {
+					appState.data.hotkeyOverrides = input;
+					await appState.write();
+					return { success: true };
+				}),
+		}),
 	});
 };

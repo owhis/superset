@@ -1,6 +1,6 @@
 /**
  * One-time migration from the old hotkey storage (main process JSON file via tRPC)
- * to the new localStorage-based Zustand store.
+ * to the new disk-backed Zustand store.
  *
  * Marker key is bumped (`-v2`) so users who migrated on the pre-sanitizer
  * build re-run once and get their corrupt entries dropped.
@@ -42,10 +42,16 @@ export async function migrateHotkeyOverrides(): Promise<void> {
 			cleaned[id] = sanitized;
 		}
 
-		localStorage.setItem(
-			"hotkey-overrides",
-			JSON.stringify({ state: { overrides: cleaned }, version: 0 }),
+		// Write directly to disk via tRPC (durable across app updates)
+		await electronTrpcClient.uiState.hotkeyOverrides.set.mutate(cleaned);
+
+		// Also update the in-memory store so the UI reflects overrides immediately
+		// without waiting for a rehydration cycle.
+		const { useHotkeyOverridesStore } = await import(
+			"./stores/hotkeyOverridesStore"
 		);
+		useHotkeyOverridesStore.setState({ overrides: cleaned });
+
 		localStorage.setItem(MIGRATION_MARKER_KEY, "1");
 		console.log(
 			`[hotkeys] Migrated ${Object.keys(cleaned).length} override(s)` +

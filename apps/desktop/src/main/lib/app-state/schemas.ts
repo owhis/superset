@@ -24,6 +24,8 @@ export interface AppState {
 	tabsState: BaseTabsState;
 	themeState: ThemeState;
 	hotkeysState: LegacyHotkeysState;
+	/** Disk-backed hotkey overrides — survives localStorage clearing across app updates. */
+	hotkeyOverrides: Record<string, string | null>;
 }
 
 export const defaultAppState: AppState = {
@@ -44,4 +46,5 @@ export const defaultAppState: AppState = {
 		version: 1,
 		byPlatform: { darwin: {}, win32: {}, linux: {} },
 	},
+	hotkeyOverrides: {},
 };
