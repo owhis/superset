@@ -37,3 +37,9 @@ export const APP_STATE_PATH = join(SUPERSET_HOME_DIR, "app-state.json");
 
 // Window geometry state (separate from UI state - main process only, sync I/O)
 export const WINDOW_STATE_PATH = join(SUPERSET_HOME_DIR, "window-state.json");
+
+// Hotkey overrides (persisted outside localStorage so they survive app updates)
+export const HOTKEY_OVERRIDES_PATH = join(
+	SUPERSET_HOME_DIR,
+	"hotkey-overrides.json",
+);

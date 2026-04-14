@@ -1,3 +1,5 @@
+import { readFileSync, unlinkSync, writeFileSync } from "node:fs";
+import { HOTKEY_OVERRIDES_PATH } from "main/lib/app-environment";
 import { appState } from "main/lib/app-state";
 import type { TabsState, ThemeState } from "main/lib/app-state/schemas";
 import { z } from "zod";
@@ -268,6 +270,33 @@ export const createUiStateRouter = () => {
 		hotkeys: router({
 			get: publicProcedure.query(() => {
 				return appState.data.hotkeysState;
+			}),
+		}),
+
+		// File-backed hotkey overrides (survives app updates and browsing data clears)
+		hotkeyOverrides: router({
+			get: publicProcedure.query((): string | null => {
+				try {
+					return readFileSync(HOTKEY_OVERRIDES_PATH, "utf-8");
+				} catch {
+					return null;
+				}
+			}),
+
+			set: publicProcedure
+				.input(z.object({ data: z.string() }))
+				.mutation(({ input }) => {
+					writeFileSync(HOTKEY_OVERRIDES_PATH, input.data, "utf-8");
+					return { success: true };
+				}),
+
+			remove: publicProcedure.mutation(() => {
+				try {
+					unlinkSync(HOTKEY_OVERRIDES_PATH);
+				} catch {
+					// File may not exist — that's fine.
+				}
+				return { success: true };
 			}),
 		}),
 	});

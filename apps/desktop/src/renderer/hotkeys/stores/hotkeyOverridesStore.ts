@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
+import { fileBackedStorage } from "./fileBackedStorage";
 
 interface HotkeyOverridesState {
 	overrides: Record<string, string | null>;
@@ -26,7 +27,7 @@ export const useHotkeyOverridesStore = create<HotkeyOverridesState>()(
 		}),
 		{
 			name: "hotkey-overrides",
-			storage: createJSONStorage(() => localStorage),
+			storage: createJSONStorage(() => fileBackedStorage),
 			partialize: (state) => ({ overrides: state.overrides }),
 		},
 	),
