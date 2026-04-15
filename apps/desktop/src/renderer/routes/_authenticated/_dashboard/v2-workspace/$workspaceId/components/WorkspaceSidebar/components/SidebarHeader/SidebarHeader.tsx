@@ -29,6 +29,7 @@ export function SidebarHeader({
 								: "text-muted-foreground/70 hover:text-muted-foreground hover:bg-tertiary/20",
 						)}
 					>
+						{tab.icon && <tab.icon className="size-3.5" />}
 						{tab.label}
 						{tab.badge != null && (
 							<span className="text-xs tabular-nums">{tab.badge}</span>
