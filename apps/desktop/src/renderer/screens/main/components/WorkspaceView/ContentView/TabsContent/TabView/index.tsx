@@ -293,7 +293,7 @@ export function TabView({ tab }: TabViewProps) {
 	}
 
 	return (
-		<div className="relative w-full h-full mosaic-container">
+		<div className="relative flex-1 min-w-0 h-full mosaic-container">
 			<Mosaic<string>
 				mosaicId={MOSAIC_ID}
 				renderTile={renderPane}
