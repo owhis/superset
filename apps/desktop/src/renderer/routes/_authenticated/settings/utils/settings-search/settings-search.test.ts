@@ -9,6 +9,29 @@ function getIds(items: SettingsItem[]): string[] {
 	return items.map((item) => item.id);
 }
 
+describe("settings search - preset bar visibility", () => {
+	it('searching "preset bar" returns BEHAVIOR_SHOW_PRESETS_BAR', () => {
+		const results = searchSettings("preset bar");
+		const ids = getIds(results);
+		expect(ids).toContain(SETTING_ITEM_ID.BEHAVIOR_SHOW_PRESETS_BAR);
+	});
+
+	it('searching "show preset" returns BEHAVIOR_SHOW_PRESETS_BAR', () => {
+		const results = searchSettings("show preset");
+		const ids = getIds(results);
+		expect(ids).toContain(SETTING_ITEM_ID.BEHAVIOR_SHOW_PRESETS_BAR);
+	});
+
+	it("preset bar visibility setting is in the behavior section", () => {
+		const results = searchSettings("preset bar");
+		const item = results.find(
+			(r) => r.id === SETTING_ITEM_ID.BEHAVIOR_SHOW_PRESETS_BAR,
+		);
+		expect(item).toBeDefined();
+		expect(item?.section).toBe("behavior");
+	});
+});
+
 describe("settings search - font settings", () => {
 	it('searching "font" returns both APPEARANCE_EDITOR_FONT and APPEARANCE_TERMINAL_FONT', () => {
 		const results = searchSettings("font");

@@ -40,6 +40,10 @@ export function BehaviorSettings({ visibleItems }: BehaviorSettingsProps) {
 		SETTING_ITEM_ID.BEHAVIOR_OPEN_LINKS_IN_APP,
 		visibleItems,
 	);
+	const showPresetsBarSetting = isItemVisible(
+		SETTING_ITEM_ID.BEHAVIOR_SHOW_PRESETS_BAR,
+		visibleItems,
+	);
 
 	const utils = electronTrpc.useUtils();
 
@@ -137,6 +141,27 @@ export function BehaviorSettings({ visibleItems }: BehaviorSettingsProps) {
 				utils.settings.getShowResourceMonitor.invalidate();
 			},
 		});
+
+	const { data: showPresetsBar, isLoading: isShowPresetsBarLoading } =
+		electronTrpc.settings.getShowPresetsBar.useQuery();
+	const setShowPresetsBar = electronTrpc.settings.setShowPresetsBar.useMutation(
+		{
+			onMutate: async ({ enabled }) => {
+				await utils.settings.getShowPresetsBar.cancel();
+				const previous = utils.settings.getShowPresetsBar.getData();
+				utils.settings.getShowPresetsBar.setData(undefined, enabled);
+				return { previous };
+			},
+			onError: (_err, _vars, context) => {
+				if (context?.previous !== undefined) {
+					utils.settings.getShowPresetsBar.setData(undefined, context.previous);
+				}
+			},
+			onSettled: () => {
+				utils.settings.getShowPresetsBar.invalidate();
+			},
+		},
+	);
 
 	const { data: openLinksInApp, isLoading: isOpenLinksInAppLoading } =
 		electronTrpc.settings.getOpenLinksInApp.useQuery();
@@ -258,6 +283,28 @@ export function BehaviorSettings({ visibleItems }: BehaviorSettingsProps) {
 								setOpenLinksInApp.mutate({ enabled })
 							}
 							disabled={isOpenLinksInAppLoading || setOpenLinksInApp.isPending}
+						/>
+					</div>
+				)}
+
+				{showPresetsBarSetting && (
+					<div className="flex items-center justify-between">
+						<div className="space-y-0.5">
+							<Label htmlFor="show-presets-bar" className="text-sm font-medium">
+								Show Preset Bar
+							</Label>
+							<p className="text-xs text-muted-foreground">
+								Show the preset bar above terminal tabs for quick access to
+								terminal presets
+							</p>
+						</div>
+						<Switch
+							id="show-presets-bar"
+							checked={showPresetsBar ?? true}
+							onCheckedChange={(enabled) =>
+								setShowPresetsBar.mutate({ enabled })
+							}
+							disabled={isShowPresetsBarLoading || setShowPresetsBar.isPending}
 						/>
 					</div>
 				)}

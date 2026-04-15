@@ -26,6 +26,7 @@ export const SETTING_ITEM_ID = {
 	BEHAVIOR_FILE_OPEN_MODE: "behavior-file-open-mode",
 	BEHAVIOR_RESOURCE_MONITOR: "behavior-resource-monitor",
 	BEHAVIOR_OPEN_LINKS_IN_APP: "behavior-open-links-in-app",
+	BEHAVIOR_SHOW_PRESETS_BAR: "behavior-show-presets-bar",
 
 	GIT_BRANCH_PREFIX: "git-branch-prefix",
 	GIT_DELETE_LOCAL_BRANCH: "git-delete-local-branch",
@@ -487,6 +488,24 @@ export const SETTINGS_ITEMS: SettingsItem[] = [
 			"chat",
 			"terminal",
 			"url",
+		],
+	},
+	{
+		id: SETTING_ITEM_ID.BEHAVIOR_SHOW_PRESETS_BAR,
+		section: "behavior",
+		title: "Show Preset Bar",
+		description:
+			"Show the preset bar above terminal tabs for quick access to terminal presets",
+		keywords: [
+			"preset",
+			"presets",
+			"bar",
+			"show",
+			"hide",
+			"toggle",
+			"visibility",
+			"terminal",
+			"toolbar",
 		],
 	},
 	{
