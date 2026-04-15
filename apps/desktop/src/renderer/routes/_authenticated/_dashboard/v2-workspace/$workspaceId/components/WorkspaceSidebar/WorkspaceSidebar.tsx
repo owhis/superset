@@ -70,7 +70,7 @@ export function WorkspaceSidebar({
 		const el = containerRef.current;
 		if (!el) return;
 		const ro = new ResizeObserver(([entry]) => {
-			if (entry) setCompact(entry.contentRect.width < 250);
+			if (entry) setCompact(entry.contentRect.width < 200);
 		});
 		ro.observe(el);
 		return () => ro.disconnect();
