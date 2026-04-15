@@ -110,8 +110,12 @@ export function ChecksSection({
 						No checks reported.
 					</div>
 				) : (
-					relevantChecks.map((check) => (
-						<CheckRow key={check.name} check={check} prUrl={prUrl} />
+					relevantChecks.map((check, index) => (
+						<CheckRow
+							key={`${check.name}-${index}`}
+							check={check}
+							prUrl={prUrl}
+						/>
 					))
 				)}
 			</CollapsibleContent>

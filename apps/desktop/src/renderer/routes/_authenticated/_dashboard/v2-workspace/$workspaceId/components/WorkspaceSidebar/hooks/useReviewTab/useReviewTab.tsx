@@ -31,13 +31,13 @@ export function useReviewTab({
 		},
 	);
 
+	const hasPR = prQuery.isSuccess && prQuery.data != null;
 	const threadsQuery = workspaceTrpc.git.getPullRequestThreads.useQuery(
 		{ workspaceId },
 		{
-			enabled: !!workspaceId && !!prQuery.data,
+			enabled: !!workspaceId && hasPR,
 			refetchInterval: 30_000,
 			refetchOnWindowFocus: true,
-			staleTime: 30_000,
 		},
 	);
 
