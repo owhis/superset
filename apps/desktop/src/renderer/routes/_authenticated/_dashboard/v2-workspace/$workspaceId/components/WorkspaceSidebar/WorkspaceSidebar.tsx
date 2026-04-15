@@ -3,7 +3,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@superset/ui/tabs";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@superset/ui/tooltip";
 import { cn } from "@superset/ui/utils";
 import { Search } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { LuFile, LuGitCompareArrows } from "react-icons/lu";
 import { useGitStatus } from "renderer/hooks/host-service/useGitStatus";
 import { sidebarHeaderTabTriggerClassName } from "renderer/screens/main/components/WorkspaceView/RightSidebar/headerTabStyles";
@@ -63,6 +63,18 @@ export function WorkspaceSidebar({
 	const [changesSubtab, setChangesSubtab] = useState<"diffs" | "review">(
 		"diffs",
 	);
+
+	const containerRef = useRef<HTMLDivElement>(null);
+	const [compact, setCompact] = useState(false);
+	useEffect(() => {
+		const el = containerRef.current;
+		if (!el) return;
+		const ro = new ResizeObserver(([entry]) => {
+			if (entry) setCompact(entry.contentRect.width < 250);
+		});
+		ro.observe(el);
+		return () => ro.disconnect();
+	}, []);
 
 	const gitStatus = useGitStatus(workspaceId);
 
@@ -168,11 +180,15 @@ export function WorkspaceSidebar({
 	const activeTabDef = tabs.find((t) => t.id === activeTab);
 
 	return (
-		<div className="flex h-full min-h-0 flex-col overflow-hidden border-l border-border bg-background">
+		<div
+			ref={containerRef}
+			className="flex h-full min-h-0 flex-col overflow-hidden border-l border-border bg-background"
+		>
 			<SidebarHeader
 				tabs={tabs}
 				activeTab={activeTab}
 				onTabChange={setActiveTab}
+				compact={compact}
 			/>
 			<div className="flex min-h-0 flex-1 flex-col">
 				{activeTabDef?.content}
