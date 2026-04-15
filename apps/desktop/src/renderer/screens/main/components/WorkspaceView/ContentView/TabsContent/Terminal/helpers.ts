@@ -406,17 +406,23 @@ export function setupPasteHandler(
 			if (cancelled) return;
 
 			const chunk = preparedText.slice(offset, offset + CHUNK_CHARS);
+			const isFirst = offset === 0;
 			offset += CHUNK_CHARS;
+			const isLast = offset >= preparedText.length;
 
 			if (shouldBracket) {
-				// Wrap each chunk to avoid long-running "open" bracketed paste blocks,
-				// which some TUIs may defer repainting until the closing sequence arrives.
-				options.onWrite?.(`\x1b[200~${chunk}\x1b[201~`);
+				// Use a single bracketed-paste envelope across all chunks so the
+				// TUI sees one atomic paste event. Wrapping each chunk individually
+				// caused TUIs like OpenCode to interpret inter-chunk boundaries as
+				// separate paste events, sending multiple messages (see #3484).
+				const prefix = isFirst ? "\x1b[200~" : "";
+				const suffix = isLast ? "\x1b[201~" : "";
+				options.onWrite?.(`${prefix}${chunk}${suffix}`);
 			} else {
 				options.onWrite?.(chunk);
 			}
 
-			if (offset < preparedText.length) {
+			if (!isLast) {
 				setTimeout(pasteNext, CHUNK_DELAY_MS);
 				return;
 			}

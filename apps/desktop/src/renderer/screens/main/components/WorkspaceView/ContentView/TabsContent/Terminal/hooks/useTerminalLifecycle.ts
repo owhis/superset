@@ -535,6 +535,15 @@ export function useTerminalLifecycle({
 			// Stream is ready — the cache has been writing data to xterm.
 			// Resize is handled by attachToContainer's ResizeObserver above.
 			isStreamReadyRef.current = true;
+
+			// Restore terminal modes from xterm's internal state. While the
+			// component was unmounted the cache kept writing stream data to
+			// xterm, so xterm's mode flags are authoritative. Our React refs
+			// were reset during cleanup (new component instance) and must be
+			// re-synced — otherwise features like bracketed paste detection
+			// break after a tab switch (see #3484).
+			isBracketedPasteRef.current = xterm.modes.bracketedPasteMode;
+			isAlternateScreenRef.current = xterm.buffer.active.type === "alternate";
 		} else {
 			cancelInitialAttach = scheduleTerminalAttach({
 				paneId,
