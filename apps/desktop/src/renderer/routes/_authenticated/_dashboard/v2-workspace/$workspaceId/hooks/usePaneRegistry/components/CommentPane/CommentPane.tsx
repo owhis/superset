@@ -1,19 +1,27 @@
+import { mermaid } from "@streamdown/mermaid";
 import type { RendererContext } from "@superset/panes";
 import { Avatar, AvatarFallback, AvatarImage } from "@superset/ui/avatar";
 import {
 	type ReactNode,
 	useCallback,
 	useEffect,
+	useMemo,
 	useRef,
 	useState,
 } from "react";
 import { LuCheck, LuCopy } from "react-icons/lu";
 import ReactMarkdown from "react-markdown";
+import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
+import {
+	oneDark,
+	oneLight,
+} from "react-syntax-highlighter/dist/esm/styles/prism";
 import rehypeRaw from "rehype-raw";
 import rehypeSanitize from "rehype-sanitize";
 import remarkGfm from "remark-gfm";
-import { CodeBlock } from "renderer/components/MarkdownRenderer/components/CodeBlock";
 import { electronTrpcClient } from "renderer/lib/trpc-client";
+import { useTheme } from "renderer/stores";
+import { Streamdown } from "streamdown";
 import type { CommentPaneData, PaneViewerData } from "../../../../types";
 import "./comment-pane.css";
 
@@ -23,6 +31,7 @@ interface CommentPaneProps {
 
 export function CommentPane({ context }: CommentPaneProps) {
 	const data = context.pane.data as CommentPaneData;
+	const commentComponents = useCommentComponents();
 	const [copied, setCopied] = useState(false);
 	const copyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 	const isMountedRef = useRef(true);
@@ -105,12 +114,82 @@ export function CommentPane({ context }: CommentPaneProps) {
 	);
 }
 
-const commentComponents = {
-	code: CodeBlock,
-	table: ({ children }: { children?: ReactNode }) => (
-		<CopyableTable>{children}</CopyableTable>
-	),
-};
+const mermaidPlugins = { mermaid };
+
+function useCommentComponents() {
+	const theme = useTheme();
+	const isDark = theme?.type !== "light";
+
+	return useMemo(
+		() => ({
+			code: ({
+				className,
+				children,
+			}: {
+				className?: string;
+				children?: ReactNode;
+			}) => {
+				const match = /language-(\w+)/.exec(className || "");
+				const language = match ? match[1] : undefined;
+				const codeString = String(children).replace(/\n$/, "");
+
+				if (language === "mermaid") {
+					return (
+						<Streamdown
+							mode="static"
+							plugins={mermaidPlugins}
+							mermaid={{
+								config: {
+									theme: isDark ? "dark" : "default",
+									themeVariables: isDark
+										? {
+												primaryTextColor: "#e0e0e0",
+												secondaryTextColor: "#c0c0c0",
+												tertiaryTextColor: "#c0c0c0",
+												nodeTextColor: "#e0e0e0",
+												labelTextColor: "#e0e0e0",
+												edgeLabelBackground: "transparent",
+											}
+										: undefined,
+								},
+							}}
+						>
+							{`\`\`\`mermaid\n${codeString}\n\`\`\``}
+						</Streamdown>
+					);
+				}
+
+				if (!language) {
+					return (
+						<code className="px-1.5 py-0.5 rounded bg-muted font-mono text-sm">
+							{children}
+						</code>
+					);
+				}
+
+				return (
+					<SyntaxHighlighter
+						style={
+							(isDark ? oneDark : oneLight) as Record<
+								string,
+								React.CSSProperties
+							>
+						}
+						language={language}
+						PreTag="div"
+						className="rounded-md text-sm"
+					>
+						{codeString}
+					</SyntaxHighlighter>
+				);
+			},
+			table: ({ children }: { children?: ReactNode }) => (
+				<CopyableTable>{children}</CopyableTable>
+			),
+		}),
+		[isDark],
+	);
+}
 
 function CopyableTable({ children }: { children?: ReactNode }) {
 	const tableRef = useRef<HTMLTableElement>(null);
