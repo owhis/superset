@@ -140,17 +140,36 @@ function useCommentComponents() {
 							plugins={mermaidPlugins}
 							mermaid={{
 								config: {
-									theme: isDark ? "dark" : "default",
+									theme: "base",
 									themeVariables: isDark
 										? {
-												primaryTextColor: "#e0e0e0",
-												secondaryTextColor: "#c0c0c0",
-												tertiaryTextColor: "#c0c0c0",
-												nodeTextColor: "#e0e0e0",
-												labelTextColor: "#e0e0e0",
+												background: "#1e1e2e",
+												primaryColor: "#313244",
+												primaryTextColor: "#cdd6f4",
+												primaryBorderColor: "#45475a",
+												secondaryColor: "#313244",
+												secondaryTextColor: "#cdd6f4",
+												secondaryBorderColor: "#45475a",
+												tertiaryColor: "#313244",
+												tertiaryTextColor: "#cdd6f4",
+												tertiaryBorderColor: "#45475a",
+												nodeBorder: "#45475a",
+												nodeTextColor: "#cdd6f4",
+												mainBkg: "#313244",
+												clusterBkg: "#1e1e2e",
+												titleColor: "#cdd6f4",
 												edgeLabelBackground: "transparent",
+												lineColor: "#6c7086",
+												textColor: "#cdd6f4",
 											}
-										: undefined,
+										: {
+												background: "#ffffff",
+												primaryColor: "#f0f0f4",
+												primaryTextColor: "#1e1e2e",
+												primaryBorderColor: "#d0d0d8",
+												lineColor: "#888",
+												textColor: "#1e1e2e",
+											},
 								},
 							}}
 						>
