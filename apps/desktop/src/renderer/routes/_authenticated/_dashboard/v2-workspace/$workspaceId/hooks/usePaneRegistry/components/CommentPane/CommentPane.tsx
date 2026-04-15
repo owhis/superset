@@ -12,6 +12,7 @@ import ReactMarkdown from "react-markdown";
 import rehypeRaw from "rehype-raw";
 import rehypeSanitize from "rehype-sanitize";
 import remarkGfm from "remark-gfm";
+import { CodeBlock } from "renderer/components/MarkdownRenderer/components/CodeBlock";
 import { electronTrpcClient } from "renderer/lib/trpc-client";
 import type { CommentPaneData, PaneViewerData } from "../../../../types";
 import "./comment-pane.css";
@@ -105,6 +106,7 @@ export function CommentPane({ context }: CommentPaneProps) {
 }
 
 const commentComponents = {
+	code: CodeBlock,
 	table: ({ children }: { children?: ReactNode }) => (
 		<CopyableTable>{children}</CopyableTable>
 	),
