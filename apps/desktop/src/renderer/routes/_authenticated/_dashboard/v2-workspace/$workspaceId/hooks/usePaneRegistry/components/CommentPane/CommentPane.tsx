@@ -24,9 +24,11 @@ export function CommentPane({ context }: CommentPaneProps) {
 	const data = context.pane.data as CommentPaneData;
 	const [copied, setCopied] = useState(false);
 	const copyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+	const isMountedRef = useRef(true);
 
 	useEffect(() => {
 		return () => {
+			isMountedRef.current = false;
 			if (copyTimerRef.current) clearTimeout(copyTimerRef.current);
 		};
 	}, []);
@@ -35,9 +37,11 @@ export function CommentPane({ context }: CommentPaneProps) {
 		void electronTrpcClient.external.copyText
 			.mutate(data.body)
 			.then(() => {
+				if (!isMountedRef.current) return;
 				if (copyTimerRef.current) clearTimeout(copyTimerRef.current);
 				setCopied(true);
 				copyTimerRef.current = setTimeout(() => {
+					if (!isMountedRef.current) return;
 					setCopied(false);
 					copyTimerRef.current = null;
 				}, 1500);
@@ -110,9 +114,11 @@ function CopyableTable({ children }: { children?: ReactNode }) {
 	const tableRef = useRef<HTMLTableElement>(null);
 	const [copied, setCopied] = useState(false);
 	const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+	const isMountedRef = useRef(true);
 
 	useEffect(() => {
 		return () => {
+			isMountedRef.current = false;
 			if (timerRef.current) clearTimeout(timerRef.current);
 		};
 	}, []);
@@ -135,9 +141,11 @@ function CopyableTable({ children }: { children?: ReactNode }) {
 		void electronTrpcClient.external.copyText
 			.mutate(text)
 			.then(() => {
+				if (!isMountedRef.current) return;
 				if (timerRef.current) clearTimeout(timerRef.current);
 				setCopied(true);
 				timerRef.current = setTimeout(() => {
+					if (!isMountedRef.current) return;
 					setCopied(false);
 					timerRef.current = null;
 				}, 1500);
