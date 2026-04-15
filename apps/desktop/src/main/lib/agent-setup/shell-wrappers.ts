@@ -162,12 +162,18 @@ export function createZshWrapper(
 	// .zshenv is always sourced first by zsh (interactive + non-interactive).
 	// Temporarily restore the user's ZDOTDIR while sourcing user config, then
 	// switch back so zsh continues through our wrapper chain.
+	//
+	// stdin is redirected from /dev/null while sourcing user config to prevent
+	// interactive prompts (e.g. nvm asking to install a missing Node version)
+	// from blocking shell init. Without this, any `read` call in the user config
+	// deadlocks: the shell waits for input, but the terminal gates input behind
+	// the shell-ready marker which can't fire until init completes. See #3478.
 	const zshenvPath = path.join(paths.ZSH_DIR, ".zshenv");
 	const zshenvScript = `# Superset zsh env wrapper
 ${SUPERSET_ENV_SAVE}
 _superset_home="\${SUPERSET_ORIG_ZDOTDIR:-$HOME}"
 export ZDOTDIR="$_superset_home"
-[[ -f "$_superset_home/.zshenv" ]] && source "$_superset_home/.zshenv"
+[[ -f "$_superset_home/.zshenv" ]] && source "$_superset_home/.zshenv" < /dev/null
 ${SUPERSET_ENV_RESTORE}
 export ZDOTDIR=${quotedZshDir}
 `;
@@ -180,7 +186,7 @@ export ZDOTDIR=${quotedZshDir}
 ${SUPERSET_ENV_SAVE}
 _superset_home="\${SUPERSET_ORIG_ZDOTDIR:-$HOME}"
 export ZDOTDIR="$_superset_home"
-[[ -f "$_superset_home/.zprofile" ]] && source "$_superset_home/.zprofile"
+[[ -f "$_superset_home/.zprofile" ]] && source "$_superset_home/.zprofile" < /dev/null
 ${SUPERSET_ENV_RESTORE}
 export ZDOTDIR=${quotedZshDir}
 `;
@@ -192,7 +198,7 @@ export ZDOTDIR=${quotedZshDir}
 ${SUPERSET_ENV_SAVE}
 _superset_home="\${SUPERSET_ORIG_ZDOTDIR:-$HOME}"
 export ZDOTDIR="$_superset_home"
-[[ -f "$_superset_home/.zshrc" ]] && source "$_superset_home/.zshrc"
+[[ -f "$_superset_home/.zshrc" ]] && source "$_superset_home/.zshrc" < /dev/null
 ${SUPERSET_ENV_RESTORE}
 ${buildPathPrependFunction(paths.BIN_DIR)}
 ${buildZshPrecmdHook(paths.BIN_DIR)}
@@ -212,7 +218,7 @@ ${SUPERSET_ENV_SAVE}
 _superset_home="\${SUPERSET_ORIG_ZDOTDIR:-$HOME}"
 export ZDOTDIR="$_superset_home"
 if [[ -o interactive ]]; then
-  [[ -f "$_superset_home/.zlogin" ]] && source "$_superset_home/.zlogin"
+  [[ -f "$_superset_home/.zlogin" ]] && source "$_superset_home/.zlogin" < /dev/null
 fi
 ${SUPERSET_ENV_RESTORE}
 ${buildZshPrecmdHook(paths.BIN_DIR)}
@@ -250,20 +256,24 @@ export function createBashWrapper(
 # Save Superset env vars before sourcing user config
 ${SUPERSET_ENV_SAVE}
 
+# Source system and user config with stdin from /dev/null to prevent
+# interactive prompts (e.g. nvm missing-version install prompt) from
+# blocking shell init and deadlocking the terminal. See #3478.
+
 # Source system profile
-[[ -f /etc/profile ]] && source /etc/profile
+[[ -f /etc/profile ]] && source /etc/profile < /dev/null
 
 # Source user's login profile
 if [[ -f "$HOME/.bash_profile" ]]; then
-  source "$HOME/.bash_profile"
+  source "$HOME/.bash_profile" < /dev/null
 elif [[ -f "$HOME/.bash_login" ]]; then
-  source "$HOME/.bash_login"
+  source "$HOME/.bash_login" < /dev/null
 elif [[ -f "$HOME/.profile" ]]; then
-  source "$HOME/.profile"
+  source "$HOME/.profile" < /dev/null
 fi
 
 # Source bashrc if separate
-[[ -f "$HOME/.bashrc" ]] && source "$HOME/.bashrc"
+[[ -f "$HOME/.bashrc" ]] && source "$HOME/.bashrc" < /dev/null
 
 # Restore Superset env vars that user config may have overridden
 ${SUPERSET_ENV_RESTORE}

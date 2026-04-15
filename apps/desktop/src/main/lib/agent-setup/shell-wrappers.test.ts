@@ -818,6 +818,141 @@ export SUPERSET_WORKSPACE_PATH="/wrong/path"
 		});
 	});
 
+	describe("stdin redirect prevents interactive prompt deadlock (#3478)", () => {
+		it("zsh wrappers source user configs with stdin from /dev/null", () => {
+			createZshWrapper(TEST_PATHS);
+
+			const zshenv = readFileSync(path.join(TEST_ZSH_DIR, ".zshenv"), "utf-8");
+			const zprofile = readFileSync(
+				path.join(TEST_ZSH_DIR, ".zprofile"),
+				"utf-8",
+			);
+			const zshrc = readFileSync(path.join(TEST_ZSH_DIR, ".zshrc"), "utf-8");
+			const zlogin = readFileSync(path.join(TEST_ZSH_DIR, ".zlogin"), "utf-8");
+
+			expect(zshenv).toContain('source "$_superset_home/.zshenv" < /dev/null');
+			expect(zprofile).toContain(
+				'source "$_superset_home/.zprofile" < /dev/null',
+			);
+			expect(zshrc).toContain('source "$_superset_home/.zshrc" < /dev/null');
+			expect(zlogin).toContain('source "$_superset_home/.zlogin" < /dev/null');
+		});
+
+		it("bash wrapper sources user configs with stdin from /dev/null", () => {
+			createBashWrapper(TEST_PATHS);
+
+			const rcfile = readFileSync(path.join(TEST_BASH_DIR, "rcfile"), "utf-8");
+
+			expect(rcfile).toContain("source /etc/profile < /dev/null");
+			expect(rcfile).toContain('source "$HOME/.bash_profile" < /dev/null');
+			expect(rcfile).toContain('source "$HOME/.bash_login" < /dev/null');
+			expect(rcfile).toContain('source "$HOME/.profile" < /dev/null');
+			expect(rcfile).toContain('source "$HOME/.bashrc" < /dev/null');
+		});
+
+		it("bash wrapper does not deadlock when user config prompts via read", () => {
+			// Simulates the nvm scenario: user .bashrc contains a `read` call
+			// that would block indefinitely without the /dev/null redirect.
+			const integrationRoot = path.join(TEST_ROOT, "nvm-deadlock-repro");
+			const homeDir = path.join(integrationRoot, "home");
+			mkdirSync(homeDir, { recursive: true });
+
+			// Simulate a .bashrc that prompts (like nvm asking to install a version)
+			writeFileSync(
+				path.join(homeDir, ".bashrc"),
+				`echo "Missing Node v18.17.0"
+echo "Do you want to install it? answer [y/N]:"
+read answer
+if [ "$answer" = "y" ]; then
+  echo "INSTALLED"
+else
+  echo "SKIPPED"
+fi
+`,
+			);
+
+			createBashWrapper(TEST_PATHS);
+
+			// Without the /dev/null redirect, this would hang forever because
+			// `read` blocks waiting for stdin input that never arrives.
+			// With the redirect, `read` gets EOF and answer is empty → "SKIPPED".
+			const output = execFileSync(
+				"bash",
+				["--rcfile", path.join(TEST_BASH_DIR, "rcfile"), "-ic", "echo READY"],
+				{
+					encoding: "utf-8",
+					timeout: 5000,
+					env: {
+						HOME: homeDir,
+						PATH: "/usr/bin:/bin",
+					},
+				},
+			).trim();
+
+			const lines = output
+				.split("\n")
+				.map((l) => l.trim())
+				.filter(Boolean);
+			// The read should have gotten EOF, answering "N" (empty → skip)
+			expect(lines).toContain("SKIPPED");
+			// Shell should have completed initialization and become interactive
+			expect(lines).toContain("READY");
+		});
+
+		it("zsh wrapper does not deadlock when user config prompts via read", () => {
+			if (!isZshAvailable()) return;
+
+			const integrationRoot = path.join(TEST_ROOT, "zsh-nvm-deadlock-repro");
+			const integrationBinDir = path.join(integrationRoot, "superset-bin");
+			const integrationZshDir = path.join(integrationRoot, "zsh");
+			const integrationBashDir = path.join(integrationRoot, "bash");
+			const homeDir = path.join(integrationRoot, "home");
+
+			mkdirSync(integrationBinDir, { recursive: true });
+			mkdirSync(integrationZshDir, { recursive: true });
+			mkdirSync(integrationBashDir, { recursive: true });
+			mkdirSync(homeDir, { recursive: true });
+
+			// Simulate a .zshrc that prompts (like nvm asking to install)
+			writeFileSync(
+				path.join(homeDir, ".zshrc"),
+				`echo "Missing Node v18.17.0"
+echo "Do you want to install it? answer [y/N]:"
+read answer
+if [[ "$answer" == "y" ]]; then
+  echo "INSTALLED"
+else
+  echo "SKIPPED"
+fi
+`,
+			);
+
+			createZshWrapper({
+				BIN_DIR: integrationBinDir,
+				ZSH_DIR: integrationZshDir,
+				BASH_DIR: integrationBashDir,
+			});
+
+			const output = execFileSync("zsh", ["-lic", "echo READY"], {
+				encoding: "utf-8",
+				timeout: 5000,
+				env: {
+					HOME: homeDir,
+					PATH: "/usr/bin:/bin",
+					SUPERSET_ORIG_ZDOTDIR: homeDir,
+					ZDOTDIR: integrationZshDir,
+				},
+			}).trim();
+
+			const lines = output
+				.split("\n")
+				.map((l) => l.trim())
+				.filter(Boolean);
+			expect(lines).toContain("SKIPPED");
+			expect(lines).toContain("READY");
+		});
+	});
+
 	describe("fish shell", () => {
 		it("uses fish-compatible managed command prelude for non-interactive commands", () => {
 			const args = getCommandShellArgs(
