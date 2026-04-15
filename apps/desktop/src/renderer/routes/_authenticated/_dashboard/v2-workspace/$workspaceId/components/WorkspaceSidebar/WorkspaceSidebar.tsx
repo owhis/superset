@@ -174,7 +174,9 @@ export function WorkspaceSidebar({
 				activeTab={activeTab}
 				onTabChange={setActiveTab}
 			/>
-			<div className="min-h-0 flex-1">{activeTabDef?.content}</div>
+			<div className="flex min-h-0 flex-1 flex-col">
+				{activeTabDef?.content}
+			</div>
 		</div>
 	);
 }
