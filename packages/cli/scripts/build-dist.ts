@@ -271,12 +271,22 @@ async function fixNativeBinariesForNode(
 		if (existsSync(nodePtyBuild)) {
 			rmSync(nodePtyBuild, { recursive: true, force: true });
 		}
-		console.log("[build-dist] compiling node-pty from source for linux-x64");
+		console.log(
+			"[build-dist] compiling node-pty from source for linux-x64 (requires python3 + gcc)",
+		);
 		await exec("npx", ["--yes", "node-gyp", "rebuild"], nodePtyDir);
 		const builtBinding = join(nodePtyBuild, "Release", "pty.node");
 		if (!existsSync(builtBinding)) {
 			throw new Error(`node-pty build did not produce ${builtBinding}`);
 		}
+		// Keep only the built binding; strip intermediate node-gyp artifacts
+		// (obj.target/, Makefile, config.gypi, .deps/, etc.) that would
+		// otherwise bloat the tarball by ~10MB with no runtime use.
+		const releaseDir = join(nodePtyBuild, "Release");
+		const builtBindingBytes = readFileSync(builtBinding);
+		rmSync(nodePtyBuild, { recursive: true, force: true });
+		mkdirSync(releaseDir, { recursive: true });
+		writeFileSync(builtBinding, builtBindingBytes);
 		return;
 	}
 
