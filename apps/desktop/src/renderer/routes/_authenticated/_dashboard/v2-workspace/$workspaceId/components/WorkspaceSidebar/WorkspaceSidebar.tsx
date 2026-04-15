@@ -2,21 +2,17 @@ import { Button } from "@superset/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@superset/ui/tabs";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@superset/ui/tooltip";
 import { cn } from "@superset/ui/utils";
-import { FileText, GitCompareArrows, Search } from "lucide-react";
+import { Search } from "lucide-react";
 import { useMemo, useState } from "react";
+import { LuFile, LuGitCompareArrows } from "react-icons/lu";
 import { useGitStatus } from "renderer/hooks/host-service/useGitStatus";
+import { sidebarHeaderTabTriggerClassName } from "renderer/screens/main/components/WorkspaceView/RightSidebar/headerTabStyles";
 import type { CommentPaneData } from "../../types";
 import { FilesTab } from "./components/FilesTab";
 import { SidebarHeader } from "./components/SidebarHeader";
 import { useChangesTab } from "./hooks/useChangesTab";
 import { useReviewTab } from "./hooks/useReviewTab";
 import type { SidebarTabDefinition } from "./types";
-
-const subtabTriggerClassName = cn(
-	"flex h-full flex-none shrink-0 items-center gap-2 rounded-none border-0 bg-transparent px-3 text-sm font-normal shadow-none transition-all outline-none",
-	"data-[state=active]:bg-border/30 data-[state=active]:text-foreground data-[state=active]:shadow-none",
-	"data-[state=inactive]:text-muted-foreground/70 data-[state=inactive]:hover:bg-tertiary/20 data-[state=inactive]:hover:text-muted-foreground",
-);
 
 interface WorkspaceSidebarProps {
 	onSelectFile: (absolutePath: string, openInNewTab?: boolean) => void;
@@ -82,7 +78,7 @@ export function WorkspaceSidebar({
 		() => ({
 			id: "files",
 			label: "Files",
-			icon: FileText,
+			icon: LuFile,
 			actions: <IconButton icon={Search} tooltip="Search" onClick={onSearch} />,
 			content: (
 				<FilesTab
@@ -108,7 +104,7 @@ export function WorkspaceSidebar({
 		() => ({
 			id: "changes",
 			label: "Changes",
-			icon: GitCompareArrows,
+			icon: LuGitCompareArrows,
 			badge: changesTab.badge,
 			actions:
 				changesSubtab === "diffs" ? changesTab.actions : reviewTab.actions,
@@ -122,7 +118,10 @@ export function WorkspaceSidebar({
 						<TabsList className="grid h-full w-full grid-cols-2 items-stretch gap-0 rounded-none bg-transparent p-0">
 							<TabsTrigger
 								value="diffs"
-								className={cn(subtabTriggerClassName, "w-full justify-center")}
+								className={cn(
+									sidebarHeaderTabTriggerClassName,
+									"min-w-0 w-full justify-center",
+								)}
 							>
 								<span>Diffs</span>
 								{changesTab.badge != null && (
@@ -133,7 +132,10 @@ export function WorkspaceSidebar({
 							</TabsTrigger>
 							<TabsTrigger
 								value="review"
-								className={cn(subtabTriggerClassName, "w-full justify-center")}
+								className={cn(
+									sidebarHeaderTabTriggerClassName,
+									"min-w-0 w-full justify-center",
+								)}
 							>
 								<span>Review</span>
 								{reviewTab.badge != null && reviewTab.badge > 0 && (
