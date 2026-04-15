@@ -3,9 +3,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@superset/ui/tabs";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@superset/ui/tooltip";
 import { cn } from "@superset/ui/utils";
 import { Search } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { LuFile, LuGitCompareArrows } from "react-icons/lu";
 import { useGitStatus } from "renderer/hooks/host-service/useGitStatus";
+import { useCollections } from "renderer/routes/_authenticated/providers/CollectionsProvider";
 import { sidebarHeaderTabTriggerClassName } from "renderer/screens/main/components/WorkspaceView/RightSidebar/headerTabStyles";
 import type { CommentPaneData } from "../../types";
 import { FilesTab } from "./components/FilesTab";
@@ -59,9 +60,29 @@ export function WorkspaceSidebar({
 	workspaceId,
 	workspaceName,
 }: WorkspaceSidebarProps) {
-	const [activeTab, setActiveTab] = useState("changes");
-	const [changesSubtab, setChangesSubtab] = useState<"diffs" | "review">(
-		"diffs",
+	const collections = useCollections();
+	const localState = collections.v2WorkspaceLocalState.get(workspaceId);
+	const activeTab = localState?.sidebarState?.activeTab ?? "changes";
+	const changesSubtab = localState?.sidebarState?.changesSubtab ?? "diffs";
+
+	const setActiveTab = useCallback(
+		(tab: string) => {
+			if (!collections.v2WorkspaceLocalState.get(workspaceId)) return;
+			collections.v2WorkspaceLocalState.update(workspaceId, (draft) => {
+				draft.sidebarState.activeTab = tab;
+			});
+		},
+		[collections, workspaceId],
+	);
+
+	const setChangesSubtab = useCallback(
+		(subtab: "diffs" | "review") => {
+			if (!collections.v2WorkspaceLocalState.get(workspaceId)) return;
+			collections.v2WorkspaceLocalState.update(workspaceId, (draft) => {
+				draft.sidebarState.changesSubtab = subtab;
+			});
+		},
+		[collections, workspaceId],
 	);
 
 	const containerRef = useRef<HTMLDivElement>(null);
@@ -173,7 +194,7 @@ export function WorkspaceSidebar({
 				</Tabs>
 			),
 		}),
-		[changesTab, reviewTab, changesSubtab],
+		[changesTab, reviewTab, changesSubtab, setChangesSubtab],
 	);
 
 	const tabs = [combinedChangesTab, filesTab];
