@@ -232,8 +232,10 @@ function copyNativePackages(libDir: string, target: Target): void {
  *
  * 1. `better-sqlite3`: download the Node-ABI prebuild from GitHub and
  *    overwrite `build/Release/better_sqlite3.node`.
- * 2. `node-pty`: delete `build/Release/` so the `bindings` loader falls
- *    through to the N-API prebuild in `prebuilds/<target>/pty.node`.
+ * 2. `node-pty`: on darwin, fall back to the in-package N-API prebuild
+ *    by removing `build/`. On linux-x64 there is no upstream prebuild,
+ *    so rebuild from source via node-gyp; node-pty uses node-addon-api
+ *    so the resulting binding is ABI-stable across Node versions.
  */
 async function fixNativeBinariesForNode(
 	libDir: string,
@@ -262,7 +264,22 @@ async function fixNativeBinariesForNode(
 		join(bsqDest, "better_sqlite3.node"),
 	);
 
-	const nodePtyBuild = join(destModules, "node-pty", "build");
+	const nodePtyDir = join(destModules, "node-pty");
+	const nodePtyBuild = join(nodePtyDir, "build");
+
+	if (target === "linux-x64") {
+		if (existsSync(nodePtyBuild)) {
+			rmSync(nodePtyBuild, { recursive: true, force: true });
+		}
+		console.log("[build-dist] compiling node-pty from source for linux-x64");
+		await exec("npx", ["--yes", "node-gyp", "rebuild"], nodePtyDir);
+		const builtBinding = join(nodePtyBuild, "Release", "pty.node");
+		if (!existsSync(builtBinding)) {
+			throw new Error(`node-pty build did not produce ${builtBinding}`);
+		}
+		return;
+	}
+
 	if (existsSync(nodePtyBuild)) {
 		console.log(
 			"[build-dist] removing node-pty build/ so bindings falls back to prebuilds/",
