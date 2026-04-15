@@ -238,21 +238,21 @@
 	opacity: 0.6;
 }
 
-/* Mermaid diagrams — hide label, lighten inner diagram background */
+/* Mermaid diagrams */
 .comment-pane-markdown [data-streamdown="mermaid-block"] {
-	border: none;
-	background: transparent;
-	padding: 0;
+	margin: 0.75rem 0;
+	border-radius: 0.375rem;
 }
 
-.comment-pane-markdown [data-streamdown="mermaid-block"] > .flex.h-8 {
-	display: none;
+.comment-pane-markdown [data-streamdown="mermaid-block"] svg text {
+	fill: var(--foreground) !important;
 }
 
-.comment-pane-markdown [data-streamdown="mermaid-block-actions"] {
-	display: none;
+.comment-pane-markdown [data-streamdown="mermaid-block"] svg .nodeLabel {
+	color: var(--foreground);
 }
 
-.comment-pane-markdown [data-streamdown="mermaid-block"] svg {
-	background: color-mix(in srgb, var(--muted) 25%, transparent) !important;
+.comment-pane-markdown [data-streamdown="mermaid-block"] svg .edgeLabel {
+	color: var(--foreground);
+	background-color: transparent;
 }
