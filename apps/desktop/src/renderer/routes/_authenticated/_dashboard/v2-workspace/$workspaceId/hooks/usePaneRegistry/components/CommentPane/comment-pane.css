@@ -238,12 +238,21 @@
 	opacity: 0.6;
 }
 
-/* Mermaid diagrams — lighten the dark background */
+/* Mermaid diagrams — hide label, lighten inner diagram background */
 .comment-pane-markdown [data-streamdown="mermaid-block"] {
-	background: color-mix(in srgb, var(--muted) 20%, transparent);
-	border-color: var(--border);
+	border: none;
+	background: transparent;
+	padding: 0;
 }
 
-.comment-pane-markdown [data-streamdown="mermaid-block"] > div:last-child {
-	background: var(--background);
+.comment-pane-markdown [data-streamdown="mermaid-block"] > .flex.h-8 {
+	display: none;
+}
+
+.comment-pane-markdown [data-streamdown="mermaid-block-actions"] {
+	display: none;
+}
+
+.comment-pane-markdown [data-streamdown="mermaid-block"] svg {
+	background: color-mix(in srgb, var(--muted) 25%, transparent) !important;
 }
