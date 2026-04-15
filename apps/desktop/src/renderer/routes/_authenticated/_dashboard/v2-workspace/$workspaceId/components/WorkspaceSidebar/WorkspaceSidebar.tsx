@@ -65,25 +65,30 @@ export function WorkspaceSidebar({
 	const activeTab = localState?.sidebarState?.activeTab ?? "changes";
 	const changesSubtab = localState?.sidebarState?.changesSubtab ?? "diffs";
 
-	const setActiveTab = useCallback(
-		(tab: string) => {
-			if (!collections.v2WorkspaceLocalState.get(workspaceId)) return;
-			collections.v2WorkspaceLocalState.update(workspaceId, (draft) => {
-				draft.sidebarState.activeTab = tab;
-			});
-		},
-		[collections, workspaceId],
-	);
+	// Stable refs so the callbacks never bust downstream memos.
+	const collectionsRef = useRef(collections);
+	collectionsRef.current = collections;
+	const workspaceIdRef = useRef(workspaceId);
+	workspaceIdRef.current = workspaceId;
 
-	const setChangesSubtab = useCallback(
-		(subtab: "diffs" | "review") => {
-			if (!collections.v2WorkspaceLocalState.get(workspaceId)) return;
-			collections.v2WorkspaceLocalState.update(workspaceId, (draft) => {
-				draft.sidebarState.changesSubtab = subtab;
-			});
-		},
-		[collections, workspaceId],
-	);
+	const setActiveTab = useCallback((tab: string) => {
+		if (tab !== "changes" && tab !== "files") return;
+		const c = collectionsRef.current;
+		const id = workspaceIdRef.current;
+		if (!c.v2WorkspaceLocalState.get(id)) return;
+		c.v2WorkspaceLocalState.update(id, (draft) => {
+			draft.sidebarState.activeTab = tab;
+		});
+	}, []);
+
+	const setChangesSubtab = useCallback((subtab: "diffs" | "review") => {
+		const c = collectionsRef.current;
+		const id = workspaceIdRef.current;
+		if (!c.v2WorkspaceLocalState.get(id)) return;
+		c.v2WorkspaceLocalState.update(id, (draft) => {
+			draft.sidebarState.changesSubtab = subtab;
+		});
+	}, []);
 
 	const containerRef = useRef<HTMLDivElement>(null);
 	const [compact, setCompact] = useState(false);

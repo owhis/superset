@@ -24,7 +24,6 @@ export function SidebarHeader({
 					const isActive = activeTab === tab.id;
 					const btn = (
 						<button
-							key={tab.id}
 							type="button"
 							onClick={() => onTabChange(tab.id)}
 							className={getSidebarHeaderTabButtonClassName({
@@ -48,7 +47,17 @@ export function SidebarHeader({
 						);
 					}
 
-					return btn;
+					return (
+						<button
+							key={tab.id}
+							type="button"
+							onClick={() => onTabChange(tab.id)}
+							className={getSidebarHeaderTabButtonClassName({ isActive })}
+						>
+							{tab.icon && <tab.icon className="size-3.5" />}
+							{tab.label}
+						</button>
+					);
 				})}
 			</div>
 			<div className="flex-1" />
