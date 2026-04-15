@@ -32,14 +32,19 @@ export function CommentPane({ context }: CommentPaneProps) {
 	}, []);
 
 	const handleCopyAll = useCallback(() => {
-		void electronTrpcClient.external.copyText.mutate(data.body).then(() => {
-			if (copyTimerRef.current) clearTimeout(copyTimerRef.current);
-			setCopied(true);
-			copyTimerRef.current = setTimeout(() => {
-				setCopied(false);
-				copyTimerRef.current = null;
-			}, 1500);
-		});
+		void electronTrpcClient.external.copyText
+			.mutate(data.body)
+			.then(() => {
+				if (copyTimerRef.current) clearTimeout(copyTimerRef.current);
+				setCopied(true);
+				copyTimerRef.current = setTimeout(() => {
+					setCopied(false);
+					copyTimerRef.current = null;
+				}, 1500);
+			})
+			.catch((err) => {
+				console.warn("Failed to copy comment text", err);
+			});
 	}, [data.body]);
 
 	return (
@@ -127,14 +132,19 @@ function CopyableTable({ children }: { children?: ReactNode }) {
 			lines.push(values.join("\t"));
 		}
 		const text = lines.join("\n");
-		void electronTrpcClient.external.copyText.mutate(text).then(() => {
-			if (timerRef.current) clearTimeout(timerRef.current);
-			setCopied(true);
-			timerRef.current = setTimeout(() => {
-				setCopied(false);
-				timerRef.current = null;
-			}, 1500);
-		});
+		void electronTrpcClient.external.copyText
+			.mutate(text)
+			.then(() => {
+				if (timerRef.current) clearTimeout(timerRef.current);
+				setCopied(true);
+				timerRef.current = setTimeout(() => {
+					setCopied(false);
+					timerRef.current = null;
+				}, 1500);
+			})
+			.catch((err) => {
+				console.warn("Failed to copy table text", err);
+			});
 	}, []);
 
 	return (

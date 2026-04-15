@@ -60,11 +60,13 @@ export function CommentsSection({
 
 	const handleCopySingle = useCallback(
 		(comment: NormalizedComment) => {
-			void copyToClipboard(comment.body.trim() || "No comment body").then(
-				() => {
+			void copyToClipboard(comment.body.trim() || "No comment body")
+				.then(() => {
 					markCopied(`comment:${comment.id}`);
-				},
-			);
+				})
+				.catch((err) => {
+					console.warn("Failed to copy comment", err);
+				});
 		},
 		[copyToClipboard, markCopied],
 	);
@@ -91,9 +93,13 @@ export function CommentsSection({
 					.join("\n");
 			})
 			.join("\n\n---\n\n");
-		void copyToClipboard(text).then(() => {
-			markCopied("comments:all");
-		});
+		void copyToClipboard(text)
+			.then(() => {
+				markCopied("comments:all");
+			})
+			.catch((err) => {
+				console.warn("Failed to copy comments", err);
+			});
 	}, [copyToClipboard, activeComments, markCopied]);
 
 	const commentsCountLabel = isLoading ? "..." : comments.length;
