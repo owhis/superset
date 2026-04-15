@@ -142,23 +142,19 @@ function coerceCheckStatus(
 function computeChecksStatus(
 	checks: V2CheckRun[],
 ): "success" | "failure" | "pending" | "none" {
-	const relevant = checks.filter((c) => {
+	let hasFailure = false;
+	let hasPending = false;
+	let relevantCount = 0;
+	for (const c of checks) {
 		const s = coerceCheckStatus(c.status, c.conclusion);
-		return s !== "skipped" && s !== "cancelled";
-	});
-	if (relevant.length === 0) return "none";
-	if (
-		relevant.some(
-			(c) => coerceCheckStatus(c.status, c.conclusion) === "failure",
-		)
-	)
-		return "failure";
-	if (
-		relevant.some(
-			(c) => coerceCheckStatus(c.status, c.conclusion) === "pending",
-		)
-	)
-		return "pending";
+		if (s === "skipped" || s === "cancelled") continue;
+		relevantCount++;
+		if (s === "failure") hasFailure = true;
+		else if (s === "pending") hasPending = true;
+	}
+	if (relevantCount === 0) return "none";
+	if (hasFailure) return "failure";
+	if (hasPending) return "pending";
 	return "success";
 }
 

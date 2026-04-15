@@ -28,6 +28,7 @@ export function CommentsSection({
 	const [resolvedOpen, setResolvedOpen] = useState(false);
 	const [copiedActionKey, setCopiedActionKey] = useState<string | null>(null);
 	const copiedResetRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+	const isMountedRef = useRef(true);
 
 	const copyToClipboard = useCallback(
 		(text: string) => electronTrpcClient.external.copyText.mutate(text),
@@ -36,6 +37,7 @@ export function CommentsSection({
 
 	useEffect(() => {
 		return () => {
+			isMountedRef.current = false;
 			if (copiedResetRef.current) clearTimeout(copiedResetRef.current);
 		};
 	}, []);
@@ -50,9 +52,11 @@ export function CommentsSection({
 	);
 
 	const markCopied = useCallback((key: string) => {
+		if (!isMountedRef.current) return;
 		if (copiedResetRef.current) clearTimeout(copiedResetRef.current);
 		setCopiedActionKey(key);
 		copiedResetRef.current = setTimeout(() => {
+			if (!isMountedRef.current) return;
 			setCopiedActionKey(null);
 			copiedResetRef.current = null;
 		}, 1500);
