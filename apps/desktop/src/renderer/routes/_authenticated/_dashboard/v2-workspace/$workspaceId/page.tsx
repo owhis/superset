@@ -33,6 +33,7 @@ import { useRecentlyViewedFiles } from "./hooks/useRecentlyViewedFiles";
 import { useV2PresetExecution } from "./hooks/useV2PresetExecution";
 import { useV2WorkspacePaneLayout } from "./hooks/useV2WorkspacePaneLayout";
 import { useWorkspaceHotkeys } from "./hooks/useWorkspaceHotkeys";
+import { FileDocumentStoreProvider } from "./state/fileDocumentStore";
 import type {
 	BrowserPaneData,
 	ChatPaneData,
@@ -316,7 +317,7 @@ function WorkspaceContent({
 	useHotkey("QUICK_OPEN", handleQuickOpen);
 
 	return (
-		<>
+		<FileDocumentStoreProvider>
 			<ResizablePanelGroup direction="horizontal" className="flex-1">
 				<ResizablePanel defaultSize={80} minSize={30}>
 					<div
@@ -420,6 +421,6 @@ function WorkspaceContent({
 				recentlyViewedFiles={recentFiles}
 				openFilePaths={openFilePaths}
 			/>
-		</>
+		</FileDocumentStoreProvider>
 	);
 }

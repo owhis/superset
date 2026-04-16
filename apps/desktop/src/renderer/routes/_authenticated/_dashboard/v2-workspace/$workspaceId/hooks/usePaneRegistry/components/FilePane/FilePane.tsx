@@ -1,11 +1,10 @@
 import type { RendererContext } from "@superset/panes";
-import { useCallback } from "react";
-import { useFileDocument } from "renderer/hooks/host-service/useFileDocument";
-import { isImageFile, isMarkdownFile } from "shared/file-types";
+import { useEffect } from "react";
+import { useSharedFileDocument } from "../../../../state/fileDocumentStore";
 import type { FilePaneData, PaneViewerData } from "../../../../types";
-import { CodeRenderer } from "./renderers/CodeRenderer";
-import { ImageRenderer } from "./renderers/ImageRenderer";
-import { MarkdownRenderer } from "./renderers/MarkdownRenderer";
+import { ErrorState } from "./components/ErrorState";
+import { LoadingState } from "./components/LoadingState";
+import { pickDefaultView, resolveViews } from "./registry";
 
 interface FilePaneProps {
 	context: RendererContext<PaneViewerData>;
@@ -16,91 +15,52 @@ export function FilePane({ context, workspaceId }: FilePaneProps) {
 	const data = context.pane.data as FilePaneData;
 	const { filePath } = data;
 
-	const document = useFileDocument({
+	const document = useSharedFileDocument({
 		workspaceId,
 		absolutePath: filePath,
-		mode: isImageFile(filePath) ? "bytes" : "auto",
-		maxBytes: isImageFile(filePath) ? 10 * 1024 * 1024 : 2 * 1024 * 1024,
-		hasLocalChanges: data.hasChanges,
-		autoReloadWhenClean: true,
 	});
 
-	const handleDirtyChange = useCallback(
-		(dirty: boolean) => {
-			if (dirty !== data.hasChanges) {
-				context.actions.updateData({
-					...data,
-					hasChanges: dirty,
-				} as PaneViewerData);
-			}
-		},
-		[context.actions, data],
-	);
-
-	const handleSave = useCallback(
-		async (content: string) => {
-			const result = await document.save({ content });
-			if (result.status === "saved") {
-				handleDirtyChange(false);
-			}
-			return result;
-		},
-		[document, handleDirtyChange],
-	);
-
-	if (document.state.kind === "loading") {
-		return null;
-	}
-
-	if (document.state.kind === "not-found") {
-		return (
-			<div className="flex w-full h-full items-center justify-center text-sm text-muted-foreground">
-				File not found
-			</div>
-		);
-	}
-
-	if (document.state.kind === "too-large") {
-		return (
-			<div className="flex w-full h-full items-center justify-center text-sm text-muted-foreground">
-				File is too large to display
-			</div>
-		);
-	}
-
-	if (document.state.kind === "binary" || document.state.kind === "bytes") {
-		if (isImageFile(filePath) && document.state.kind === "bytes") {
-			return (
-				<ImageRenderer content={document.state.content} filePath={filePath} />
-			);
+	// Mirror document dirty state back into the pane data so the tab indicator stays in sync.
+	useEffect(() => {
+		if (document.dirty !== data.hasChanges) {
+			context.actions.updateData({
+				...data,
+				hasChanges: document.dirty,
+			} as PaneViewerData);
 		}
-		return (
-			<div className="flex w-full h-full items-center justify-center text-sm text-muted-foreground">
-				Binary file — cannot display
-			</div>
-		);
+	}, [document.dirty, data, context.actions]);
+
+	// Content gating — nothing mounts until the document has renderable content.
+	if (document.content.kind === "loading") {
+		return <LoadingState />;
+	}
+	if (document.content.kind === "not-found") {
+		return <ErrorState reason="not-found" />;
+	}
+	if (document.content.kind === "too-large") {
+		return <ErrorState reason="too-large" />;
+	}
+	if (document.content.kind === "is-directory") {
+		return <ErrorState reason="is-directory" />;
+	}
+	if (document.content.kind === "bytes") {
+		// PR 1 does not ship a bytes-capable view. Image/binary views arrive in PR 2.
+		return <ErrorState reason="binary-unsupported" />;
 	}
 
-	if (isMarkdownFile(filePath)) {
-		return (
-			<MarkdownRenderer
-				content={document.state.content}
-				hasExternalChange={document.hasExternalChange}
-				onDirtyChange={handleDirtyChange}
-				onReload={document.reload}
-				onSave={handleSave}
-			/>
-		);
+	const views = resolveViews(filePath, {});
+	const activeView = pickDefaultView(views);
+	if (!activeView) {
+		return <ErrorState reason="binary-unsupported" />;
 	}
+
+	const ViewRenderer = activeView.Renderer;
 
 	return (
-		<CodeRenderer
-			content={document.state.content}
+		<ViewRenderer
+			document={document}
 			filePath={filePath}
-			hasExternalChange={document.hasExternalChange}
-			onDirtyChange={handleDirtyChange}
-			onReload={document.reload}
-			onSave={handleSave}
+			workspaceId={workspaceId}
 		/>
 	);
 }
