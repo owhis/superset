@@ -61,6 +61,25 @@ export const DEFAULT_TERMINAL_FONT_FAMILY = serializeFontFamilyList([
 
 export const DEFAULT_TERMINAL_FONT_SIZE = 14;
 
+/**
+ * Combine a user-chosen terminal font with the default monospace fallback
+ * chain. The user's font is preferred, but a generic `monospace` fallback
+ * is always present so a non-monospace or missing font cannot leave xterm
+ * with broken metrics and render the app unusable (see #3513).
+ */
+export function resolveTerminalFontFamily(
+	userFontFamily: string | null | undefined,
+): string {
+	const trimmed = userFontFamily?.trim();
+	if (!trimmed) return DEFAULT_TERMINAL_FONT_FAMILY;
+	const normalized = trimmed.toLowerCase();
+	const fallback = DEFAULT_TERMINAL_FONT_FAMILIES.find(
+		(family) => family.toLowerCase() === normalized,
+	);
+	if (fallback) return DEFAULT_TERMINAL_FONT_FAMILY;
+	return `${serializeFontFamilyList([trimmed])}, ${DEFAULT_TERMINAL_FONT_FAMILY}`;
+}
+
 /** Reads localStorage theme cache for flash-free first paint. */
 export function getDefaultTerminalAppearance(): TerminalAppearance {
 	const theme = readCachedTerminalTheme();
