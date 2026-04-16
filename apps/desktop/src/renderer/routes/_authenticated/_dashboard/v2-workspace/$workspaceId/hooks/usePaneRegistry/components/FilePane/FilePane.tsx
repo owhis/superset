@@ -5,14 +5,12 @@ import type { FilePaneData, PaneViewerData } from "../../../../types";
 import { ConflictDialog } from "./components/ConflictDialog";
 import { ErrorState } from "./components/ErrorState";
 import { ExternalChangeBar } from "./components/ExternalChangeBar";
-import { FileViewToggle } from "./components/FileViewToggle";
 import { LoadingState } from "./components/LoadingState";
 import { OrphanedBanner } from "./components/OrphanedBanner";
 import { SaveErrorBanner } from "./components/SaveErrorBanner";
 import {
 	ALL_VIEWS,
 	type FileMeta,
-	orderForToggle,
 	pickDefaultView,
 	resolveViews,
 } from "./registry";
@@ -78,6 +76,8 @@ export function FilePane({ context, workspaceId }: FilePaneProps) {
 	}
 
 	// Resolve which view(s) match the current file.
+	// The same resolution runs in FilePaneHeaderExtras — the toggle and active view
+	// stay in lockstep because both observe the same pane data + document state.
 	const meta: FileMeta = {
 		size: document.byteSize ?? undefined,
 		isBinary: document.isBinary ?? undefined,
@@ -93,23 +93,11 @@ export function FilePane({ context, workspaceId }: FilePaneProps) {
 	}
 
 	const ViewRenderer = activeView.Renderer;
-	const showToggle = views.length > 1 && !data.forceViewId;
-	const toggleViews = orderForToggle(views);
 	const localContent =
 		document.content.kind === "text" ? document.content.value : "";
 
 	return (
 		<div className="flex h-full w-full flex-col">
-			{showToggle && (
-				<div className="flex items-center justify-end border-b border-border px-2 py-1">
-					<FileViewToggle
-						views={toggleViews}
-						activeViewId={activeView.id}
-						filePath={filePath}
-						onChange={handleChangeView}
-					/>
-				</div>
-			)}
 			{document.orphaned && (
 				<OrphanedBanner
 					dirty={document.dirty}

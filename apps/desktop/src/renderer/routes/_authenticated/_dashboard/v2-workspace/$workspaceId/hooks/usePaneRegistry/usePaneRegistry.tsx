@@ -47,6 +47,7 @@ import { ChatPane } from "./components/ChatPane";
 import { CommentPane } from "./components/CommentPane";
 import { DiffPane } from "./components/DiffPane";
 import { FilePane } from "./components/FilePane";
+import { FilePaneHeaderExtras } from "./components/FilePane/components/FilePaneHeaderExtras";
 import { TerminalPane } from "./components/TerminalPane";
 
 function getFileName(filePath: string): string {
@@ -131,6 +132,7 @@ export function usePaneRegistry(
 					const name = getFileName(data.filePath);
 					return (
 						<div className="flex items-center space-x-2">
+							<FileIcon fileName={name} className="size-4 shrink-0" />
 							<span className={ctx.pane.pinned ? undefined : "italic"}>
 								{name}
 							</span>
@@ -142,6 +144,9 @@ export function usePaneRegistry(
 				},
 				renderPane: (ctx: RendererContext<PaneViewerData>) => (
 					<FilePane context={ctx} workspaceId={workspaceId} />
+				),
+				renderHeaderExtras: (ctx: RendererContext<PaneViewerData>) => (
+					<FilePaneHeaderExtras context={ctx} workspaceId={workspaceId} />
 				),
 				onHeaderClick: (ctx: RendererContext<PaneViewerData>) =>
 					ctx.actions.pin(),
