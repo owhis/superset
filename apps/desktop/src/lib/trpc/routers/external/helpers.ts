@@ -83,6 +83,26 @@ const LINUX_CLI_CANDIDATES: Partial<Record<ExternalApp, string[]>> = {
 };
 
 /**
+ * Returns the spawn command to open a plain URL in the user's default handler,
+ * or null to signal that the caller should use Electron's `shell.openExternal`.
+ *
+ * On macOS, Electron's `shell.openExternal` can silently fail when the
+ * LaunchServices database is in a stale or broken state, and it does not
+ * recover or surface the failure. Routing through `/usr/bin/open` bypasses
+ * the LaunchServices-cache path used by `shell.openExternal` and opens the
+ * URL reliably.
+ */
+export function getUrlOpenCommand(
+	url: string,
+	platform: NodeJS.Platform = process.platform,
+): { command: string; args: string[] } | null {
+	if (platform === "darwin") {
+		return { command: "/usr/bin/open", args: [url] };
+	}
+	return null;
+}
+
+/**
  * Get candidate commands to open a path in the specified app.
  * Returns an array of commands to try in order — for multi-edition apps (IntelliJ, PyCharm),
  * multiple candidates are returned so the caller can fall back if one isn't installed.

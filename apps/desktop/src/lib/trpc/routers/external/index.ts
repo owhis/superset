@@ -16,6 +16,7 @@ import { getWorkspacePath } from "../workspaces/utils/worktree";
 import {
 	type ExternalApp,
 	getAppCommand,
+	getUrlOpenCommand,
 	resolvePath,
 	spawnAsync,
 } from "./helpers";
@@ -94,7 +95,12 @@ export const createExternalRouter = () => {
 	return router({
 		openUrl: publicProcedure.input(z.string()).mutation(async ({ input }) => {
 			try {
-				await shell.openExternal(input);
+				const spawnCmd = getUrlOpenCommand(input);
+				if (spawnCmd) {
+					await spawnAsync(spawnCmd.command, spawnCmd.args);
+				} else {
+					await shell.openExternal(input);
+				}
 			} catch (error) {
 				const errorMessage =
 					error instanceof Error ? error.message : "Unknown error";

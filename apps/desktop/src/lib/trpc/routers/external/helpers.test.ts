@@ -1,7 +1,40 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import os from "node:os";
 import path from "node:path";
-import { getAppCommand, resolvePath, stripPathWrappers } from "./helpers";
+import {
+	getAppCommand,
+	getUrlOpenCommand,
+	resolvePath,
+	stripPathWrappers,
+} from "./helpers";
+
+describe("getUrlOpenCommand", () => {
+	// Reproduction for #3518: on macOS, `shell.openExternal` can silently
+	// fail when LaunchServices is in a stale state. Callers must instead
+	// spawn `/usr/bin/open` so URL clicks from the terminal actually open.
+	test("returns `/usr/bin/open <url>` on darwin", () => {
+		expect(getUrlOpenCommand("https://example.com", "darwin")).toEqual({
+			command: "/usr/bin/open",
+			args: ["https://example.com"],
+		});
+	});
+
+	test("preserves URL query strings and fragments on darwin", () => {
+		const url = "https://example.com/path?q=1&b=2#frag";
+		expect(getUrlOpenCommand(url, "darwin")).toEqual({
+			command: "/usr/bin/open",
+			args: [url],
+		});
+	});
+
+	test("returns null on linux so the caller falls back to shell.openExternal", () => {
+		expect(getUrlOpenCommand("https://example.com", "linux")).toBeNull();
+	});
+
+	test("returns null on win32 so the caller falls back to shell.openExternal", () => {
+		expect(getUrlOpenCommand("https://example.com", "win32")).toBeNull();
+	});
+});
 
 describe("getAppCommand", () => {
 	const originalPlatform = process.platform;
