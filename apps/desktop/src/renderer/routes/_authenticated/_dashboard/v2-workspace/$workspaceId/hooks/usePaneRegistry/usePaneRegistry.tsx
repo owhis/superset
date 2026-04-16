@@ -28,6 +28,7 @@ import { useHotkeyDisplay } from "renderer/hotkeys";
 import { terminalRuntimeRegistry } from "renderer/lib/terminal/terminal-runtime-registry";
 import { FileIcon } from "renderer/screens/main/components/WorkspaceView/RightSidebar/FilesView/utils";
 import { useSettings } from "renderer/stores/settings";
+import { getDocument } from "../../state/fileDocumentStore";
 import type {
 	BrowserPaneData,
 	ChatPaneData,
@@ -155,9 +156,17 @@ export function usePaneRegistry(
 							actions: [
 								{
 									label: "Save",
-									onClick: () => {
-										// TODO: wire up save via editor ref
-										resolve(true);
+									onClick: async () => {
+										const doc = getDocument(workspaceId, data.filePath);
+										if (!doc) {
+											resolve(true);
+											return;
+										}
+										const result = await doc.save();
+										// Only proceed to close if the save succeeded; otherwise
+										// leave the pane open so the user can see the conflict /
+										// error state and retry.
+										resolve(result.status === "saved");
 									},
 								},
 								{
