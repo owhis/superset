@@ -1,21 +1,23 @@
 import type { Terminal } from "@xterm/xterm";
 
 /**
- * Registers parser hooks to suppress terminal query responses from being displayed.
+ * Registers parser hooks to suppress terminal query responses and queries
+ * on the renderer's xterm instance.
  *
- * These handlers intercept specific response-only sequences that should not appear
- * as visible text. We only suppress sequences where the response has a DIFFERENT
- * format than the query, ensuring we don't break terminal functionality.
+ * In Superset's terminal architecture, both a headless emulator (in the daemon)
+ * and the renderer's xterm process the same PTY output stream. When a CLI tool
+ * sends a terminal query (e.g., DA1, DSR, OSC color query), BOTH would generate
+ * responses. The headless emulator's response goes directly to the PTY subprocess.
+ * The renderer's response would also be forwarded via handleTerminalInput →
+ * session.write(), causing the CLI tool to receive DUPLICATE responses.
  *
- * SAFE to suppress (response-only, query uses different format):
- * - CSI R: CPR response (query is CSI 6n)
- * - CSI I/O: Focus reports (no query, just mode enable)
- * - CSI $y: Mode report (query is CSI $p)
+ * These duplicate responses manifest as garbled escape sequences (\x1b] or \x1b[)
+ * appearing in the terminal output, breaking interactive CLI tools like gh, vercel,
+ * and others that rely on terminal query responses for capability detection.
  *
- * NOT suppressed (would break queries/commands):
- * - CSI c: DA query AND response both end in 'c'
- * - CSI t: Window query AND response both end in 't'
- * - OSC colors: Set command AND response have same format
+ * We suppress:
+ * 1. Terminal queries (so the renderer doesn't generate responses at all)
+ * 2. Response-only sequences (that might echo back from the daemon)
  *
  * @param terminal - The xterm.js Terminal instance
  * @returns Cleanup function to dispose all registered handlers
@@ -24,22 +26,60 @@ export function suppressQueryResponses(terminal: Terminal): () => void {
 	const disposables: { dispose: () => void }[] = [];
 	const parser = terminal.parser;
 
-	// CSI sequences ending in 'R' - Cursor Position Report (SAFE)
-	// Query: ESC[6n (ends in 'n'), Response: ESC[24;1R (ends in 'R')
-	// Different final bytes, so suppressing 'R' only catches responses
+	// =========================================================================
+	// Suppress terminal QUERIES — prevents renderer from generating responses.
+	// The headless emulator in the daemon handles these instead.
+	// =========================================================================
+
+	// DA1 (Device Attributes primary): CSI c or CSI 0 c
+	// Response would be: CSI ? 62;4;9;22 c (with '?' prefix — distinct final)
+	// Suppressing queries without prefix is safe: it won't match DA1 responses
+	// (which have '?' prefix) or DA2 queries (which have '>' prefix).
+	disposables.push(parser.registerCsiHandler({ final: "c" }, () => true));
+
+	// DA2 (Device Attributes secondary): CSI > c
+	disposables.push(
+		parser.registerCsiHandler({ prefix: ">", final: "c" }, () => true),
+	);
+
+	// DA3 (Device Attributes tertiary): CSI = c
+	disposables.push(
+		parser.registerCsiHandler({ prefix: "=", final: "c" }, () => true),
+	);
+
+	// DSR (Device Status Report): CSI 5n (status), CSI 6n (cursor position), etc.
+	// All CSI sequences ending in 'n' are status-request queries.
+	disposables.push(parser.registerCsiHandler({ final: "n" }, () => true));
+
+	// DSR with '?' prefix: CSI ? 6 n (extended cursor position)
+	disposables.push(
+		parser.registerCsiHandler({ prefix: "?", final: "n" }, () => true),
+	);
+
+	// OSC color queries — only suppress actual queries (data === "?"),
+	// not set operations (which carry color values).
+	// OSC 4: Color palette query
+	disposables.push(parser.registerOscHandler(4, (data) => data.includes("?")));
+	// OSC 10: Foreground color query
+	disposables.push(parser.registerOscHandler(10, (data) => data === "?"));
+	// OSC 11: Background color query
+	disposables.push(parser.registerOscHandler(11, (data) => data === "?"));
+	// OSC 12: Cursor color query
+	disposables.push(parser.registerOscHandler(12, (data) => data === "?"));
+
+	// =========================================================================
+	// Suppress RESPONSE-ONLY sequences — prevents garbled text if a response
+	// echoes back through the data stream.
+	// =========================================================================
+
+	// CSI R: Cursor Position Report response (query is CSI 6n, different final)
 	disposables.push(parser.registerCsiHandler({ final: "R" }, () => true));
 
-	// CSI sequences ending in 'I' - Focus In report (SAFE)
-	// No query - this is sent when terminal gains focus (mode 1004)
+	// CSI I/O: Focus In/Out reports (no query — just mode 1004 events)
 	disposables.push(parser.registerCsiHandler({ final: "I" }, () => true));
-
-	// CSI sequences ending in 'O' - Focus Out report (SAFE)
-	// No query - this is sent when terminal loses focus (mode 1004)
 	disposables.push(parser.registerCsiHandler({ final: "O" }, () => true));
 
-	// CSI sequences ending in 'y' with '$' intermediate - Mode Reports (SAFE)
-	// Query: ESC[?Ps$p (ends in 'p'), Response: ESC[?Ps;Pm$y (ends in 'y')
-	// Different final bytes, so suppressing '$y' only catches responses
+	// CSI $y: Mode report response (query is CSI $p, different final)
 	disposables.push(
 		parser.registerCsiHandler({ intermediates: "$", final: "y" }, () => true),
 	);
