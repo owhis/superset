@@ -3,6 +3,8 @@ export interface FilePaneData {
 	mode: "editor" | "diff" | "preview";
 	hasChanges: boolean;
 	language?: string;
+	viewId?: string;
+	forceViewId?: string;
 }
 
 export interface TerminalPaneData {

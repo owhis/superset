@@ -1,14 +1,21 @@
 import type { RendererContext } from "@superset/panes";
-import { useEffect } from "react";
+import { useCallback, useEffect } from "react";
 import { useSharedFileDocument } from "../../../../state/fileDocumentStore";
 import type { FilePaneData, PaneViewerData } from "../../../../types";
 import { ConflictDialog } from "./components/ConflictDialog";
 import { ErrorState } from "./components/ErrorState";
 import { ExternalChangeBar } from "./components/ExternalChangeBar";
+import { FileViewToggle } from "./components/FileViewToggle";
 import { LoadingState } from "./components/LoadingState";
 import { OrphanedBanner } from "./components/OrphanedBanner";
 import { SaveErrorBanner } from "./components/SaveErrorBanner";
-import { pickDefaultView, resolveViews } from "./registry";
+import {
+	ALL_VIEWS,
+	type FileMeta,
+	orderForToggle,
+	pickDefaultView,
+	resolveViews,
+} from "./registry";
 
 interface FilePaneProps {
 	context: RendererContext<PaneViewerData>;
@@ -34,7 +41,29 @@ export function FilePane({ context, workspaceId }: FilePaneProps) {
 		}
 	}, [document.dirty, data, context.actions]);
 
-	// Content gating — nothing mounts until the document has renderable content.
+	const handleChangeView = useCallback(
+		(viewId: string) => {
+			context.actions.updateData({
+				...data,
+				viewId,
+			} as PaneViewerData);
+		},
+		[context.actions, data],
+	);
+
+	const handleForceView = useCallback(
+		(viewId: string) => {
+			context.actions.updateData({
+				...data,
+				forceViewId: viewId,
+				viewId,
+			} as PaneViewerData);
+		},
+		[context.actions, data],
+	);
+
+	// Content gating — LoadingState/ErrorState rendered before view resolution when
+	// there's nothing for the view to consume.
 	if (document.content.kind === "loading") {
 		return <LoadingState />;
 	}
@@ -47,23 +76,40 @@ export function FilePane({ context, workspaceId }: FilePaneProps) {
 	if (document.content.kind === "is-directory") {
 		return <ErrorState reason="is-directory" />;
 	}
-	if (document.content.kind === "bytes") {
-		// PR 1 does not ship a bytes-capable view. Image/binary views arrive in the next commit.
-		return <ErrorState reason="binary-unsupported" />;
-	}
 
-	const views = resolveViews(filePath, {});
-	const activeView = pickDefaultView(views);
+	// Resolve which view(s) match the current file.
+	const meta: FileMeta = {
+		size: document.byteSize ?? undefined,
+		isBinary: document.isBinary ?? undefined,
+	};
+	const views = data.forceViewId
+		? ALL_VIEWS.filter((v) => v.id === data.forceViewId)
+		: resolveViews(filePath, meta);
+
+	const activeView =
+		views.find((v) => v.id === data.viewId) ?? pickDefaultView(views);
 	if (!activeView) {
 		return <ErrorState reason="binary-unsupported" />;
 	}
 
 	const ViewRenderer = activeView.Renderer;
+	const showToggle = views.length > 1 && !data.forceViewId;
+	const toggleViews = orderForToggle(views);
 	const localContent =
 		document.content.kind === "text" ? document.content.value : "";
 
 	return (
 		<div className="flex h-full w-full flex-col">
+			{showToggle && (
+				<div className="flex items-center justify-end border-b border-border px-2 py-1">
+					<FileViewToggle
+						views={toggleViews}
+						activeViewId={activeView.id}
+						filePath={filePath}
+						onChange={handleChangeView}
+					/>
+				</div>
+			)}
 			{document.orphaned && (
 				<OrphanedBanner
 					dirty={document.dirty}
@@ -85,6 +131,8 @@ export function FilePane({ context, workspaceId }: FilePaneProps) {
 					document={document}
 					filePath={filePath}
 					workspaceId={workspaceId}
+					onChangeView={handleChangeView}
+					onForceView={handleForceView}
 				/>
 			</div>
 			{document.conflict && (

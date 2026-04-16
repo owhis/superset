@@ -19,9 +19,11 @@ export const PRIORITY_RANK: Record<Priority, number> = {
 	option: 1,
 };
 
+export type FileViewLabel = string | ((filePath: string) => string);
+
 export interface FileView {
 	id: string;
-	label: string;
+	label: FileViewLabel;
 	match: (filePath: string, meta: FileMeta) => boolean;
 	priority: Priority;
 	documentKind: DocumentKind;
@@ -32,4 +34,10 @@ export interface ViewProps {
 	document: SharedFileDocument;
 	filePath: string;
 	workspaceId: string;
+	onChangeView: (viewId: string) => void;
+	onForceView: (viewId: string) => void;
+}
+
+export function resolveViewLabel(view: FileView, filePath: string): string {
+	return typeof view.label === "function" ? view.label(filePath) : view.label;
 }

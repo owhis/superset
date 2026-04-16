@@ -15,3 +15,9 @@ export function resolveViews(filePath: string, meta: FileMeta): FileView[] {
 export function pickDefaultView(views: FileView[]): FileView | null {
 	return views[0] ?? null;
 }
+
+// Reverse sort order so the default view (index 0) appears on the right of the toggle,
+// closest to the editor surface. Matches Cursor's Preview · Markdown layout.
+export function orderForToggle(views: FileView[]): FileView[] {
+	return [...views].reverse();
+}

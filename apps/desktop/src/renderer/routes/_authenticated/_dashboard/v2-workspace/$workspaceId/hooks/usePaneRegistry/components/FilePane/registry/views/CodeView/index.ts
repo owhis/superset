@@ -1,9 +1,10 @@
+import { isMarkdownFile } from "shared/file-types";
 import type { FileView } from "../../types";
 import { CodeView } from "./CodeView";
 
 export const codeView: FileView = {
 	id: "code",
-	label: "Code",
+	label: (filePath) => (isMarkdownFile(filePath) ? "Markdown" : "Code"),
 	match: () => true,
 	priority: "builtin",
 	documentKind: "text",

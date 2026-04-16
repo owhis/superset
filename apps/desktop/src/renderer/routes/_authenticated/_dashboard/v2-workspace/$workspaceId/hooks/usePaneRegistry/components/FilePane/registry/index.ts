@@ -1,10 +1,16 @@
 export { ALL_VIEWS } from "./allViews";
-export { pickDefaultView, resolveViews } from "./resolveViews";
+export {
+	orderForToggle,
+	pickDefaultView,
+	resolveViews,
+} from "./resolveViews";
 export {
 	type DocumentKind,
 	type FileMeta,
 	type FileView,
+	type FileViewLabel,
 	PRIORITY_RANK,
 	type Priority,
+	resolveViewLabel,
 	type ViewProps,
 } from "./types";
