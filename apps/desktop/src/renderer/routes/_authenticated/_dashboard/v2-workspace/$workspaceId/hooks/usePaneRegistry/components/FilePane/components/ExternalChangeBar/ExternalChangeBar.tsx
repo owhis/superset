@@ -1,5 +1,5 @@
 interface ExternalChangeBarProps {
-	onReload: () => Promise<void>;
+	onReload: () => Promise<void> | void;
 }
 
 export function ExternalChangeBar({ onReload }: ExternalChangeBarProps) {

@@ -1,5 +1,11 @@
 import type { workspaceTrpc } from "@superset/workspace-client";
-import type { ContentState, SaveResult, SharedFileDocument } from "./types";
+import type {
+	ConflictResolution,
+	ConflictState,
+	ContentState,
+	SaveResult,
+	SharedFileDocument,
+} from "./types";
 
 type WorkspaceTrpcClient = ReturnType<typeof workspaceTrpc.createClient>;
 
@@ -8,12 +14,20 @@ interface DocumentEntry {
 	absolutePath: string;
 	content: ContentState;
 	savedContentText: string | null;
+	pendingSave: boolean;
+	saveError: Error | null;
+	conflict: ConflictState | null;
+	orphaned: boolean;
+	hasExternalChange: boolean;
+	isBinary: boolean | null;
+	byteSize: number | null;
 	refCount: number;
 	version: number;
 	subscribers: Set<() => void>;
 }
 
 const DEFAULT_MAX_BYTES = 2 * 1024 * 1024;
+const BINARY_CHECK_SIZE = 8192;
 
 let activeTrpcClient: WorkspaceTrpcClient | null = null;
 const entries = new Map<string, DocumentEntry>();
@@ -33,6 +47,32 @@ function computeDirty(entry: DocumentEntry): boolean {
 	if (entry.content.kind !== "text") return false;
 	if (entry.savedContentText === null) return false;
 	return entry.content.value !== entry.savedContentText;
+}
+
+function isBinaryText(content: string): boolean {
+	const checkLength = Math.min(content.length, BINARY_CHECK_SIZE);
+	for (let i = 0; i < checkLength; i += 1) {
+		if (content.charCodeAt(i) === 0) {
+			return true;
+		}
+	}
+	return false;
+}
+
+function decodeBase64(value: string): Uint8Array {
+	if (typeof Buffer !== "undefined") {
+		return new Uint8Array(Buffer.from(value, "base64"));
+	}
+	const binary = atob(value);
+	const bytes = new Uint8Array(binary.length);
+	for (let i = 0; i < binary.length; i += 1) {
+		bytes[i] = binary.charCodeAt(i);
+	}
+	return bytes;
+}
+
+function toBytes(value: string | Uint8Array): Uint8Array {
+	return typeof value === "string" ? decodeBase64(value) : value;
 }
 
 function requireClient(): WorkspaceTrpcClient {
@@ -65,6 +105,10 @@ async function loadEntry(entry: DocumentEntry): Promise<void> {
 			maxBytes: DEFAULT_MAX_BYTES,
 		});
 
+		entry.byteSize = result.byteLength;
+		entry.orphaned = false;
+		entry.hasExternalChange = false;
+
 		if (result.exceededLimit) {
 			entry.content = { kind: "too-large" };
 			notify(entry);
@@ -72,27 +116,56 @@ async function loadEntry(entry: DocumentEntry): Promise<void> {
 		}
 
 		if (result.kind === "text") {
-			entry.content = {
-				kind: "text",
-				value: result.content,
-				revision: result.revision,
-			};
-			entry.savedContentText = result.content;
+			entry.isBinary = isBinaryText(result.content);
+			if (entry.isBinary) {
+				entry.content = {
+					kind: "bytes",
+					value: new Uint8Array(),
+					revision: result.revision,
+				};
+			} else {
+				entry.content = {
+					kind: "text",
+					value: result.content,
+					revision: result.revision,
+				};
+				entry.savedContentText = result.content;
+			}
 			notify(entry);
 			return;
 		}
 
-		// PR 1 only renders text. Byte-capable views (image, binary) arrive in PR 2.
-		// Placeholder value; FilePane gates on `kind === "bytes"` and shows an error state.
+		// Raw bytes from host — e.g., image files
+		entry.isBinary = true;
 		entry.content = {
 			kind: "bytes",
-			value: new Uint8Array(),
+			value: toBytes(result.content),
 			revision: result.revision,
 		};
 		notify(entry);
 	} catch {
 		entry.content = { kind: "not-found" };
 		notify(entry);
+	}
+}
+
+async function fetchCurrentDiskContent(
+	entry: DocumentEntry,
+): Promise<string | null> {
+	if (entry.isBinary) return null;
+	const client = requireClient();
+	try {
+		const result = await client.filesystem.readFile.query({
+			workspaceId: entry.workspaceId,
+			absolutePath: entry.absolutePath,
+			encoding: "utf-8",
+			maxBytes: DEFAULT_MAX_BYTES,
+		});
+		if (result.kind !== "text" || result.exceededLimit) return null;
+		if (isBinaryText(result.content)) return null;
+		return result.content;
+	} catch {
+		return null;
 	}
 }
 
@@ -110,6 +183,27 @@ function createHandle(entry: DocumentEntry): SharedFileDocument {
 		get dirty() {
 			return computeDirty(entry);
 		},
+		get pendingSave() {
+			return entry.pendingSave;
+		},
+		get saveError() {
+			return entry.saveError;
+		},
+		get conflict() {
+			return entry.conflict;
+		},
+		get orphaned() {
+			return entry.orphaned;
+		},
+		get hasExternalChange() {
+			return entry.hasExternalChange;
+		},
+		get isBinary() {
+			return entry.isBinary;
+		},
+		get byteSize() {
+			return entry.byteSize;
+		},
 		setContent(next) {
 			if (entry.content.kind !== "text") return;
 			if (entry.content.value === next) return;
@@ -126,6 +220,9 @@ function createHandle(entry: DocumentEntry): SharedFileDocument {
 			const client = requireClient();
 			const currentValue = entry.content.value;
 			const currentRevision = entry.content.revision;
+			entry.pendingSave = true;
+			entry.saveError = null;
+			notify(entry);
 			try {
 				const result = await client.filesystem.writeFile.mutate({
 					workspaceId: entry.workspaceId,
@@ -138,10 +235,17 @@ function createHandle(entry: DocumentEntry): SharedFileDocument {
 							: { ifMatch: currentRevision },
 				});
 
+				entry.pendingSave = false;
+
 				if (!result.ok) {
 					if (result.reason === "conflict") {
-						return { status: "conflict" };
+						const diskContent = await fetchCurrentDiskContent(entry);
+						entry.conflict = { diskContent };
+						entry.hasExternalChange = true;
+						notify(entry);
+						return { status: "conflict", diskContent };
 					}
+					notify(entry);
 					return { status: result.reason };
 				}
 
@@ -151,17 +255,46 @@ function createHandle(entry: DocumentEntry): SharedFileDocument {
 					revision: result.revision,
 				};
 				entry.savedContentText = currentValue;
+				entry.conflict = null;
+				entry.hasExternalChange = false;
 				notify(entry);
 				return { status: "saved", revision: result.revision };
 			} catch (error) {
+				entry.pendingSave = false;
+				entry.saveError = error as Error;
+				notify(entry);
 				return { status: "error", error: error as Error };
 			}
 		},
 		async reload() {
 			entry.content = { kind: "loading" };
 			entry.savedContentText = null;
+			entry.conflict = null;
+			entry.hasExternalChange = false;
+			entry.saveError = null;
 			notify(entry);
 			await loadEntry(entry);
+		},
+		async resolveConflict(choice: ConflictResolution) {
+			if (!entry.conflict) return;
+			if (choice === "reload") {
+				await this.reload();
+				return;
+			}
+			if (choice === "overwrite") {
+				entry.conflict = null;
+				notify(entry);
+				await this.save({ force: true });
+				return;
+			}
+			// keep — dismiss the dialog; buffer stays dirty against stale revision
+			entry.conflict = null;
+			notify(entry);
+		},
+		clearSaveError() {
+			if (entry.saveError === null) return;
+			entry.saveError = null;
+			notify(entry);
 		},
 		subscribe(listener) {
 			entry.subscribers.add(listener);
@@ -187,6 +320,13 @@ export function acquireDocument(
 			absolutePath,
 			content: { kind: "loading" },
 			savedContentText: null,
+			pendingSave: false,
+			saveError: null,
+			conflict: null,
+			orphaned: false,
+			hasExternalChange: false,
+			isBinary: null,
+			byteSize: null,
 			refCount: 0,
 			version: 0,
 			subscribers: new Set(),
@@ -206,7 +346,18 @@ export function releaseDocument(
 	const entry = entries.get(k);
 	if (!entry) return;
 	entry.refCount -= 1;
-	if (entry.refCount <= 0 && !computeDirty(entry)) {
+	// Block disposal when the buffer has unsaved edits or the file was deleted externally —
+	// matches VS Code's TextFileEditorModelManager.canDispose rule.
+	if (entry.refCount <= 0 && !computeDirty(entry) && !entry.orphaned) {
 		entries.delete(k);
 	}
+}
+
+export function getDocument(
+	workspaceId: string,
+	absolutePath: string,
+): SharedFileDocument | null {
+	const entry = entries.get(key(workspaceId, absolutePath));
+	if (!entry) return null;
+	return createHandle(entry);
 }

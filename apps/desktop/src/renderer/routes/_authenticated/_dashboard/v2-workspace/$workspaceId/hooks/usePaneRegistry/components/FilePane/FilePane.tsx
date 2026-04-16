@@ -2,8 +2,12 @@ import type { RendererContext } from "@superset/panes";
 import { useEffect } from "react";
 import { useSharedFileDocument } from "../../../../state/fileDocumentStore";
 import type { FilePaneData, PaneViewerData } from "../../../../types";
+import { ConflictDialog } from "./components/ConflictDialog";
 import { ErrorState } from "./components/ErrorState";
+import { ExternalChangeBar } from "./components/ExternalChangeBar";
 import { LoadingState } from "./components/LoadingState";
+import { OrphanedBanner } from "./components/OrphanedBanner";
+import { SaveErrorBanner } from "./components/SaveErrorBanner";
 import { pickDefaultView, resolveViews } from "./registry";
 
 interface FilePaneProps {
@@ -34,7 +38,7 @@ export function FilePane({ context, workspaceId }: FilePaneProps) {
 	if (document.content.kind === "loading") {
 		return <LoadingState />;
 	}
-	if (document.content.kind === "not-found") {
+	if (document.content.kind === "not-found" && !document.orphaned) {
 		return <ErrorState reason="not-found" />;
 	}
 	if (document.content.kind === "too-large") {
@@ -44,7 +48,7 @@ export function FilePane({ context, workspaceId }: FilePaneProps) {
 		return <ErrorState reason="is-directory" />;
 	}
 	if (document.content.kind === "bytes") {
-		// PR 1 does not ship a bytes-capable view. Image/binary views arrive in PR 2.
+		// PR 1 does not ship a bytes-capable view. Image/binary views arrive in the next commit.
 		return <ErrorState reason="binary-unsupported" />;
 	}
 
@@ -55,12 +59,46 @@ export function FilePane({ context, workspaceId }: FilePaneProps) {
 	}
 
 	const ViewRenderer = activeView.Renderer;
+	const localContent =
+		document.content.kind === "text" ? document.content.value : "";
 
 	return (
-		<ViewRenderer
-			document={document}
-			filePath={filePath}
-			workspaceId={workspaceId}
-		/>
+		<div className="flex h-full w-full flex-col">
+			{document.orphaned && (
+				<OrphanedBanner
+					dirty={document.dirty}
+					onDiscard={() => void document.reload()}
+				/>
+			)}
+			{document.hasExternalChange && !document.conflict && (
+				<ExternalChangeBar onReload={() => void document.reload()} />
+			)}
+			{document.saveError && (
+				<SaveErrorBanner
+					message={document.saveError.message}
+					onRetry={() => void document.save()}
+					onDismiss={() => document.clearSaveError()}
+				/>
+			)}
+			<div className="min-h-0 min-w-0 flex-1">
+				<ViewRenderer
+					document={document}
+					filePath={filePath}
+					workspaceId={workspaceId}
+				/>
+			</div>
+			{document.conflict && (
+				<ConflictDialog
+					open
+					filePath={filePath}
+					localContent={localContent}
+					diskContent={document.conflict.diskContent}
+					pendingSave={document.pendingSave}
+					onKeepEditing={() => void document.resolveConflict("keep")}
+					onReload={() => void document.resolveConflict("reload")}
+					onOverwrite={() => void document.resolveConflict("overwrite")}
+				/>
+			)}
+		</div>
 	);
 }
