@@ -1,6 +1,7 @@
 export { FileDocumentStoreProvider } from "./FileDocumentStoreProvider";
 export {
 	acquireDocument,
+	dispatchFsEvent,
 	getDocument,
 	initializeFileDocumentStore,
 	releaseDocument,

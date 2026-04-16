@@ -1,4 +1,5 @@
 import type { workspaceTrpc } from "@superset/workspace-client";
+import type { FsWatchEvent } from "@superset/workspace-fs/client";
 import type {
 	ConflictResolution,
 	ConflictState,
@@ -360,4 +361,61 @@ export function getDocument(
 	const entry = entries.get(key(workspaceId, absolutePath));
 	if (!entry) return null;
 	return createHandle(entry);
+}
+
+/**
+ * Reacts to a workspace file-system event. Called by FileDocumentStoreProvider
+ * from its `useWorkspaceEvent("fs:events", ...)` subscription.
+ *
+ * The @parcel/watcher layer under `packages/workspace-fs/src/watch.ts` already
+ * coalesces rapid-fire events and pairs delete+create sequences into rename
+ * events, so a "delete" event here is a real delete — no additional debounce
+ * is required.
+ */
+export function dispatchFsEvent(
+	workspaceId: string,
+	event: FsWatchEvent,
+): void {
+	for (const entry of entries.values()) {
+		if (entry.workspaceId !== workspaceId) continue;
+		const affects =
+			entry.absolutePath === event.absolutePath ||
+			(event.kind === "rename" && event.oldAbsolutePath === entry.absolutePath);
+		if (!affects) continue;
+
+		switch (event.kind) {
+			case "delete": {
+				entry.orphaned = true;
+				notify(entry);
+				break;
+			}
+			case "rename": {
+				// Migrate the entry to its new absolute path
+				const oldKey = key(entry.workspaceId, entry.absolutePath);
+				entries.delete(oldKey);
+				entry.absolutePath = event.absolutePath;
+				entries.set(key(entry.workspaceId, entry.absolutePath), entry);
+				if (computeDirty(entry)) {
+					entry.hasExternalChange = true;
+				}
+				notify(entry);
+				break;
+			}
+			case "create":
+			case "update":
+			case "overflow": {
+				// Clear orphan if the file reappeared
+				if (entry.orphaned) {
+					entry.orphaned = false;
+				}
+				if (computeDirty(entry)) {
+					entry.hasExternalChange = true;
+					notify(entry);
+				} else {
+					void loadEntry(entry);
+				}
+				break;
+			}
+		}
+	}
 }

@@ -317,7 +317,7 @@ function WorkspaceContent({
 	useHotkey("QUICK_OPEN", handleQuickOpen);
 
 	return (
-		<FileDocumentStoreProvider>
+		<FileDocumentStoreProvider workspaceId={workspaceId}>
 			<ResizablePanelGroup direction="horizontal" className="flex-1">
 				<ResizablePanel defaultSize={80} minSize={30}>
 					<div
