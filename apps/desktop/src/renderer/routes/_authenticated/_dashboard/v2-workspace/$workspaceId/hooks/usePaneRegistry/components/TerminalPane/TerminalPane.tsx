@@ -16,6 +16,7 @@ import {
 } from "renderer/lib/terminal/terminal-runtime-registry";
 import { electronTrpcClient } from "renderer/lib/trpc-client";
 import type {
+	FilePaneData,
 	PaneViewerData,
 	TerminalPaneData,
 } from "renderer/routes/_authenticated/_dashboard/v2-workspace/$workspaceId/types";
@@ -124,6 +125,9 @@ export function TerminalPane({ ctx, workspaceId }: TerminalPaneProps) {
 	const statPathRef = useRef(statPathMutation.mutateAsync);
 	statPathRef.current = statPathMutation.mutateAsync;
 
+	const paneStoreRef = useRef(ctx.store);
+	paneStoreRef.current = ctx.store;
+
 	useEffect(() => {
 		terminalRuntimeRegistry.setLinkHandlers(terminalId, {
 			stat: async (path) => {
@@ -141,9 +145,26 @@ export function TerminalPane({ ctx, workspaceId }: TerminalPaneProps) {
 					return null;
 				}
 			},
-			onFileLinkClick: (_event, link) => {
-				if (!_event.metaKey && !_event.ctrlKey) return;
-				_event.preventDefault();
+			onFileLinkClick: async (event, link) => {
+				if (!event.metaKey && !event.ctrlKey) return;
+				event.preventDefault();
+				const behavior =
+					await electronTrpcClient.settings.getTerminalLinkBehavior
+						.query()
+						.catch(() => "file-viewer" as const);
+				if (behavior === "file-viewer" && !link.isDirectory) {
+					paneStoreRef.current.getState().openPane({
+						pane: {
+							kind: "file",
+							data: {
+								filePath: link.resolvedPath,
+								mode: "editor",
+								hasChanges: false,
+							} satisfies FilePaneData,
+						},
+					});
+					return;
+				}
 				electronTrpcClient.external.openFileInEditor
 					.mutate({
 						path: link.resolvedPath,
