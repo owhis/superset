@@ -34,7 +34,7 @@ Superset orchestrates CLI-based coding agents across isolated git worktrees, wit
 - **Review and edit changes quickly** with the built-in diff viewer and editor
 - **Open any workspace where you need it** with one-click handoff to your editor or terminal
 
-Wait less, ship more.
+Wait less, ship more. Build faster.
 
 ## Features
 
