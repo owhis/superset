@@ -4,18 +4,10 @@ import {
 	LinearWebhookClient,
 } from "@linear/sdk/webhooks";
 import { db } from "@superset/db/client";
-import type { SelectIntegrationConnection } from "@superset/db/schema";
-import {
-	integrationConnections,
-	members,
-	taskStatuses,
-	tasks,
-	users,
-	webhookEvents,
-} from "@superset/db/schema";
-import { mapPriorityFromLinear } from "@superset/trpc/integrations/linear";
+import { integrationConnections, webhookEvents } from "@superset/db/schema";
 import { and, eq, sql } from "drizzle-orm";
 import { env } from "@/env";
+import { processIssueEvent } from "./processIssueEvent";
 
 const webhookClient = new LinearWebhookClient(env.LINEAR_WEBHOOK_SECRET);
 
@@ -115,109 +107,4 @@ export async function POST(request: Request) {
 
 		return Response.json({ error: "Processing failed" }, { status: 500 });
 	}
-}
-
-async function processIssueEvent(
-	payload: EntityWebhookPayloadWithIssueData,
-	connection: SelectIntegrationConnection,
-): Promise<"processed" | "skipped"> {
-	const issue = payload.data;
-
-	if (payload.action === "create" || payload.action === "update") {
-		const taskStatus = await db.query.taskStatuses.findFirst({
-			where: and(
-				eq(taskStatuses.organizationId, connection.organizationId),
-				eq(taskStatuses.externalProvider, "linear"),
-				eq(taskStatuses.externalId, issue.state.id),
-			),
-		});
-
-		if (!taskStatus) {
-			// TODO(SUPER-237): Handle new workflow states in webhooks by triggering syncWorkflowStates
-			// Currently webhooks silently fail when Linear has new statuses that aren't synced yet.
-			// Should either: (1) trigger workflow state sync and retry, (2) queue for retry, or (3) keep periodic sync only
-			console.warn(
-				`[webhook] Status not found for state ${issue.state.id}, skipping update`,
-			);
-			return "skipped";
-		}
-
-		let assigneeId: string | null = null;
-		if (issue.assignee?.email) {
-			const matchedMember = await db
-				.select({ userId: users.id })
-				.from(users)
-				.innerJoin(members, eq(members.userId, users.id))
-				.where(
-					and(
-						eq(users.email, issue.assignee.email),
-						eq(members.organizationId, connection.organizationId),
-					),
-				)
-				.limit(1)
-				.then((rows) => rows[0]);
-			assigneeId = matchedMember?.userId ?? null;
-		}
-
-		let assigneeExternalId: string | null = null;
-		let assigneeDisplayName: string | null = null;
-		let assigneeAvatarUrl: string | null = null;
-
-		if (issue.assignee && !assigneeId) {
-			assigneeExternalId = issue.assignee.id;
-			assigneeDisplayName = issue.assignee.name ?? null;
-			assigneeAvatarUrl = issue.assignee.avatarUrl ?? null;
-		}
-
-		const taskData = {
-			slug: issue.identifier,
-			title: issue.title,
-			description: issue.description ?? null,
-			statusId: taskStatus.id,
-			priority: mapPriorityFromLinear(issue.priority),
-			assigneeId,
-			assigneeExternalId,
-			assigneeDisplayName,
-			assigneeAvatarUrl,
-			estimate: issue.estimate ?? null,
-			dueDate: issue.dueDate ? new Date(issue.dueDate) : null,
-			labels: issue.labels.map((l) => l.name),
-			startedAt: issue.startedAt ? new Date(issue.startedAt) : null,
-			completedAt: issue.completedAt ? new Date(issue.completedAt) : null,
-			externalProvider: "linear" as const,
-			externalId: issue.id,
-			externalKey: issue.identifier,
-			externalUrl: issue.url,
-			lastSyncedAt: new Date(),
-		};
-
-		await db
-			.insert(tasks)
-			.values({
-				...taskData,
-				organizationId: connection.organizationId,
-				creatorId: connection.connectedByUserId,
-				createdAt: new Date(issue.createdAt),
-			})
-			.onConflictDoUpdate({
-				target: [
-					tasks.organizationId,
-					tasks.externalProvider,
-					tasks.externalId,
-				],
-				set: { ...taskData, syncError: null },
-			});
-	} else if (payload.action === "remove") {
-		await db
-			.update(tasks)
-			.set({ deletedAt: new Date() })
-			.where(
-				and(
-					eq(tasks.externalProvider, "linear"),
-					eq(tasks.externalId, issue.id),
-				),
-			);
-	}
-
-	return "processed";
 }
