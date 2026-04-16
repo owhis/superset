@@ -23,6 +23,8 @@ export interface CachedTerminal {
 	wrapper: HTMLDivElement;
 	/** Disposes renderer RAF, query suppression, GPU renderer, etc. */
 	cleanupCreation: () => void;
+	/** Clears the WebGL texture atlas to avoid stale glyph corruption on reattach/resize. */
+	clearTextureAtlas: () => void;
 	/** Last known dimensions — used to skip no-op resize events. */
 	lastCols: number;
 	lastRows: number;
@@ -75,7 +77,7 @@ export function getOrCreate(
 		console.log(`[v1-terminal-cache] Creating new terminal: ${paneId}`);
 	}
 
-	const { xterm, fitAddon, searchAddon, wrapper, cleanup } =
+	const { xterm, fitAddon, searchAddon, wrapper, clearTextureAtlas, cleanup } =
 		createTerminalInWrapper(options);
 
 	const entry: CachedTerminal = {
@@ -84,6 +86,7 @@ export function getOrCreate(
 		searchAddon,
 		wrapper,
 		cleanupCreation: cleanup,
+		clearTextureAtlas,
 		subscription: null,
 		streamReady: false,
 		pendingStreamEvents: [],
@@ -117,6 +120,12 @@ export function attachToContainer(
 		entry.lastRows = entry.xterm.rows;
 	}
 
+	// Clear the WebGL texture atlas to discard stale glyph textures that
+	// accumulate while the terminal is detached (macOS compositor corruption,
+	// see xtermjs/xterm.js#3303). Must happen before refresh so the repaint
+	// rebuilds glyphs from scratch.
+	entry.clearTextureAtlas();
+
 	// Renderer may have skipped frames while the wrapper was detached.
 	entry.xterm.refresh(0, Math.max(0, entry.xterm.rows - 1));
 
@@ -130,6 +139,7 @@ export function attachToContainer(
 		entry.lastCols = entry.xterm.cols;
 		entry.lastRows = entry.xterm.rows;
 		if (entry.lastCols !== prevCols || entry.lastRows !== prevRows) {
+			entry.clearTextureAtlas();
 			onResize?.();
 		}
 	});
