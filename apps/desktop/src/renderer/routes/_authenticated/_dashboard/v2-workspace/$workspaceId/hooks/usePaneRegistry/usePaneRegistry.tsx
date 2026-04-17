@@ -143,15 +143,11 @@ function DiffViewModeToggle() {
 interface UsePaneRegistryOptions {
 	onOpenFile: (path: string, openInNewTab?: boolean) => void;
 	onRevealPath: (path: string) => void;
-	onOpenExternal: (
-		path: string,
-		opts?: { line?: number; column?: number },
-	) => void;
 }
 
 export function usePaneRegistry(
 	workspaceId: string,
-	{ onOpenFile, onRevealPath, onOpenExternal }: UsePaneRegistryOptions,
+	{ onOpenFile, onRevealPath }: UsePaneRegistryOptions,
 ): PaneRegistry<PaneViewerData> {
 	const clearShortcut = useHotkeyDisplay("CLEAR_TERMINAL").text;
 	const scrollToBottomShortcut = useHotkeyDisplay("SCROLL_TO_BOTTOM").text;
@@ -252,7 +248,6 @@ export function usePaneRegistry(
 						workspaceId={workspaceId}
 						onOpenFile={onOpenFile}
 						onRevealPath={onRevealPath}
-						onOpenExternal={onOpenExternal}
 					/>
 				),
 				contextMenuActions: (_ctx, defaults) => {
@@ -433,7 +428,6 @@ export function usePaneRegistry(
 			scrollToBottomShortcut,
 			onOpenFile,
 			onRevealPath,
-			onOpenExternal,
 		],
 	);
 }

@@ -14,6 +14,7 @@ import {
 	terminalRuntimeRegistry,
 } from "renderer/lib/terminal/terminal-runtime-registry";
 import { electronTrpcClient } from "renderer/lib/trpc-client";
+import { useOpenInExternalEditor } from "renderer/routes/_authenticated/_dashboard/v2-workspace/$workspaceId/hooks/useOpenInExternalEditor";
 import type {
 	PaneViewerData,
 	TerminalPaneData,
@@ -30,10 +31,6 @@ interface TerminalPaneProps {
 	workspaceId: string;
 	onOpenFile: (path: string, openInNewTab?: boolean) => void;
 	onRevealPath: (path: string) => void;
-	onOpenExternal: (
-		path: string,
-		opts?: { line?: number; column?: number },
-	) => void;
 }
 
 function subscribeToState(terminalId: string) {
@@ -50,8 +47,8 @@ export function TerminalPane({
 	workspaceId,
 	onOpenFile,
 	onRevealPath,
-	onOpenExternal,
 }: TerminalPaneProps) {
+	const openInExternalEditor = useOpenInExternalEditor(workspaceId);
 	const paneData = ctx.pane.data as TerminalPaneData;
 	const { terminalId } = paneData;
 	const containerRef = useRef<HTMLDivElement | null>(null);
@@ -156,7 +153,7 @@ export function TerminalPane({
 				if (!event.metaKey && !event.ctrlKey) return;
 				event.preventDefault();
 				if (event.shiftKey) {
-					onOpenExternal(link.resolvedPath, {
+					openInExternalEditor(link.resolvedPath, {
 						line: link.row,
 						column: link.col,
 					});
@@ -174,7 +171,7 @@ export function TerminalPane({
 				});
 			},
 		});
-	}, [terminalId, workspaceId, onOpenFile, onRevealPath, onOpenExternal]);
+	}, [terminalId, workspaceId, onOpenFile, onRevealPath, openInExternalEditor]);
 
 	useHotkey(
 		"CLEAR_TERMINAL",
