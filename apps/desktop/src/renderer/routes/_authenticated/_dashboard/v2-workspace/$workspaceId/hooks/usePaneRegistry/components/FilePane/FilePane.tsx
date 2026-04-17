@@ -8,12 +8,7 @@ import { ExternalChangeBar } from "./components/ExternalChangeBar";
 import { LoadingState } from "./components/LoadingState";
 import { OrphanedBanner } from "./components/OrphanedBanner";
 import { SaveErrorBanner } from "./components/SaveErrorBanner";
-import {
-	ALL_VIEWS,
-	type FileMeta,
-	pickDefaultView,
-	resolveViews,
-} from "./registry";
+import { resolveActivePaneView } from "./registry";
 
 interface FilePaneProps {
 	context: RendererContext<PaneViewerData>;
@@ -75,19 +70,9 @@ export function FilePane({ context, workspaceId }: FilePaneProps) {
 		return <ErrorState reason="is-directory" />;
 	}
 
-	// Resolve which view(s) match the current file.
-	// The same resolution runs in FilePaneHeaderExtras — the toggle and active view
-	// stay in lockstep because both observe the same pane data + document state.
-	const meta: FileMeta = {
-		size: document.byteSize ?? undefined,
-		isBinary: document.isBinary ?? undefined,
-	};
-	const views = data.forceViewId
-		? ALL_VIEWS.filter((v) => v.id === data.forceViewId)
-		: resolveViews(filePath, meta);
-
-	const activeView =
-		views.find((v) => v.id === data.viewId) ?? pickDefaultView(views);
+	// The same resolution runs in FilePaneHeaderExtras — toggle + active view
+	// stay in lockstep because both observe the same pane data + document.
+	const { activeView } = resolveActivePaneView(document, data);
 	if (!activeView) {
 		return <ErrorState reason="binary-unsupported" />;
 	}

@@ -2,13 +2,7 @@ import type { RendererContext } from "@superset/panes";
 import { useCallback } from "react";
 import { useSharedFileDocument } from "../../../../../../state/fileDocumentStore";
 import type { FilePaneData, PaneViewerData } from "../../../../../../types";
-import {
-	ALL_VIEWS,
-	type FileMeta,
-	orderForToggle,
-	pickDefaultView,
-	resolveViews,
-} from "../../registry";
+import { orderForToggle, resolveActivePaneView } from "../../registry";
 import { FileViewToggle } from "../FileViewToggle";
 
 interface FilePaneHeaderExtrasProps {
@@ -38,19 +32,9 @@ export function FilePaneHeaderExtras({
 		[context.actions, data],
 	);
 
-	// Same resolution as FilePane body, so the toggle and the active renderer stay in lockstep.
-	const meta: FileMeta = {
-		size: document.byteSize ?? undefined,
-		isBinary: document.isBinary ?? undefined,
-	};
-	const views = data.forceViewId
-		? ALL_VIEWS.filter((v) => v.id === data.forceViewId)
-		: resolveViews(filePath, meta);
+	const { views, activeView } = resolveActivePaneView(document, data);
 
 	if (views.length <= 1 || data.forceViewId) return null;
-
-	const activeView =
-		views.find((v) => v.id === data.viewId) ?? pickDefaultView(views);
 	if (!activeView) return null;
 
 	return (

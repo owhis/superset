@@ -3,7 +3,7 @@ import { getEditorTheme, type Theme, withAlpha } from "shared/themes";
 import {
 	DEFAULT_CODE_EDITOR_FONT_FAMILY,
 	DEFAULT_CODE_EDITOR_FONT_SIZE,
-} from "./constants";
+} from "../constants";
 
 interface CodeEditorFontSettings {
 	fontFamily?: string;

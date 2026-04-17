@@ -1,5 +1,9 @@
 export { ALL_VIEWS } from "./allViews";
 export {
+	type ActivePaneView,
+	resolveActivePaneView,
+} from "./resolveActivePaneView";
+export {
 	orderForToggle,
 	pickDefaultView,
 	resolveViews,
