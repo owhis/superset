@@ -36,6 +36,7 @@ import { useRecentlyViewedFiles } from "./hooks/useRecentlyViewedFiles";
 import { useV2PresetExecution } from "./hooks/useV2PresetExecution";
 import { useV2WorkspacePaneLayout } from "./hooks/useV2WorkspacePaneLayout";
 import { useWorkspaceHotkeys } from "./hooks/useWorkspaceHotkeys";
+import { PaneActionsProvider } from "./providers/PaneActionsProvider";
 import {
 	FileDocumentStoreProvider,
 	getDocument,
@@ -236,11 +237,7 @@ function WorkspaceContent({
 		[workspaceHost, machineId],
 	);
 
-	const paneRegistry = usePaneRegistry(workspaceId, {
-		onOpenFile: openFilePane,
-		onRevealPath: revealPath,
-		onOpenExternal: openExternal,
-	});
+	const paneRegistry = usePaneRegistry(workspaceId);
 	const defaultContextMenuActions = useDefaultContextMenuActions(paneRegistry);
 
 	const openDiffPane = useCallback(
@@ -389,127 +386,135 @@ function WorkspaceContent({
 
 	return (
 		<FileDocumentStoreProvider workspaceId={workspaceId}>
-			<ResizablePanelGroup direction="horizontal" className="flex-1">
-				<ResizablePanel defaultSize={80} minSize={30}>
-					<div
-						className="flex min-h-0 min-w-0 h-full flex-col overflow-hidden"
-						data-workspace-id={workspaceId}
-					>
-						<Workspace<PaneViewerData>
-							registry={paneRegistry}
-							paneActions={defaultPaneActions}
-							contextMenuActions={defaultContextMenuActions}
-							renderTabIcon={renderBrowserTabIcon}
-							renderBelowTabBar={() => (
-								<V2PresetsBar
-									matchedPresets={matchedPresets}
-									executePreset={executePreset}
-								/>
-							)}
-							renderAddTabMenu={() => (
-								<AddTabMenu
-									onAddTerminal={addTerminalTab}
-									onAddChat={addChatTab}
-									onAddBrowser={addBrowserTab}
-								/>
-							)}
-							renderEmptyState={() => (
-								<WorkspaceEmptyState
-									onOpenBrowser={addBrowserTab}
-									onOpenChat={addChatTab}
-									onOpenQuickOpen={handleQuickOpen}
-									onOpenTerminal={addTerminalTab}
-								/>
-							)}
-							onBeforeCloseTab={(tab) => {
-								const dirtyPanes = Object.values(tab.panes).filter((p) => {
-									if (p.kind !== "file") return false;
-									const filePath = (p.data as FilePaneData).filePath;
-									return getDocument(workspaceId, filePath)?.dirty === true;
-								});
-								const dirtyFileNames = dirtyPanes.map((p) =>
-									(p.data as FilePaneData).filePath.split("/").pop(),
-								);
-								if (dirtyPanes.length === 0) return true;
-								const title =
-									dirtyPanes.length === 1
-										? `Do you want to save the changes you made to ${dirtyFileNames[0]}?`
-										: `Do you want to save changes to ${dirtyPanes.length} files?`;
-								return new Promise<boolean>((resolve) => {
-									alert({
-										title,
-										description:
-											"Your changes will be lost if you don't save them.",
-										actions: [
-											{
-												label: "Save All",
-												onClick: async () => {
-													for (const pane of dirtyPanes) {
-														const filePath = (pane.data as FilePaneData)
-															.filePath;
-														const doc = getDocument(workspaceId, filePath);
-														if (!doc) continue;
-														const result = await doc.save();
-														if (result.status !== "saved") {
-															resolve(false);
-															return;
-														}
-													}
-													resolve(true);
-												},
-											},
-											{
-												label: "Don't Save",
-												variant: "secondary",
-												onClick: async () => {
-													for (const pane of dirtyPanes) {
-														const filePath = (pane.data as FilePaneData)
-															.filePath;
-														const doc = getDocument(workspaceId, filePath);
-														if (doc) await doc.reload();
-													}
-													resolve(true);
-												},
-											},
-											{
-												label: "Cancel",
-												variant: "ghost",
-												onClick: () => resolve(false),
-											},
-										],
+			<PaneActionsProvider
+				value={{
+					onOpenFile: openFilePane,
+					onRevealPath: revealPath,
+					onOpenExternal: openExternal,
+				}}
+			>
+				<ResizablePanelGroup direction="horizontal" className="flex-1">
+					<ResizablePanel defaultSize={80} minSize={30}>
+						<div
+							className="flex min-h-0 min-w-0 h-full flex-col overflow-hidden"
+							data-workspace-id={workspaceId}
+						>
+							<Workspace<PaneViewerData>
+								registry={paneRegistry}
+								paneActions={defaultPaneActions}
+								contextMenuActions={defaultContextMenuActions}
+								renderTabIcon={renderBrowserTabIcon}
+								renderBelowTabBar={() => (
+									<V2PresetsBar
+										matchedPresets={matchedPresets}
+										executePreset={executePreset}
+									/>
+								)}
+								renderAddTabMenu={() => (
+									<AddTabMenu
+										onAddTerminal={addTerminalTab}
+										onAddChat={addChatTab}
+										onAddBrowser={addBrowserTab}
+									/>
+								)}
+								renderEmptyState={() => (
+									<WorkspaceEmptyState
+										onOpenBrowser={addBrowserTab}
+										onOpenChat={addChatTab}
+										onOpenQuickOpen={handleQuickOpen}
+										onOpenTerminal={addTerminalTab}
+									/>
+								)}
+								onBeforeCloseTab={(tab) => {
+									const dirtyPanes = Object.values(tab.panes).filter((p) => {
+										if (p.kind !== "file") return false;
+										const filePath = (p.data as FilePaneData).filePath;
+										return getDocument(workspaceId, filePath)?.dirty === true;
 									});
-								});
-							}}
-							store={store}
-						/>
-					</div>
-				</ResizablePanel>
-				{sidebarOpen && (
-					<>
-						<ResizableHandle />
-						<ResizablePanel defaultSize={20} minSize={15} maxSize={40}>
-							<WorkspaceSidebar
-								workspaceId={workspaceId}
-								workspaceName={workspaceName}
-								onSelectFile={openFilePane}
-								onSelectDiffFile={openDiffPane}
-								onOpenComment={openCommentPane}
-								onSearch={handleQuickOpen}
-								selectedFilePath={selectedFilePath}
+									const dirtyFileNames = dirtyPanes.map((p) =>
+										(p.data as FilePaneData).filePath.split("/").pop(),
+									);
+									if (dirtyPanes.length === 0) return true;
+									const title =
+										dirtyPanes.length === 1
+											? `Do you want to save the changes you made to ${dirtyFileNames[0]}?`
+											: `Do you want to save changes to ${dirtyPanes.length} files?`;
+									return new Promise<boolean>((resolve) => {
+										alert({
+											title,
+											description:
+												"Your changes will be lost if you don't save them.",
+											actions: [
+												{
+													label: "Save All",
+													onClick: async () => {
+														for (const pane of dirtyPanes) {
+															const filePath = (pane.data as FilePaneData)
+																.filePath;
+															const doc = getDocument(workspaceId, filePath);
+															if (!doc) continue;
+															const result = await doc.save();
+															if (result.status !== "saved") {
+																resolve(false);
+																return;
+															}
+														}
+														resolve(true);
+													},
+												},
+												{
+													label: "Don't Save",
+													variant: "secondary",
+													onClick: async () => {
+														for (const pane of dirtyPanes) {
+															const filePath = (pane.data as FilePaneData)
+																.filePath;
+															const doc = getDocument(workspaceId, filePath);
+															if (doc) await doc.reload();
+														}
+														resolve(true);
+													},
+												},
+												{
+													label: "Cancel",
+													variant: "ghost",
+													onClick: () => resolve(false),
+												},
+											],
+										});
+									});
+								}}
+								store={store}
 							/>
-						</ResizablePanel>
-					</>
-				)}
-			</ResizablePanelGroup>
-			<CommandPalette
-				workspaceId={workspaceId}
-				open={quickOpenOpen}
-				onOpenChange={setQuickOpenOpen}
-				onSelectFile={openFilePane}
-				variant="v2"
-				recentlyViewedFiles={recentFiles}
-				openFilePaths={openFilePaths}
-			/>
+						</div>
+					</ResizablePanel>
+					{sidebarOpen && (
+						<>
+							<ResizableHandle />
+							<ResizablePanel defaultSize={20} minSize={15} maxSize={40}>
+								<WorkspaceSidebar
+									workspaceId={workspaceId}
+									workspaceName={workspaceName}
+									onSelectFile={openFilePane}
+									onSelectDiffFile={openDiffPane}
+									onOpenComment={openCommentPane}
+									onSearch={handleQuickOpen}
+									selectedFilePath={selectedFilePath}
+								/>
+							</ResizablePanel>
+						</>
+					)}
+				</ResizablePanelGroup>
+				<CommandPalette
+					workspaceId={workspaceId}
+					open={quickOpenOpen}
+					onOpenChange={setQuickOpenOpen}
+					onSelectFile={openFilePane}
+					variant="v2"
+					recentlyViewedFiles={recentFiles}
+					openFilePaths={openFilePaths}
+				/>
+			</PaneActionsProvider>
 		</FileDocumentStoreProvider>
 	);
 }
