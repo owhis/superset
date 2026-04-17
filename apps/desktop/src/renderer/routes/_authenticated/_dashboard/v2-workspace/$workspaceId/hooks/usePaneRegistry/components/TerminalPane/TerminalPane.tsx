@@ -135,13 +135,6 @@ export function TerminalPane({
 	const statPathRef = useRef(statPathMutation.mutateAsync);
 	statPathRef.current = statPathMutation.mutateAsync;
 
-	const onOpenFileRef = useRef(onOpenFile);
-	onOpenFileRef.current = onOpenFile;
-	const onRevealPathRef = useRef(onRevealPath);
-	onRevealPathRef.current = onRevealPath;
-	const onOpenExternalRef = useRef(onOpenExternal);
-	onOpenExternalRef.current = onOpenExternal;
-
 	useEffect(() => {
 		terminalRuntimeRegistry.setLinkHandlers(terminalId, {
 			stat: async (path) => {
@@ -163,16 +156,16 @@ export function TerminalPane({
 				if (!event.metaKey && !event.ctrlKey) return;
 				event.preventDefault();
 				if (event.shiftKey) {
-					onOpenExternalRef.current(link.resolvedPath, {
+					onOpenExternal(link.resolvedPath, {
 						line: link.row,
 						column: link.col,
 					});
 					return;
 				}
 				if (link.isDirectory) {
-					onRevealPathRef.current(link.resolvedPath);
+					onRevealPath(link.resolvedPath);
 				} else {
-					onOpenFileRef.current(link.resolvedPath);
+					onOpenFile(link.resolvedPath);
 				}
 			},
 			onUrlClick: (url) => {
@@ -181,7 +174,7 @@ export function TerminalPane({
 				});
 			},
 		});
-	}, [terminalId, workspaceId]);
+	}, [terminalId, workspaceId, onOpenFile, onRevealPath, onOpenExternal]);
 
 	useHotkey(
 		"CLEAR_TERMINAL",
