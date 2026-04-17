@@ -73,6 +73,7 @@ export function DashboardSidebarProjectSection({
 					<DashboardSidebarCollapsedProjectContent
 						projectName={project.name}
 						githubOwner={project.githubOwner}
+						backingState={project.backingState}
 						isCollapsed={project.isCollapsed}
 						totalWorkspaceCount={totalWorkspaceCount}
 						workspaces={flattenedCollapsedWorkspaces}
@@ -97,6 +98,7 @@ export function DashboardSidebarProjectSection({
 				<DashboardSidebarProjectRow
 					projectName={project.name}
 					githubOwner={project.githubOwner}
+					backingState={project.backingState}
 					totalWorkspaceCount={totalWorkspaceCount}
 					isCollapsed={project.isCollapsed}
 					isRenaming={isRenaming}

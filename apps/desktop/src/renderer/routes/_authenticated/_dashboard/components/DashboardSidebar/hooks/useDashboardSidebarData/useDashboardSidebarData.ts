@@ -11,6 +11,7 @@ import { useLocalHostService } from "renderer/routes/_authenticated/providers/Lo
 import { MOCK_ORG_ID } from "shared/constants";
 import type {
 	DashboardSidebarProject,
+	DashboardSidebarProjectBackingState,
 	DashboardSidebarProjectChild,
 	DashboardSidebarSection,
 	DashboardSidebarWorkspace,
@@ -43,6 +44,68 @@ export function useDashboardSidebarData() {
 	const activeHostClient = activeHostUrl
 		? getHostServiceClientByUrl(activeHostUrl)
 		: null;
+
+	// Local backing — authoritative for this machine. Invalidated by
+	// project.create / project.setup / project.remove mutations and by
+	// operations that surface a vanished-path error.
+	const { data: localProjectList = [] } = useQuery({
+		queryKey: ["project", "list", activeHostUrl],
+		enabled: activeHostClient !== null,
+		queryFn: () =>
+			activeHostClient?.project.list.query() ?? Promise.resolve([]),
+	});
+
+	const locallyBackedProjectIds = useMemo(
+		() => new Set(localProjectList.map((p) => p.id)),
+		[localProjectList],
+	);
+
+	// Remote backing — v2_host_projects ⋈ v2_hosts, excluding rows for the
+	// current machine (current host's backing is covered by localProjectList
+	// above, which is authoritative and lag-free).
+	const { data: remoteBackingRows = [] } = useLiveQuery(
+		(q) =>
+			q
+				.from({ hp: collections.v2HostProjects })
+				.innerJoin({ h: collections.v2Hosts }, ({ hp, h }) =>
+					eq(hp.hostId, h.id),
+				)
+				.select(({ hp, h }) => ({
+					projectId: hp.projectId,
+					hostId: h.id,
+					hostMachineId: h.machineId,
+					isOnline: h.isOnline,
+				})),
+		[collections],
+	);
+
+	const remoteBackingByProject = useMemo(() => {
+		const byProject = new Map<
+			string,
+			{ online: Set<string>; offline: Set<string> }
+		>();
+		for (const row of remoteBackingRows) {
+			if (row.hostMachineId === machineId) continue;
+			let entry = byProject.get(row.projectId);
+			if (!entry) {
+				entry = { online: new Set(), offline: new Set() };
+				byProject.set(row.projectId, entry);
+			}
+			(row.isOnline ? entry.online : entry.offline).add(row.hostId);
+		}
+		return byProject;
+	}, [remoteBackingRows, machineId]);
+
+	const deriveBackingState = useCallback(
+		(projectId: string): DashboardSidebarProjectBackingState => {
+			if (locallyBackedProjectIds.has(projectId)) return "normal";
+			const remote = remoteBackingByProject.get(projectId);
+			if (remote?.online.size) return "normal";
+			if (remote?.offline.size) return "host-offline";
+			return "not-set-up-here";
+		},
+		[locallyBackedProjectIds, remoteBackingByProject],
+	);
 
 	const { data: rawSidebarProjects = [] } = useLiveQuery(
 		(q) =>
@@ -198,6 +261,7 @@ export function useDashboardSidebarData() {
 		for (const project of sidebarProjects) {
 			projectsById.set(project.id, {
 				...project,
+				backingState: deriveBackingState(project.id),
 				children: [],
 				sectionMap: new Map(),
 				childEntries: [],
@@ -330,6 +394,7 @@ export function useDashboardSidebarData() {
 			return [sidebarProject];
 		});
 	}, [
+		deriveBackingState,
 		machineId,
 		localPullRequestsByWorkspaceId,
 		pendingWorkspaces,

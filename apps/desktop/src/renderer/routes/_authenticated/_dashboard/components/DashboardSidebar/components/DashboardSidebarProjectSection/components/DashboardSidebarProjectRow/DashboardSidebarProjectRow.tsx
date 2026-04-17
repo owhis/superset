@@ -4,11 +4,14 @@ import { type ComponentPropsWithoutRef, forwardRef } from "react";
 import { HiChevronRight, HiMiniPlus } from "react-icons/hi2";
 import { ProjectThumbnail } from "renderer/routes/_authenticated/components/ProjectThumbnail";
 import { RenameInput } from "renderer/screens/main/components/WorkspaceSidebar/RenameInput";
+import type { DashboardSidebarProjectBackingState } from "../../../../types";
+import { ProjectBackingStateIndicator } from "../ProjectBackingStateIndicator";
 
 interface DashboardSidebarProjectRowProps
 	extends ComponentPropsWithoutRef<"div"> {
 	projectName: string;
 	githubOwner: string | null;
+	backingState: DashboardSidebarProjectBackingState;
 	totalWorkspaceCount: number;
 	isCollapsed: boolean;
 	isRenaming: boolean;
@@ -29,6 +32,7 @@ export const DashboardSidebarProjectRow = forwardRef<
 		{
 			projectName,
 			githubOwner,
+			backingState,
 			totalWorkspaceCount,
 			isCollapsed,
 			isRenaming,
@@ -100,6 +104,9 @@ export const DashboardSidebarProjectRow = forwardRef<
 						<span className="shrink-0 text-xs font-normal tabular-nums text-muted-foreground">
 							({totalWorkspaceCount})
 						</span>
+					)}
+					{!isRenaming && (
+						<ProjectBackingStateIndicator state={backingState} />
 					)}
 				</div>
 
