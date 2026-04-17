@@ -1,6 +1,12 @@
 import { Button } from "@superset/ui/button";
+import {
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuItem,
+	DropdownMenuTrigger,
+} from "@superset/ui/dropdown-menu";
 import { Item, ItemContent, ItemGroup, ItemTitle } from "@superset/ui/item";
-import { HiMiniPlus } from "react-icons/hi2";
+import { HiChevronDown, HiMiniPlus } from "react-icons/hi2";
 import { LuFolderInput } from "react-icons/lu";
 import { ProjectThumbnail } from "renderer/routes/_authenticated/components/ProjectThumbnail";
 import type { AvailableV2Project } from "../../hooks/useAvailableV2Projects";
@@ -27,21 +33,24 @@ export function V2AvailableProjectsSection({
 						{projects.length}
 					</span>
 				</div>
-				<div className="flex items-center gap-2">
-					<Button
-						type="button"
-						size="sm"
-						variant="outline"
-						onClick={onImportExistingFolder}
-					>
-						<LuFolderInput className="size-4" />
-						Import existing folder
-					</Button>
-					<Button type="button" size="sm" onClick={onCreateNewProject}>
-						<HiMiniPlus className="size-4" />
-						New project
-					</Button>
-				</div>
+				<DropdownMenu>
+					<DropdownMenuTrigger asChild>
+						<Button type="button" size="sm">
+							Add repository
+							<HiChevronDown className="size-4" />
+						</Button>
+					</DropdownMenuTrigger>
+					<DropdownMenuContent align="end">
+						<DropdownMenuItem onSelect={onCreateNewProject}>
+							<HiMiniPlus className="size-4" />
+							New project
+						</DropdownMenuItem>
+						<DropdownMenuItem onSelect={onImportExistingFolder}>
+							<LuFolderInput className="size-4" />
+							Import existing folder
+						</DropdownMenuItem>
+					</DropdownMenuContent>
+				</DropdownMenu>
 			</div>
 
 			{projects.length > 0 && (

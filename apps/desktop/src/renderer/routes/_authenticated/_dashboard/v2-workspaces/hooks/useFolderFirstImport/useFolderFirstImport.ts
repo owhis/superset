@@ -2,6 +2,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useState } from "react";
 import { electronTrpc } from "renderer/lib/electron-trpc";
 import { getHostServiceClientByUrl } from "renderer/lib/host-service-client";
+import { useDashboardSidebarState } from "renderer/routes/_authenticated/hooks/useDashboardSidebarState";
 import { useLocalHostService } from "renderer/routes/_authenticated/providers/LocalHostServiceProvider";
 
 export interface FolderImportCandidate {
@@ -56,6 +57,7 @@ export function useFolderFirstImport(options?: {
 }): UseFolderFirstImportResult {
 	const { activeHostUrl } = useLocalHostService();
 	const queryClient = useQueryClient();
+	const { ensureProjectInSidebar } = useDashboardSidebarState();
 	const selectDirectory = electronTrpc.window.selectDirectory.useMutation();
 
 	const [state, setState] = useState<FolderFirstImportState>({ kind: "idle" });
@@ -71,11 +73,12 @@ export function useFolderFirstImport(options?: {
 
 	const reportSuccess = useCallback(
 		(result: { projectId: string; repoPath: string }) => {
+			ensureProjectInSidebar(result.projectId);
 			invalidateProjectList();
 			options?.onSuccess?.(result);
 			reset();
 		},
-		[invalidateProjectList, options, reset],
+		[ensureProjectInSidebar, invalidateProjectList, options, reset],
 	);
 
 	const reportError = useCallback(
