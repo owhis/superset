@@ -10,12 +10,6 @@ export function MarkdownPreviewView({ document }: ViewProps) {
 		<div className="h-full overflow-auto p-4">
 			<TipTapMarkdownRenderer
 				value={document.content.value}
-				editable
-				onChange={(next) => {
-					if (typeof next === "string") {
-						document.setContent(next);
-					}
-				}}
 				onSave={() => void document.save()}
 			/>
 		</div>
