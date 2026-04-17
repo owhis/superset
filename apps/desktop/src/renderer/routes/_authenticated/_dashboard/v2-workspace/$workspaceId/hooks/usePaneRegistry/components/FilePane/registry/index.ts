@@ -1,9 +1,5 @@
 export { ALL_VIEWS } from "./allViews";
 export {
-	type ActivePaneView,
-	resolveActivePaneView,
-} from "./resolveActivePaneView";
-export {
 	orderForToggle,
 	pickDefaultView,
 	resolveViews,
@@ -18,3 +14,7 @@ export {
 	resolveViewLabel,
 	type ViewProps,
 } from "./types";
+export {
+	type ActivePaneView,
+	resolveActivePaneView,
+} from "./utils/resolveActivePaneView";

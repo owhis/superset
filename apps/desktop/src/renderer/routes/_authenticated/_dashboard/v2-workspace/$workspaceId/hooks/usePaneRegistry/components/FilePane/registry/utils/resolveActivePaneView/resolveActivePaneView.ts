@@ -1,8 +1,8 @@
-import type { SharedFileDocument } from "../../../../../../state/fileDocumentStore";
-import type { FilePaneData } from "../../../../../../types";
-import { ALL_VIEWS } from "../allViews";
-import { pickDefaultView, resolveViews } from "../resolveViews";
-import type { FileMeta, FileView } from "../types";
+import type { SharedFileDocument } from "../../../../../../../state/fileDocumentStore";
+import type { FilePaneData } from "../../../../../../../types";
+import { ALL_VIEWS } from "../../allViews";
+import { pickDefaultView, resolveViews } from "../../resolveViews";
+import type { FileMeta, FileView } from "../../types";
 
 export interface ActivePaneView {
 	views: FileView[];
