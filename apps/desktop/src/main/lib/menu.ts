@@ -1,4 +1,3 @@
-import { COMPANY } from "@superset/shared/constants";
 import { app, BrowserWindow, Menu, shell } from "electron";
 import { env } from "main/env.main";
 import { resetTerminalStateDev } from "main/lib/terminal/dev-reset";
@@ -8,6 +7,7 @@ import {
 	simulateError,
 	simulateUpdateReady,
 } from "./auto-updater";
+import { createHelpSubmenu } from "./help-submenu";
 import { menuEmitter } from "./menu-events";
 
 export function createApplicationMenu() {
@@ -60,41 +60,15 @@ export function createApplicationMenu() {
 		},
 		{
 			label: "Help",
-			submenu: [
-				{
-					label: "Documentation",
-					click: () => {
-						shell.openExternal(COMPANY.DOCS_URL);
-					},
+			submenu: createHelpSubmenu({
+				openExternal: (url) => {
+					shell.openExternal(url);
 				},
-				{ type: "separator" },
-				{
-					label: "Contact Us",
-					click: () => {
-						shell.openExternal(COMPANY.MAIL_TO);
-					},
+				emitOpenSettings: (page) => {
+					menuEmitter.emit("open-settings", page);
 				},
-				{
-					label: "Report Issue",
-					click: () => {
-						shell.openExternal(COMPANY.REPORT_ISSUE_URL);
-					},
-				},
-				{
-					label: "Join Discord",
-					click: () => {
-						shell.openExternal(COMPANY.DISCORD_URL);
-					},
-				},
-				{ type: "separator" },
-				{
-					label: "Keyboard Shortcuts",
-					accelerator: showHotkeysAccelerator,
-					click: () => {
-						menuEmitter.emit("open-settings", "keyboard");
-					},
-				},
-			],
+				keyboardAccelerator: showHotkeysAccelerator,
+			}),
 		},
 	];
 
