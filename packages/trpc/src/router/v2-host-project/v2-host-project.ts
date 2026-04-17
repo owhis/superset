@@ -1,32 +1,12 @@
 import { dbWs } from "@superset/db/client";
-import {
-	v2HostProjects,
-	v2Hosts,
-	v2Projects,
-	v2UsersHosts,
-} from "@superset/db/schema";
+import { v2HostProjects, v2Hosts, v2Projects } from "@superset/db/schema";
 import type { TRPCRouterRecord } from "@trpc/server";
 import { TRPCError } from "@trpc/server";
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import { jwtProcedure } from "../../trpc";
+import { requireHostAccess } from "../utils/host-access";
 import { requireOrgScopedResource } from "../utils/org-resource-access";
-
-async function requireHostMembership(userId: string, hostId: string) {
-	const row = await dbWs.query.v2UsersHosts.findFirst({
-		columns: { id: true },
-		where: and(
-			eq(v2UsersHosts.userId, userId),
-			eq(v2UsersHosts.hostId, hostId),
-		),
-	});
-	if (!row) {
-		throw new TRPCError({
-			code: "FORBIDDEN",
-			message: "No access to this host",
-		});
-	}
-}
 
 async function resolveProjectHostOrg(
 	projectId: string,
@@ -71,7 +51,7 @@ export const v2HostProjectRouter = {
 			}),
 		)
 		.mutation(async ({ ctx, input }) => {
-			await requireHostMembership(ctx.userId, input.hostId);
+			await requireHostAccess(ctx.userId, input.hostId);
 			const { organizationId } = await resolveProjectHostOrg(
 				input.projectId,
 				input.hostId,
@@ -107,7 +87,7 @@ export const v2HostProjectRouter = {
 			}),
 		)
 		.mutation(async ({ ctx, input }) => {
-			await requireHostMembership(ctx.userId, input.hostId);
+			await requireHostAccess(ctx.userId, input.hostId);
 			await resolveProjectHostOrg(
 				input.projectId,
 				input.hostId,

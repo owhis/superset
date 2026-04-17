@@ -1,11 +1,11 @@
 import { existsSync, rmSync, statSync } from "node:fs";
 import { basename, join, resolve } from "node:path";
+import { parseGitHubRemote } from "@superset/shared/github-remote";
 import { TRPCError } from "@trpc/server";
 import { eq } from "drizzle-orm";
 import simpleGit from "simple-git";
 import { z } from "zod";
 import { projects, workspaces } from "../../../db/schema";
-import { parseGitHubRemote } from "../../../runtime/pull-requests/utils/parse-github-remote";
 import { protectedProcedure, router } from "../../index";
 import {
 	findMatchingRemote,
