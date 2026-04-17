@@ -342,34 +342,4 @@ Pin behavior (auto-pin on create/setup, cross-device pin sync, unpin UX) is out 
 
 ## Phasing
 
-**Phase 1 — core backing-aware sidebar + create/setup**
-
-- [ ] `v2_host_projects` cloud table + Drizzle migration
-- [ ] Electric sync config for `v2_host_projects`, collection registered in `CollectionsProvider`
-- [ ] Cloud `v2HostProjects` router (upsert + delete), authorized by `v2_users_hosts` membership
-- [ ] `project.list` procedure in host-service (local backing + `pathStatus`)
-- [ ] `project.create` procedure: `clone` and `importLocal` modes only; `empty`/`template` throw `not_implemented`. Writes local `host-service.projects` + cloud `v2_host_projects`.
-- [ ] `project.setup` additions: `acknowledgeWorkspaceInvalidation` param; also upserts cloud `v2_host_projects`
-- [ ] `project.remove` deletes cloud `v2_host_projects` for current host
-- [ ] `useDashboardSidebarData` extended with `localBacked` + `remoteBacked` derivations (from `v2HostProjects ⋈ v2Hosts`) and row-state per project
-- [ ] Sidebar project row renders row state (all four: Normal, Stale path stub, Host offline stub, Not set up here stub)
-- [ ] Available section inside the workspaces tab: "+ New project", "Pin & set up", and "Import existing folder" actions
-- [ ] Host-service `project.findByPath` endpoint (git-remote read + cloud forward)
-- [ ] Cloud `v2Projects.findByRemote` endpoint (scoped by user's org membership)
-- [ ] Folder-first import picker UI (auto-advance on single match; chooser on multiple; fallback to create on none)
-- [ ] React Query invalidation on `["project", "list"]` after `project.create` / `project.setup` / `project.remove`
-
-**Phase 2 — row-state polish**
-
-- "Not set up here" and "Host offline" inline CTAs
-- Host chips on workspace rows
-
-**Phase 3 — workspace-create inline setup**
-
-- Throw integration (companion doc): `workspace.create` throws `PROJECT_NOT_SETUP`, client catches → `project.setup` → retry
-- Remote-device workspace row → "switch host or set up here" stub
-
-**Phase 4 — stale-path repair**
-
-- Repair CTA on Stale-path rows → `project.setup` with `acknowledgeWorkspaceInvalidation`
-- Workspace-invalidation confirmation UI
+Moved to [`plans/20260417-v2-project-create-import-impl.md`](../../plans/20260417-v2-project-create-import-impl.md) — Phase 1 punch list + Phases 2–4 sequencing + deferred/out-of-scope notes.
