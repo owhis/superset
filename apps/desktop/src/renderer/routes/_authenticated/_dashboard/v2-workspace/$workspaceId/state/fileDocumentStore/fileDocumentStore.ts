@@ -334,8 +334,6 @@ export function releaseDocument(
 	const entry = entries.get(k);
 	if (!entry) return;
 	entry.refCount -= 1;
-	// Block disposal when the buffer has unsaved edits or the file was deleted externally —
-	// matches VS Code's TextFileEditorModelManager.canDispose rule.
 	if (entry.refCount <= 0 && !computeDirty(entry) && !entry.orphaned) {
 		entries.delete(k);
 	}

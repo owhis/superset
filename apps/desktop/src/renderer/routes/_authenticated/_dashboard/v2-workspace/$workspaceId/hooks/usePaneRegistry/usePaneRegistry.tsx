@@ -201,7 +201,11 @@ export function usePaneRegistry(
 								{
 									label: "Don't Save",
 									variant: "secondary",
-									onClick: () => resolve(true),
+									onClick: async () => {
+										const doc = getDocument(workspaceId, data.filePath);
+										if (doc) await doc.reload();
+										resolve(true);
+									},
 								},
 								{
 									label: "Cancel",

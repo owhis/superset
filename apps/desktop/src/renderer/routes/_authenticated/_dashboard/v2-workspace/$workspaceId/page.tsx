@@ -358,20 +358,19 @@ function WorkspaceContent({
 								/>
 							)}
 							onBeforeCloseTab={(tab) => {
-								const dirtyFiles = Object.values(tab.panes)
-									.filter((p) => {
-										if (p.kind !== "file") return false;
-										const filePath = (p.data as FilePaneData).filePath;
-										return getDocument(workspaceId, filePath)?.dirty === true;
-									})
-									.map((p) =>
-										(p.data as FilePaneData).filePath.split("/").pop(),
-									);
-								if (dirtyFiles.length === 0) return true;
+								const dirtyPanes = Object.values(tab.panes).filter((p) => {
+									if (p.kind !== "file") return false;
+									const filePath = (p.data as FilePaneData).filePath;
+									return getDocument(workspaceId, filePath)?.dirty === true;
+								});
+								const dirtyFileNames = dirtyPanes.map((p) =>
+									(p.data as FilePaneData).filePath.split("/").pop(),
+								);
+								if (dirtyPanes.length === 0) return true;
 								const title =
-									dirtyFiles.length === 1
-										? `Do you want to save the changes you made to ${dirtyFiles[0]}?`
-										: `Do you want to save changes to ${dirtyFiles.length} files?`;
+									dirtyPanes.length === 1
+										? `Do you want to save the changes you made to ${dirtyFileNames[0]}?`
+										: `Do you want to save changes to ${dirtyPanes.length} files?`;
 								return new Promise<boolean>((resolve) => {
 									alert({
 										title,
@@ -380,15 +379,33 @@ function WorkspaceContent({
 										actions: [
 											{
 												label: "Save All",
-												onClick: () => {
-													// TODO: wire up save via editor refs
+												onClick: async () => {
+													for (const pane of dirtyPanes) {
+														const filePath = (pane.data as FilePaneData)
+															.filePath;
+														const doc = getDocument(workspaceId, filePath);
+														if (!doc) continue;
+														const result = await doc.save();
+														if (result.status !== "saved") {
+															resolve(false);
+															return;
+														}
+													}
 													resolve(true);
 												},
 											},
 											{
 												label: "Don't Save",
 												variant: "secondary",
-												onClick: () => resolve(true),
+												onClick: async () => {
+													for (const pane of dirtyPanes) {
+														const filePath = (pane.data as FilePaneData)
+															.filePath;
+														const doc = getDocument(workspaceId, filePath);
+														if (doc) await doc.reload();
+													}
+													resolve(true);
+												},
 											},
 											{
 												label: "Cancel",
