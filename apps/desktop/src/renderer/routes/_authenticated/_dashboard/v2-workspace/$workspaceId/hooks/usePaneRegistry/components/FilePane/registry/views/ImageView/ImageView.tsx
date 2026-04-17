@@ -1,20 +1,24 @@
-import { useMemo } from "react";
+import { useEffect, useState } from "react";
 import { getImageMimeType } from "shared/file-types";
 import type { ViewProps } from "../../types";
 
 export function ImageView({ document, filePath }: ViewProps) {
-	const dataUrl = useMemo(() => {
-		if (document.content.kind !== "bytes") return null;
+	const [objectUrl, setObjectUrl] = useState<string | null>(null);
+
+	useEffect(() => {
+		if (document.content.kind !== "bytes") {
+			setObjectUrl(null);
+			return;
+		}
 		const mimeType = getImageMimeType(filePath) ?? "image/png";
-		const base64 = btoa(
-			Array.from(document.content.value)
-				.map((b) => String.fromCharCode(b))
-				.join(""),
+		const url = URL.createObjectURL(
+			new Blob([document.content.value as BlobPart], { type: mimeType }),
 		);
-		return `data:${mimeType};base64,${base64}`;
+		setObjectUrl(url);
+		return () => URL.revokeObjectURL(url);
 	}, [document.content, filePath]);
 
-	if (!dataUrl) {
+	if (!objectUrl) {
 		return null;
 	}
 
@@ -29,7 +33,7 @@ export function ImageView({ document, filePath }: ViewProps) {
 				}}
 			>
 				<img
-					src={dataUrl}
+					src={objectUrl}
 					alt={filePath.split("/").pop() ?? ""}
 					className="block max-h-full max-w-full object-contain"
 					draggable={false}

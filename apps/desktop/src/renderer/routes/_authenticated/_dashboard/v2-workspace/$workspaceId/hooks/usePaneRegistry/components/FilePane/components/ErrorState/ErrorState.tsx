@@ -4,11 +4,14 @@ export type ErrorReason =
 	| "not-found"
 	| "too-large"
 	| "is-directory"
-	| "binary-unsupported";
+	| "binary-unsupported"
+	| "load-failed";
 
 interface ErrorStateProps {
 	reason: ErrorReason;
+	message?: string;
 	onOpenAnyway?: () => void;
+	onRetry?: () => void;
 }
 
 const MESSAGES: Record<ErrorReason, string> = {
@@ -16,15 +19,26 @@ const MESSAGES: Record<ErrorReason, string> = {
 	"too-large": "File is too large to preview",
 	"is-directory": "This path is a directory",
 	"binary-unsupported": "Binary file — cannot display",
+	"load-failed": "Failed to load file",
 };
 
-export function ErrorState({ reason, onOpenAnyway }: ErrorStateProps) {
+export function ErrorState({
+	reason,
+	message,
+	onOpenAnyway,
+	onRetry,
+}: ErrorStateProps) {
 	return (
 		<div className="flex h-full w-full flex-col items-center justify-center gap-3 text-sm text-muted-foreground">
-			{MESSAGES[reason]}
+			<span>{message ?? MESSAGES[reason]}</span>
 			{reason === "too-large" && onOpenAnyway && (
 				<Button variant="outline" size="sm" onClick={onOpenAnyway}>
 					Open anyway
+				</Button>
+			)}
+			{reason === "load-failed" && onRetry && (
+				<Button variant="outline" size="sm" onClick={onRetry}>
+					Retry
 				</Button>
 			)}
 		</div>

@@ -52,6 +52,14 @@ function computeDirty(entry: DocumentEntry): boolean {
 	return entry.content.value !== entry.savedContentText;
 }
 
+function resetForLoad(entry: DocumentEntry): void {
+	entry.content = { kind: "loading" };
+	entry.savedContentText = null;
+	entry.conflict = null;
+	entry.hasExternalChange = false;
+	entry.saveError = null;
+}
+
 function isBinaryText(content: string): boolean {
 	const checkLength = Math.min(content.length, BINARY_CHECK_SIZE);
 	for (let i = 0; i < checkLength; i += 1) {
@@ -122,10 +130,24 @@ async function loadEntry(
 		};
 		entry.savedContentText = result.content;
 		notify(entry);
-	} catch {
-		entry.content = { kind: "not-found" };
+	} catch (error) {
+		const isNotFound = isEnoentLikeError(error);
+		entry.content = isNotFound
+			? { kind: "not-found" }
+			: { kind: "error", error: error as Error };
 		notify(entry);
 	}
+}
+
+function isEnoentLikeError(error: unknown): boolean {
+	if (!error) return false;
+	const message =
+		error instanceof Error ? error.message.toLowerCase() : String(error);
+	return (
+		message.includes("enoent") ||
+		message.includes("no such file") ||
+		message.includes("not found")
+	);
 }
 
 async function fetchCurrentDiskContent(
@@ -231,11 +253,12 @@ function createHandle(entry: DocumentEntry): SharedFileDocument {
 					return { status: result.reason };
 				}
 
-				entry.content = {
-					kind: "text",
-					value: currentValue,
-					revision: result.revision,
-				};
+				if (entry.content.kind === "text") {
+					entry.content = {
+						...entry.content,
+						revision: result.revision,
+					};
+				}
 				entry.savedContentText = currentValue;
 				entry.conflict = null;
 				entry.hasExternalChange = false;
@@ -249,17 +272,12 @@ function createHandle(entry: DocumentEntry): SharedFileDocument {
 			}
 		},
 		async reload() {
-			entry.content = { kind: "loading" };
-			entry.savedContentText = null;
-			entry.conflict = null;
-			entry.hasExternalChange = false;
-			entry.saveError = null;
+			resetForLoad(entry);
 			notify(entry);
 			await loadEntry(entry);
 		},
 		async loadUnlimited() {
-			entry.content = { kind: "loading" };
-			entry.savedContentText = null;
+			resetForLoad(entry);
 			notify(entry);
 			await loadEntry(entry, { unlimited: true });
 		},

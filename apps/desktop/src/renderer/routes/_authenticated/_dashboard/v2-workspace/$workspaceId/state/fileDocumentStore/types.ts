@@ -4,7 +4,8 @@ export type ContentState =
 	| { kind: "bytes"; value: Uint8Array; revision: string }
 	| { kind: "not-found" }
 	| { kind: "too-large" }
-	| { kind: "is-directory" };
+	| { kind: "is-directory" }
+	| { kind: "error"; error: Error };
 
 export type SaveResult =
 	| { status: "saved"; revision: string }

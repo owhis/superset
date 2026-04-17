@@ -107,6 +107,15 @@ export function FilePane({ context, workspaceId }: FilePaneProps) {
 	if (document.content.kind === "is-directory") {
 		return <ErrorState reason="is-directory" />;
 	}
+	if (document.content.kind === "error") {
+		return (
+			<ErrorState
+				reason="load-failed"
+				message={document.content.error.message}
+				onRetry={() => void document.reload()}
+			/>
+		);
+	}
 
 	// The same resolution runs in FilePaneHeaderExtras — toggle + active view
 	// stay in lockstep because both observe the same pane data + document.

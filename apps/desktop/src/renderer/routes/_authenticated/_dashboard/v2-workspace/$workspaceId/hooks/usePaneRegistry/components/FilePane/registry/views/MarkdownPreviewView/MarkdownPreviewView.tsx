@@ -8,10 +8,7 @@ export function MarkdownPreviewView({ document }: ViewProps) {
 
 	return (
 		<div className="h-full overflow-auto p-4">
-			<TipTapMarkdownRenderer
-				value={document.content.value}
-				onSave={() => void document.save()}
-			/>
+			<TipTapMarkdownRenderer value={document.content.value} />
 		</div>
 	);
 }

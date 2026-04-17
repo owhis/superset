@@ -74,6 +74,7 @@ export function createCodeMirrorAdapter(view: EditorView): CodeEditorAdapter {
 			void clipboard
 				.writeText(text)
 				.then(() => {
+					if (disposed) return;
 					const currentSelection = view.state.selection.main;
 					if (
 						currentSelection.from !== selection.from ||
@@ -115,6 +116,7 @@ export function createCodeMirrorAdapter(view: EditorView): CodeEditorAdapter {
 			void clipboard
 				.readText()
 				.then((text) => {
+					if (disposed) return;
 					const selection = view.state.selection.main;
 					view.dispatch({
 						changes: {

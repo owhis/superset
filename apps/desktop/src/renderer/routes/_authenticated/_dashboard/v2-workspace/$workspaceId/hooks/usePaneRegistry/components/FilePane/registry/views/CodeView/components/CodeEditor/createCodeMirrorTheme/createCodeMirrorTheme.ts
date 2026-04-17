@@ -18,14 +18,9 @@ export function createCodeMirrorTheme(
 	const fontSize = fontSettings.fontSize ?? DEFAULT_CODE_EDITOR_FONT_SIZE;
 	const lineHeight = Math.round(fontSize * 1.5);
 	const editorTheme = getEditorTheme(theme);
-	// Shared subtle overlay for both active-line highlight and selection so
-	// they read as the same visual weight — foreground at low alpha, derived
-	// from the app palette.
-	const lineHighlightBackground = withAlpha(
-		theme.ui.foreground,
-		theme.type === "dark" ? 0.025 : 0.04,
-	);
-	const selectionBackground = lineHighlightBackground;
+	const accentOverlay = withAlpha(theme.ui.accent, 0.5);
+	const activeLineBackground = accentOverlay;
+	const selectionBackground = accentOverlay;
 
 	return EditorView.theme(
 		{
@@ -112,10 +107,10 @@ export function createCodeMirrorTheme(
 				cursor: "pointer",
 			},
 			".cm-activeLine": {
-				backgroundColor: lineHighlightBackground,
+				backgroundColor: activeLineBackground,
 			},
 			".cm-activeLineGutter": {
-				backgroundColor: lineHighlightBackground,
+				backgroundColor: activeLineBackground,
 			},
 			// Suppress the active-line highlight while a selection is active —
 			// the selectionClassTogglePlugin adds .cm-hasSelection to the editor
