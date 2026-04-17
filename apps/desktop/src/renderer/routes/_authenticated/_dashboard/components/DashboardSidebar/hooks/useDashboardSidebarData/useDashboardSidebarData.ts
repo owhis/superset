@@ -20,6 +20,23 @@ import type {
 // Pending workspaces are always rendered at the end of the project's workspace list
 const PENDING_WORKSPACE_TAB_ORDER = Number.MAX_SAFE_INTEGER;
 
+// Module-level stable fallbacks. The destructure `= []` default creates a
+// NEW array every render while a query's data is undefined, which cascades
+// new references through our useMemo/useCallback chain and — eventually —
+// causes dnd-kit's sortable items to re-register their refs on every
+// render. That produces a Radix/compose-refs setState loop when the item
+// is a draggable button. Pinning the empty fallbacks keeps references
+// stable across renders and stops the churn.
+type LocalProjectListRow = { id: string; repoPath: string };
+type RemoteBackingRow = {
+	projectId: string;
+	hostId: string;
+	hostMachineId: string;
+	isOnline: boolean;
+};
+const EMPTY_LOCAL_PROJECT_LIST: LocalProjectListRow[] = [];
+const EMPTY_REMOTE_BACKING_ROWS: RemoteBackingRow[] = [];
+
 export function useDashboardSidebarData() {
 	const { data: session } = authClient.useSession();
 	const collections = useCollections();
@@ -48,12 +65,13 @@ export function useDashboardSidebarData() {
 	// Local backing — authoritative for this machine. Invalidated by
 	// project.create / project.setup / project.remove mutations and by
 	// operations that surface a vanished-path error.
-	const { data: localProjectList = [] } = useQuery({
-		queryKey: ["project", "list", activeHostUrl],
-		enabled: activeHostClient !== null,
-		queryFn: () =>
-			activeHostClient?.project.list.query() ?? Promise.resolve([]),
-	});
+	const { data: localProjectList = EMPTY_LOCAL_PROJECT_LIST } =
+		useQuery<LocalProjectListRow[]>({
+			queryKey: ["project", "list", activeHostUrl],
+			enabled: activeHostClient !== null,
+			queryFn: () =>
+				activeHostClient?.project.list.query() ?? EMPTY_LOCAL_PROJECT_LIST,
+		});
 
 	const locallyBackedProjectIds = useMemo(
 		() => new Set(localProjectList.map((p) => p.id)),
@@ -63,7 +81,7 @@ export function useDashboardSidebarData() {
 	// Remote backing — v2_host_projects ⋈ v2_hosts, excluding rows for the
 	// current machine (current host's backing is covered by localProjectList
 	// above, which is authoritative and lag-free).
-	const { data: remoteBackingRows = [] } = useLiveQuery(
+	const { data: remoteBackingRows = EMPTY_REMOTE_BACKING_ROWS } = useLiveQuery(
 		(q) =>
 			q
 				.from({ hp: collections.v2HostProjects })

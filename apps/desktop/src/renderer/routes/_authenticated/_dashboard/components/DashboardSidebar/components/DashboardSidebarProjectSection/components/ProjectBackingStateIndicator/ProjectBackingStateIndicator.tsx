@@ -25,7 +25,13 @@ const STATE_META: Record<
 
 interface ProjectBackingStateIndicatorProps {
 	state: DashboardSidebarProjectBackingState;
-	/** Compact variant for the collapsed sidebar — dot only, no label. */
+	/**
+	 * Compact variant for the collapsed sidebar — dot only, no label, no
+	 * tooltip wrapper. The caller is expected to already be inside a parent
+	 * Tooltip (the collapsed thumbnail wraps its button in one) and nesting
+	 * Radix Tooltip triggers causes ref-composition update loops. A `title`
+	 * attribute covers native a11y.
+	 */
 	variant?: "default" | "dot-only";
 	className?: string;
 }
@@ -40,18 +46,15 @@ export function ProjectBackingStateIndicator({
 
 	if (variant === "dot-only") {
 		return (
-			<Tooltip delayDuration={300}>
-				<TooltipTrigger asChild>
-					<span
-						className={cn(
-							"size-1.5 rounded-full ring-1 ring-background",
-							meta.dotClass,
-							className,
-						)}
-					/>
-				</TooltipTrigger>
-				<TooltipContent side="right">{meta.tooltip}</TooltipContent>
-			</Tooltip>
+			<span
+				className={cn(
+					"size-1.5 rounded-full ring-1 ring-background",
+					meta.dotClass,
+					className,
+				)}
+				title={meta.tooltip}
+				aria-label={meta.tooltip}
+			/>
 		);
 	}
 
