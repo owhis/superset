@@ -97,7 +97,12 @@ export function FilePane({ context, workspaceId }: FilePaneProps) {
 		return <ErrorState reason="not-found" />;
 	}
 	if (document.content.kind === "too-large") {
-		return <ErrorState reason="too-large" />;
+		return (
+			<ErrorState
+				reason="too-large"
+				onOpenAnyway={() => void document.loadUnlimited()}
+			/>
+		);
 	}
 	if (document.content.kind === "is-directory") {
 		return <ErrorState reason="is-directory" />;

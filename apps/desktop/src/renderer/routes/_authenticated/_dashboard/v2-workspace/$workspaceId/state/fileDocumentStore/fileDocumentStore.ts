@@ -1,5 +1,6 @@
 import type { workspaceTrpc } from "@superset/workspace-client";
 import type { FsWatchEvent } from "@superset/workspace-fs/client";
+import { isImageFile } from "shared/file-types";
 import type {
 	ConflictResolution,
 	ConflictState,
@@ -29,7 +30,7 @@ interface DocumentEntry {
 	subscribers: Set<() => void>;
 }
 
-const DEFAULT_MAX_BYTES = 2 * 1024 * 1024;
+const DEFAULT_MAX_BYTES = 10 * 1024 * 1024;
 const BINARY_CHECK_SIZE = 8192;
 
 const entries = new Map<string, DocumentEntry>();
@@ -77,14 +78,19 @@ function toBytes(value: string | Uint8Array): Uint8Array {
 	return typeof value === "string" ? decodeBase64(value) : value;
 }
 
-async function loadEntry(entry: DocumentEntry): Promise<void> {
+async function loadEntry(
+	entry: DocumentEntry,
+	options: { unlimited?: boolean } = {},
+): Promise<void> {
 	const client = entry.trpcClient;
+	const readAsBinary = isImageFile(entry.absolutePath);
+	const maxBytes = options.unlimited ? undefined : DEFAULT_MAX_BYTES;
 	try {
 		const result = await client.filesystem.readFile.query({
 			workspaceId: entry.workspaceId,
 			absolutePath: entry.absolutePath,
-			encoding: "utf-8",
-			maxBytes: DEFAULT_MAX_BYTES,
+			encoding: readAsBinary ? undefined : "utf-8",
+			maxBytes,
 		});
 
 		entry.byteSize = result.byteLength;
@@ -97,33 +103,24 @@ async function loadEntry(entry: DocumentEntry): Promise<void> {
 			return;
 		}
 
-		if (result.kind === "text") {
-			entry.isBinary = isBinaryText(result.content);
-			if (entry.isBinary) {
-				entry.content = {
-					kind: "bytes",
-					value: new Uint8Array(),
-					revision: result.revision,
-				};
-			} else {
-				entry.content = {
-					kind: "text",
-					value: result.content,
-					revision: result.revision,
-				};
-				entry.savedContentText = result.content;
-			}
+		if (result.kind === "bytes") {
+			entry.isBinary = true;
+			entry.content = {
+				kind: "bytes",
+				value: toBytes(result.content),
+				revision: result.revision,
+			};
 			notify(entry);
 			return;
 		}
 
-		// Raw bytes from host — e.g., image files
-		entry.isBinary = true;
+		entry.isBinary = isBinaryText(result.content);
 		entry.content = {
-			kind: "bytes",
-			value: toBytes(result.content),
+			kind: "text",
+			value: result.content,
 			revision: result.revision,
 		};
+		entry.savedContentText = result.content;
 		notify(entry);
 	} catch {
 		entry.content = { kind: "not-found" };
@@ -259,6 +256,12 @@ function createHandle(entry: DocumentEntry): SharedFileDocument {
 			entry.saveError = null;
 			notify(entry);
 			await loadEntry(entry);
+		},
+		async loadUnlimited() {
+			entry.content = { kind: "loading" };
+			entry.savedContentText = null;
+			notify(entry);
+			await loadEntry(entry, { unlimited: true });
 		},
 		async resolveConflict(choice: ConflictResolution) {
 			if (!entry.conflict) return;

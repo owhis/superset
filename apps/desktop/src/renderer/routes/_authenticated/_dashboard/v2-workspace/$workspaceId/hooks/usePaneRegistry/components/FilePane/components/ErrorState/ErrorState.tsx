@@ -1,3 +1,5 @@
+import { Button } from "@superset/ui/button";
+
 export type ErrorReason =
 	| "not-found"
 	| "too-large"
@@ -6,6 +8,7 @@ export type ErrorReason =
 
 interface ErrorStateProps {
 	reason: ErrorReason;
+	onOpenAnyway?: () => void;
 }
 
 const MESSAGES: Record<ErrorReason, string> = {
@@ -15,10 +18,15 @@ const MESSAGES: Record<ErrorReason, string> = {
 	"binary-unsupported": "Binary file — cannot display",
 };
 
-export function ErrorState({ reason }: ErrorStateProps) {
+export function ErrorState({ reason, onOpenAnyway }: ErrorStateProps) {
 	return (
-		<div className="flex h-full w-full items-center justify-center text-sm text-muted-foreground">
+		<div className="flex h-full w-full flex-col items-center justify-center gap-3 text-sm text-muted-foreground">
 			{MESSAGES[reason]}
+			{reason === "too-large" && onOpenAnyway && (
+				<Button variant="outline" size="sm" onClick={onOpenAnyway}>
+					Open anyway
+				</Button>
+			)}
 		</div>
 	);
 }

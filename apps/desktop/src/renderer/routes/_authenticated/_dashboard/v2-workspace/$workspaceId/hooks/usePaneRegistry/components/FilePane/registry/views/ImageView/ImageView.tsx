@@ -20,12 +20,21 @@ export function ImageView({ document, filePath }: ViewProps) {
 
 	return (
 		<div className="flex h-full items-center justify-center overflow-auto bg-background p-4">
-			<img
-				src={dataUrl}
-				alt={filePath.split("/").pop() ?? ""}
-				className="max-h-full max-w-full object-contain"
-				draggable={false}
-			/>
+			<div
+				className="inline-block max-h-full max-w-full"
+				style={{
+					backgroundImage:
+						"conic-gradient(color-mix(in srgb, var(--color-foreground) 10%, transparent) 25%, transparent 0 50%, color-mix(in srgb, var(--color-foreground) 10%, transparent) 0 75%, transparent 0)",
+					backgroundSize: "16px 16px",
+				}}
+			>
+				<img
+					src={dataUrl}
+					alt={filePath.split("/").pop() ?? ""}
+					className="block max-h-full max-w-full object-contain"
+					draggable={false}
+				/>
+			</div>
 		</div>
 	);
 }
