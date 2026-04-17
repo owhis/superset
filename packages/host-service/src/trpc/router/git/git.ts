@@ -112,7 +112,9 @@ export const gitRouter = router({
 				.map((line) => line.trim().replace(/\/$/, ""))
 				.filter(Boolean);
 
-			const againstBase = await getChangedFilesForDiff(git, [baseRef, "HEAD"]);
+			const againstBase = await getChangedFilesForDiff(git, [
+				`${baseRef}...HEAD`,
+			]);
 
 			// Staged — use status.files index character for correct status
 			const stagedNumstat = parseNumstat(
