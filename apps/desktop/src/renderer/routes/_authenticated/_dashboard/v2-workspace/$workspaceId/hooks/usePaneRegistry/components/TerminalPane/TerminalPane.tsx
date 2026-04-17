@@ -25,6 +25,10 @@ import { ScrollToBottomButton } from "renderer/screens/main/components/Workspace
 import { TerminalSearch } from "renderer/screens/main/components/WorkspaceView/ContentView/TabsContent/Terminal/TerminalSearch";
 import { useTheme } from "renderer/stores/theme";
 import { resolveTerminalThemeType } from "renderer/stores/theme/utils";
+import {
+	LinkHoverTooltip,
+	useLinkHoverState,
+} from "./components/LinkHoverTooltip";
 import { useTerminalAppearance } from "./hooks/useTerminalAppearance";
 
 interface TerminalPaneProps {
@@ -50,6 +54,11 @@ export function TerminalPane({
 	onRevealPath,
 }: TerminalPaneProps) {
 	const openInExternalEditor = useOpenInExternalEditor(workspaceId);
+	const {
+		hoveredLink,
+		onHover: onLinkHover,
+		onLeave: onLinkLeave,
+	} = useLinkHoverState();
 	const paneData = ctx.pane.data as TerminalPaneData;
 	const { terminalId } = paneData;
 	const containerRef = useRef<HTMLDivElement | null>(null);
@@ -180,6 +189,8 @@ export function TerminalPane({
 					},
 				});
 			},
+			onLinkHover,
+			onLinkLeave,
 		});
 	}, [
 		terminalId,
@@ -188,6 +199,8 @@ export function TerminalPane({
 		onOpenFile,
 		onRevealPath,
 		openInExternalEditor,
+		onLinkHover,
+		onLinkLeave,
 	]);
 
 	useHotkey(
@@ -244,6 +257,7 @@ export function TerminalPane({
 					<span>Disconnected</span>
 				</div>
 			)}
+			<LinkHoverTooltip hoveredLink={hoveredLink} />
 		</div>
 	);
 }
