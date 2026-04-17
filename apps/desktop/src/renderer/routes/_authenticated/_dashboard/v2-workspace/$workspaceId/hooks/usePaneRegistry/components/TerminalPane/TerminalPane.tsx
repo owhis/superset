@@ -25,10 +25,8 @@ import { ScrollToBottomButton } from "renderer/screens/main/components/Workspace
 import { TerminalSearch } from "renderer/screens/main/components/WorkspaceView/ContentView/TabsContent/Terminal/TerminalSearch";
 import { useTheme } from "renderer/stores/theme";
 import { resolveTerminalThemeType } from "renderer/stores/theme/utils";
-import {
-	LinkHoverTooltip,
-	useLinkHoverState,
-} from "./components/LinkHoverTooltip";
+import { LinkHoverTooltip } from "./components/LinkHoverTooltip";
+import { useLinkHoverState } from "./hooks/useLinkHoverState";
 import { useTerminalAppearance } from "./hooks/useTerminalAppearance";
 
 interface TerminalPaneProps {

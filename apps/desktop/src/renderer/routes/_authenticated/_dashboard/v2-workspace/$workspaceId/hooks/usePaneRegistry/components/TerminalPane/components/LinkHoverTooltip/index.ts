@@ -1,1 +1,1 @@
-export { LinkHoverTooltip, useLinkHoverState } from "./LinkHoverTooltip";
+export { LinkHoverTooltip } from "./LinkHoverTooltip";
