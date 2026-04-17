@@ -1,6 +1,9 @@
+import type { ExternalApp } from "@superset/local-db";
 import { useCallback, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
+import { getAppOption } from "renderer/components/OpenInExternalDropdown/constants";
 import type { LinkHoverInfo } from "renderer/lib/terminal/terminal-runtime-registry";
+import { electronTrpcClient } from "renderer/lib/trpc-client";
 
 interface HoveredLink {
 	clientX: number;
@@ -14,24 +17,52 @@ interface LinkHoverTooltipProps {
 	hoveredLink: HoveredLink | null;
 }
 
-function getLabel(info: LinkHoverInfo, shift: boolean): string {
+function getAppLabel(app: ExternalApp): string {
+	const option = getAppOption(app);
+	return option?.displayLabel ?? option?.label ?? "external editor";
+}
+
+function getLabel(
+	info: LinkHoverInfo,
+	shift: boolean,
+	defaultEditor: ExternalApp | null,
+): string {
 	if (info.kind === "url") {
 		return shift ? "Open in external browser" : "Open in browser";
 	}
-	if (info.isDirectory) {
-		return shift ? "Open externally" : "Reveal in sidebar";
+	if (shift) {
+		return defaultEditor
+			? `Open in ${getAppLabel(defaultEditor)}`
+			: "Open externally";
 	}
-	return shift ? "Open externally" : "Open in editor";
+	return info.isDirectory ? "Reveal in sidebar" : "Open in editor";
 }
 
 export function LinkHoverTooltip({ hoveredLink }: LinkHoverTooltipProps) {
+	const [defaultEditor, setDefaultEditor] = useState<ExternalApp | null>(null);
+
+	useEffect(() => {
+		let cancelled = false;
+		electronTrpcClient.settings.getDefaultEditor
+			.query()
+			.then((editor) => {
+				if (!cancelled) setDefaultEditor(editor);
+			})
+			.catch(() => {
+				if (!cancelled) setDefaultEditor(null);
+			});
+		return () => {
+			cancelled = true;
+		};
+	}, []);
+
 	if (!hoveredLink || !hoveredLink.modifier) return null;
 
-	const label = getLabel(hoveredLink.info, hoveredLink.shift);
+	const label = getLabel(hoveredLink.info, hoveredLink.shift, defaultEditor);
 
 	return createPortal(
 		<div
-			className="pointer-events-none fixed z-50 rounded-md border border-border bg-popover px-2 py-1 text-xs text-popover-foreground shadow-md"
+			className="pointer-events-none fixed z-50 w-fit rounded-md bg-foreground px-3 py-1.5 text-xs text-background"
 			style={{
 				left: hoveredLink.clientX + 14,
 				top: hoveredLink.clientY + 14,
