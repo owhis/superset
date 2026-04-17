@@ -1,8 +1,12 @@
 import { dbWs } from "@superset/db/client";
-import { githubRepositories, v2Projects } from "@superset/db/schema";
+import {
+	githubRepositories,
+	organizations,
+	v2Projects,
+} from "@superset/db/schema";
 import type { TRPCRouterRecord } from "@trpc/server";
 import { TRPCError } from "@trpc/server";
-import { eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { z } from "zod";
 import { jwtProcedure, protectedProcedure } from "../../trpc";
 import {
@@ -78,6 +82,20 @@ async function getProjectAccess(
 	);
 }
 
+// Accepts common GitHub remote URL shapes and returns the canonical
+// "owner/name" used as githubRepositories.fullName. Returns null for
+// anything we can't confidently match.
+function githubFullNameFromUrl(url: string): string | null {
+	const trimmed = url.trim();
+	const match = trimmed.match(
+		/^(?:https?:\/\/github\.com\/|git@github\.com:)([^/\s]+)\/([^/\s]+?)(?:\.git)?\/?$/,
+	);
+	if (!match) return null;
+	const [, owner, name] = match;
+	if (!owner || !name) return null;
+	return `${owner}/${name}`;
+}
+
 export const v2ProjectRouter = {
 	get: jwtProcedure
 		.input(
@@ -108,6 +126,41 @@ export const v2ProjectRouter = {
 				? `https://github.com/${row.githubRepository.fullName}.git`
 				: null;
 			return { ...row, repoCloneUrl };
+		}),
+
+	findByRemote: jwtProcedure
+		.input(z.object({ repoCloneUrl: z.string().min(1) }))
+		.query(async ({ ctx, input }) => {
+			const fullName = githubFullNameFromUrl(input.repoCloneUrl);
+			if (!fullName || ctx.organizationIds.length === 0) {
+				return { candidates: [] };
+			}
+
+			const rows = await dbWs
+				.select({
+					id: v2Projects.id,
+					name: v2Projects.name,
+					slug: v2Projects.slug,
+					organizationId: v2Projects.organizationId,
+					organizationName: organizations.name,
+				})
+				.from(v2Projects)
+				.innerJoin(
+					githubRepositories,
+					eq(v2Projects.githubRepositoryId, githubRepositories.id),
+				)
+				.innerJoin(
+					organizations,
+					eq(v2Projects.organizationId, organizations.id),
+				)
+				.where(
+					and(
+						eq(githubRepositories.fullName, fullName),
+						inArray(v2Projects.organizationId, ctx.organizationIds),
+					),
+				);
+
+			return { candidates: rows };
 		}),
 
 	create: protectedProcedure
