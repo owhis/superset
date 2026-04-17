@@ -14,7 +14,6 @@ import {
 	terminalRuntimeRegistry,
 } from "renderer/lib/terminal/terminal-runtime-registry";
 import { electronTrpcClient } from "renderer/lib/trpc-client";
-import { usePaneActions } from "renderer/routes/_authenticated/_dashboard/v2-workspace/$workspaceId/providers/PaneActionsProvider";
 import type {
 	PaneViewerData,
 	TerminalPaneData,
@@ -29,6 +28,12 @@ import { useTerminalAppearance } from "./hooks/useTerminalAppearance";
 interface TerminalPaneProps {
 	ctx: RendererContext<PaneViewerData>;
 	workspaceId: string;
+	onOpenFile: (path: string, openInNewTab?: boolean) => void;
+	onRevealPath: (path: string) => void;
+	onOpenExternal: (
+		path: string,
+		opts?: { line?: number; column?: number },
+	) => void;
 }
 
 function subscribeToState(terminalId: string) {
@@ -40,8 +45,13 @@ function getConnectionState(terminalId: string): ConnectionState {
 	return terminalRuntimeRegistry.getConnectionState(terminalId);
 }
 
-export function TerminalPane({ ctx, workspaceId }: TerminalPaneProps) {
-	const { onOpenFile, onRevealPath, onOpenExternal } = usePaneActions();
+export function TerminalPane({
+	ctx,
+	workspaceId,
+	onOpenFile,
+	onRevealPath,
+	onOpenExternal,
+}: TerminalPaneProps) {
 	const paneData = ctx.pane.data as TerminalPaneData;
 	const { terminalId } = paneData;
 	const containerRef = useRef<HTMLDivElement | null>(null);
