@@ -7,7 +7,7 @@ import {
 import { parseGitHubRemote } from "@superset/shared/github-remote";
 import type { TRPCRouterRecord } from "@trpc/server";
 import { TRPCError } from "@trpc/server";
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import { z } from "zod";
 import { jwtProcedure, protectedProcedure } from "../../trpc";
 import {
@@ -122,7 +122,11 @@ export const v2ProjectRouter = {
 			if (!parsed || ctx.organizationIds.length === 0) {
 				return { candidates: [] };
 			}
-			const fullName = `${parsed.owner}/${parsed.name}`;
+			// GitHub slugs are case-insensitive (github.com/Foo/Bar and
+			// github.com/foo/bar point to the same repo). Local git remotes
+			// preserve whatever casing was typed at clone time. Compare in lower
+			// case so we still match.
+			const fullNameLower = `${parsed.owner}/${parsed.name}`.toLowerCase();
 
 			const rows = await dbWs
 				.select({
@@ -143,7 +147,7 @@ export const v2ProjectRouter = {
 				)
 				.where(
 					and(
-						eq(githubRepositories.fullName, fullName),
+						eq(sql`lower(${githubRepositories.fullName})`, fullNameLower),
 						inArray(v2Projects.organizationId, ctx.organizationIds),
 					),
 				);
@@ -175,11 +179,13 @@ export const v2ProjectRouter = {
 				});
 			}
 			const fullName = `${parsed.owner}/${parsed.name}`;
+			const fullNameLower = fullName.toLowerCase();
 
+			// Case-insensitive match — see findByRemote note.
 			const repo = await dbWs.query.githubRepositories.findFirst({
 				columns: { id: true },
 				where: and(
-					eq(githubRepositories.fullName, fullName),
+					eq(sql`lower(${githubRepositories.fullName})`, fullNameLower),
 					eq(githubRepositories.organizationId, input.organizationId),
 				),
 			});
