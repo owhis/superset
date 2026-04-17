@@ -543,14 +543,33 @@ export class Session {
 		// Chunk large writes to avoid allocating/queuing massive single frames.
 		const MAX_CHUNK_CHARS = 8192;
 		let ok = true;
+		let offset = 0;
 
-		for (let offset = 0; offset < data.length; offset += MAX_CHUNK_CHARS) {
-			const part = data.slice(offset, offset + MAX_CHUNK_CHARS);
+		while (offset < data.length) {
+			let splitAt = Math.min(offset + MAX_CHUNK_CHARS, data.length);
+			// Back off by one UTF-16 code unit if the boundary falls between a
+			// high/low surrogate pair — Buffer.from("utf8") encodes each half as
+			// U+FFFD otherwise, corrupting supplementary-plane chars (emoji,
+			// CJK Extension B+).
+			if (splitAt < data.length) {
+				const prev = data.charCodeAt(splitAt - 1);
+				const next = data.charCodeAt(splitAt);
+				if (
+					prev >= 0xd800 &&
+					prev <= 0xdbff &&
+					next >= 0xdc00 &&
+					next <= 0xdfff
+				) {
+					splitAt--;
+				}
+			}
+			const part = data.slice(offset, splitAt);
 			ok =
 				this.sendFrameToSubprocess(
 					PtySubprocessIpcType.Write,
 					Buffer.from(part, "utf8"),
 				) && ok;
+			offset = splitAt;
 		}
 
 		return ok;

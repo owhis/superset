@@ -489,3 +489,54 @@ describe("Terminal Host Session emulator backlog backpressure", () => {
 		expect(fakeChildProcess.stdout.resumeCalls).toBe(1);
 	});
 });
+
+describe("Terminal Host Session write chunking UTF-8 integrity", () => {
+	beforeEach(() => {
+		fakeChildProcess = new FakeChildProcess();
+		spawnCalls = [];
+	});
+
+	function collectWrittenBytes(fakeChild: FakeChildProcess): Buffer {
+		const decoder = new PtySubprocessFrameDecoder();
+		const frames = fakeChild.stdin.writes.flatMap((chunk) =>
+			decoder.push(chunk),
+		);
+		const writePayloads = frames
+			.filter((frame) => frame.type === PtySubprocessIpcType.Write)
+			.map((frame) => frame.payload);
+		return Buffer.concat(writePayloads);
+	}
+
+	// Regression for #3527: supplementary-plane characters (emoji, CJK
+	// Extension B+) pasted in blocks that span the 8192-char chunk boundary
+	// were split across their UTF-16 surrogate pair, and each half was
+	// encoded independently as U+FFFD. This test pastes a single supplementary
+	// codepoint straddling the chunk boundary and verifies the bytes sent to
+	// the subprocess round-trip back to the original string.
+	it("preserves surrogate pairs when chunking writes to subprocess", () => {
+		const session = new Session({
+			sessionId: "session-write-surrogate",
+			workspaceId: "workspace-1",
+			paneId: "pane-1",
+			tabId: "tab-1",
+			cols: 80,
+			rows: 24,
+			cwd: "/tmp",
+			// /bin/sh is unsupported by the shell-ready marker, so writes
+			// bypass the preReady queue and go straight to the subprocess.
+			shell: "/bin/sh",
+			spawnProcess: () => fakeChildProcess as unknown as ChildProcess,
+		});
+
+		spawnAndReadySession(session);
+
+		// 8191 ASCII chars + 😀 (U+1F600, surrogate pair) places the high
+		// surrogate at position 8191 and the low surrogate at position 8192,
+		// straddling the MAX_CHUNK_CHARS=8192 boundary.
+		const input = `${"x".repeat(8191)}😀`;
+		session.write(input);
+
+		const roundTripped = collectWrittenBytes(fakeChildProcess).toString("utf8");
+		expect(roundTripped).toBe(input);
+	});
+});
