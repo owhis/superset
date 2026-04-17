@@ -16,6 +16,7 @@ import {
 import { electronTrpcClient } from "renderer/lib/trpc-client";
 import { useOpenInExternalEditor } from "renderer/routes/_authenticated/_dashboard/v2-workspace/$workspaceId/hooks/useOpenInExternalEditor";
 import type {
+	BrowserPaneData,
 	PaneViewerData,
 	TerminalPaneData,
 } from "renderer/routes/_authenticated/_dashboard/v2-workspace/$workspaceId/types";
@@ -165,13 +166,29 @@ export function TerminalPane({
 					onOpenFile(link.resolvedPath);
 				}
 			},
-			onUrlClick: (url) => {
-				electronTrpcClient.external.openUrl.mutate(url).catch((error) => {
-					console.error("[v2 Terminal] Failed to open URL:", url, error);
+			onUrlClick: (event, url) => {
+				if (event.shiftKey) {
+					electronTrpcClient.external.openUrl.mutate(url).catch((error) => {
+						console.error("[v2 Terminal] Failed to open URL:", url, error);
+					});
+					return;
+				}
+				ctx.store.getState().openPane({
+					pane: {
+						kind: "browser",
+						data: { url } satisfies BrowserPaneData,
+					},
 				});
 			},
 		});
-	}, [terminalId, workspaceId, onOpenFile, onRevealPath, openInExternalEditor]);
+	}, [
+		terminalId,
+		workspaceId,
+		ctx.store,
+		onOpenFile,
+		onRevealPath,
+		openInExternalEditor,
+	]);
 
 	useHotkey(
 		"CLEAR_TERMINAL",

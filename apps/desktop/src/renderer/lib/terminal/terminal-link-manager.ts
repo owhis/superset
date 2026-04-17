@@ -25,7 +25,7 @@ export interface TerminalLinkHandlers {
 	/** Called when a file path link is activated (Cmd/Ctrl+click). */
 	onFileLinkClick?: (event: MouseEvent, link: DetectedLink) => void;
 	/** Called when a URL link is activated. */
-	onUrlClick?: (url: string) => void;
+	onUrlClick?: (event: MouseEvent, url: string) => void;
 	/**
 	 * Stat callback to validate file paths exist. Called via the host service
 	 * which handles all path resolution (relative, tilde, etc.) server-side.
@@ -105,8 +105,8 @@ export class TerminalLinkManager {
 		// 2. URL link provider (handles hard-wrapped URLs)
 		if (handlers.onUrlClick) {
 			const onUrlClick = handlers.onUrlClick;
-			const urlProvider = new UrlLinkProvider(this._terminal, (_event, uri) => {
-				onUrlClick(uri);
+			const urlProvider = new UrlLinkProvider(this._terminal, (event, uri) => {
+				onUrlClick(event, uri);
 			});
 			this._disposables.push(this._terminal.registerLinkProvider(urlProvider));
 		}
