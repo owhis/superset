@@ -151,29 +151,49 @@ export const v2ProjectRouter = {
 			return { candidates: rows };
 		}),
 
-	create: protectedProcedure
+	create: jwtProcedure
 		.input(
 			z.object({
+				organizationId: z.string().uuid(),
 				name: z.string().min(1),
 				slug: z.string().min(1),
-				githubRepositoryId: z.string().uuid(),
+				repoCloneUrl: z.string().min(1),
 			}),
 		)
 		.mutation(async ({ ctx, input }) => {
-			const organizationId = await requireActiveOrgMembership(
-				ctx.session,
-				"No active organization",
-			);
+			if (!ctx.organizationIds.includes(input.organizationId)) {
+				throw new TRPCError({
+					code: "FORBIDDEN",
+					message: "Not a member of this organization",
+				});
+			}
+			const parsed = parseGitHubRemote(input.repoCloneUrl);
+			if (!parsed) {
+				throw new TRPCError({
+					code: "BAD_REQUEST",
+					message: "Could not parse GitHub remote URL",
+				});
+			}
+			const fullName = `${parsed.owner}/${parsed.name}`;
 
-			const repo = await getScopedGithubRepository(
-				organizationId,
-				input.githubRepositoryId,
-			);
+			const repo = await dbWs.query.githubRepositories.findFirst({
+				columns: { id: true },
+				where: and(
+					eq(githubRepositories.fullName, fullName),
+					eq(githubRepositories.organizationId, input.organizationId),
+				),
+			});
+			if (!repo) {
+				throw new TRPCError({
+					code: "BAD_REQUEST",
+					message: `GitHub repository ${fullName} is not installed in this organization`,
+				});
+			}
 
 			const [project] = await dbWs
 				.insert(v2Projects)
 				.values({
-					organizationId,
+					organizationId: input.organizationId,
 					name: input.name,
 					slug: input.slug,
 					githubRepositoryId: repo.id,
