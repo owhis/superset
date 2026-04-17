@@ -467,16 +467,19 @@ export async function generateAndSetTitle(
 					]
 			: messages;
 		const userMessages = messagesForTitle.filter((m) => m.role === "user");
-		const userCount = userMessages.length;
+		const userTextMessages = userMessages.filter(
+			(m) => extractTextContent(m.content).trim().length > 0,
+		);
+		const userTextCount = userTextMessages.length;
 
-		const isFirst = userCount === 1;
-		const isRename = userCount > 1 && userCount % 10 === 0;
+		const isFirst = userTextCount === 1;
+		const isRename = userTextCount > 1 && userTextCount % 10 === 0;
 		if (!isFirst && !isRename) return;
 
 		let text: string;
-		const firstMessage = userMessages[0];
-		if (isFirst && firstMessage) {
-			text = extractTextContent(firstMessage.content).slice(0, 500);
+		const firstTextMessage = userTextMessages[0];
+		if (isFirst && firstTextMessage) {
+			text = extractTextContent(firstTextMessage.content).slice(0, 500);
 		} else {
 			text = messagesForTitle
 				.slice(-10)

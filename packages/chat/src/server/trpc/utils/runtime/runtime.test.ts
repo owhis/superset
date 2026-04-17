@@ -279,6 +279,35 @@ describe("runtime title generation", () => {
 
 		expect(updateTitleInputs).toEqual([]);
 	});
+
+	it("generates title when earlier user messages contained no usable text", async () => {
+		const { runtime, apiClient, updateTitleInputs } = createRuntimeForTitleTest(
+			{
+				messages: [
+					{
+						role: "user",
+						content: [{ type: "image" }],
+					},
+					{
+						role: "assistant",
+						content: [{ type: "text", text: "ok" }],
+					},
+				],
+				generatedTitle: "Photo follow-up",
+			},
+		);
+
+		await generateAndSetTitle(runtime, apiClient, {
+			submittedUserMessage: "What is in this photo?",
+		});
+
+		expect(updateTitleInputs).toEqual([
+			{
+				sessionId: "11111111-1111-1111-1111-111111111111",
+				title: "Photo follow-up",
+			},
+		]);
+	});
 });
 
 describe("runtime message restart", () => {
