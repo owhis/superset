@@ -101,6 +101,7 @@ export function DashboardSidebarWorkspaceContextMenu({
 				<LuFolderPlus className="size-4 mr-2" />
 				Create Section Below
 			</ContextMenuItem>
+			{(sections.length > 0 || isInSection) && <ContextMenuSeparator />}
 			{sections.length > 0 && (
 				<ContextMenuSub>
 					<ContextMenuSubTrigger>
