@@ -211,6 +211,7 @@ function WorkspaceContent({
 		(path: string) => {
 			collections.v2WorkspaceLocalState.update(workspaceId, (draft) => {
 				draft.rightSidebarOpen = true;
+				draft.sidebarState.activeTab = "files";
 			});
 			setSelectedFilePath(path);
 		},
