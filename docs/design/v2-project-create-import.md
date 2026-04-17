@@ -60,9 +60,13 @@ Nothing in the join consults `host-service.projects`. Pinned projects with no ba
 
 ## Host-service as orchestrator
 
-Every client calls host-service. Desktop today; web/mobile route through host-service later. The host-service RPC **is the create flow** — cloud-row creation, optional GitHub repo provisioning, local git, local DB insert, main-workspace seed.
+Every client calls host-service. Desktop today; web/mobile route through host-service later. The host-service RPC **is the create flow** — cloud-row creation, optional GitHub repo provisioning, local git, local DB insert, cloud backing signal.
+
+Neither `project.create` nor `project.setup` auto-creates a workspace. A project can exist and be backed on a host with zero workspaces. Workspaces are always explicit user action ("import branch" or "create new with clone").
 
 ### `project.create` (new)
+
+User-facing intent: **"clone a new project."** Handles the new-project side — cloud row + local clone.
 
 ```ts
 project.create({
@@ -74,7 +78,7 @@ project.create({
     | { kind: "clone"; url: string }
     | { kind: "importLocal" }            // existing local repo, we provision the remote
     | { kind: "template"; templateId: string }
-}) → { projectId: string; repoPath: string; mainWorkspaceId: string }
+}) → { projectId: string; repoPath: string }
 ```
 
 Internal order:
@@ -82,7 +86,7 @@ Internal order:
 1. Cloud: create `v2_projects` row (+ GitHub repo for empty/importLocal/template)
 2. Local git: clone / init+push / link+push / scaffold+push
 3. Upsert `host-service.projects` row with `repoPath` + remote metadata
-4. Create main workspace (upholds `ensureMainWorkspace` invariant)
+4. Upsert cloud `v2_host_projects` row for (projectId, currentHostId) — see backing signal below
 5. Return
 
 **GitHub repo creation is in scope** — otherwise `empty` and `template` degrade to `clone`.
@@ -95,7 +99,7 @@ Phase 1 ships `clone` and `importLocal` only; `empty` and `template` throw `not_
 
 ### `project.setup` (exists — `packages/host-service/src/trpc/router/project/project.ts:23`)
 
-Drives cell 1 → 2 and repairs cell 3. Already wired for git-remote validation.
+User-facing intent: **"import or fix."** Either a cell-1 project that already exists in cloud (clone/import on this host), or a cell-3 repair (re-point the path).
 
 ```ts
 project.setup({
@@ -103,13 +107,13 @@ project.setup({
   mode: "import" | "clone",
   localPath: string,
   acknowledgeWorkspaceInvalidation?: boolean   // required when projects row already exists
-}) → { repoPath: string; mainWorkspaceId: string }
+}) → { repoPath: string }
 ```
 
-Changes:
+Changes from existing:
 
-- Creates main workspace if none exists (upholds `ensureMainWorkspace`).
-- `acknowledgeWorkspaceInvalidation` is the repair-vs-first-time discriminator. Path re-point invalidates existing workspace rows; caller must ack.
+- Also upserts cloud `v2_host_projects` row for (projectId, currentHostId).
+- `acknowledgeWorkspaceInvalidation` is the repair-vs-first-time discriminator. Path re-point can invalidate existing workspace rows; caller must ack.
 
 ### `project.list` (new)
 
@@ -124,6 +128,29 @@ project.list() → Array<{
 One row per `host-service.projects` entry on the calling machine. Cell-3 detection stays server-side where `fs` lives.
 
 Renderer refetches after `project.create` / `project.setup` / `project.remove` mutations via React Query invalidation on the shared `["project", "list"]` key. No subscription — backing rarely changes and invalidation-on-mutation is sufficient.
+
+### Cloud backing signal: `v2_host_projects`
+
+Since we no longer auto-seed workspaces, we can't derive "host H backs project P" from the workspaces table. We need a direct signal.
+
+New cloud table, Electric-synced:
+
+```ts
+v2_host_projects {
+  id uuid PK
+  organizationId uuid
+  projectId uuid → v2_projects.id
+  hostId uuid → v2_hosts.id
+  createdAt, updatedAt
+  unique(projectId, hostId)
+}
+```
+
+One row per (project, host) pair that backs it. Host-service mutations:
+- `project.create` / `project.setup` → upsert
+- `project.remove` → delete the row for (projectId, currentHostId)
+
+Both mutations go through `ctx.api` to a new cloud `v2HostProjects` router (authorized against the caller's `v2_users_hosts` membership).
 
 ### Client responsibilities
 
@@ -140,6 +167,7 @@ Native pickers (`dialog.showOpenDialog`) stay in the client — host-service has
 | Cloud project creation | `v2Projects.create` (L113) — takes `{ name, slug, githubRepositoryId }` |
 | Workspace (cloud) | `typeof v2Workspaces.$inferSelect` (has `projectId`, `hostId`) |
 | Host (cloud) | `typeof v2Hosts.$inferSelect` (has `machineId`, `isOnline`) |
+| Host backing (cloud, new) | `typeof v2HostProjects.$inferSelect` (see above) |
 | Host-service project row | `typeof projects.$inferSelect` |
 | Host-service workspace row | `typeof workspaces.$inferSelect` |
 | Current host identity | `useLocalHostService().machineId` + `activeHostUrl` |
@@ -167,19 +195,19 @@ const { data: localBacked } = useQuery({
 // Map<projectId, { repoPath, pathStatus }>
 ```
 
-**Remote backing** — Electric-derived, tolerates sync lag. Leans on `ensureMainWorkspace` (every backing has ≥1 workspace):
+**Remote backing** — Electric-derived from `v2_host_projects`, tolerates sync lag:
 
 ```ts
 const { data: remoteBacked } = useLiveQuery(q => q
-  .from({ ws: collections.v2Workspaces })
-  .innerJoin({ h: collections.v2Hosts }, ({ ws, h }) => eq(ws.hostId, h.id))
+  .from({ hp: collections.v2HostProjects })
+  .innerJoin({ h: collections.v2Hosts }, ({ hp, h }) => eq(hp.hostId, h.id))
   .where(({ h }) => ne(h.machineId, currentMachineId))
-  .groupBy(({ ws }) => ws.projectId, ({ h }) => h.isOnline)
 )
 // → derived into Map<projectId, { online: Set<hostId>; offline: Set<hostId> }>
+//   partitioned by h.isOnline
 ```
 
-Both online and offline remote backings are surfaced — offline is what drives the "Host offline" row state.
+Both online and offline remote backings are surfaced — offline is what drives the "Host offline" row state. Direct signal, no workspace-count dependency.
 
 ### Row state (per pinned project)
 
@@ -215,19 +243,21 @@ Pins never fall out of the sidebar, so Available is strictly for first-time pinn
 
 ### 1. New user, new org — first project
 
-| Step | Host-service | Cloud | Pin | Sidebar | Available |
-| --- | --- | --- | --- | --- | --- |
-| start | — | — | — | empty | empty |
-| "+ New project" → `project.create` | row + main ws | row | pinned | project, Normal | — |
+| Step | Host-service | Cloud `v2_projects` | Cloud `v2_host_projects` | Pin | Sidebar | Available |
+| --- | --- | --- | --- | --- | --- | --- |
+| start | — | — | — | — | empty | empty |
+| "+ New project" → `project.create` | row | row | row | pinned | project, Normal, no workspaces | — |
+
+Project exists and is backed; user creates workspaces explicitly from the sidebar.
 
 ### 2. Join an org with existing projects
 
-| Step | Host-service | Pin | Sidebar | Available |
-| --- | --- | --- | --- | --- |
-| start | — | — | empty | every teammate project |
-| "Pin & set up" → `project.setup` | row + main ws | pinned | the one project, Normal | rest |
+| Step | Host-service | `v2_host_projects` (this user's hosts) | Pin | Sidebar | Available |
+| --- | --- | --- | --- | --- | --- |
+| start | — | — | — | empty | every teammate project |
+| "Pin & set up" → `project.setup` | row | + row for current host | pinned | the project, Normal, no workspaces | rest |
 
-Teammates' hosts belong to their own `v2_users_hosts` — no remote backing contribution. Available is the path in.
+Teammates' `v2_host_projects` rows exist but their hosts are in their own `v2_users_hosts`, so they don't contribute remote backing for this user. Available is the path in.
 
 ### 3. Adding a second host
 
@@ -241,13 +271,13 @@ Desktop starts empty (no pins on this device). Cross-device pin sync is pin-tuni
 
 ### 4. Same project backed on both hosts
 
-| Event | `v2_workspaces` | Laptop sidebar | Desktop sidebar |
-| --- | --- | --- | --- |
-| both backed, main workspaces only | main-L, main-D | main-L (local), main-D (remote) | main-L (remote), main-D (local) |
-| laptop creates α | \+ α (hostId = L) | \+ α (local) | \+ α (remote) |
-| desktop creates β | \+ β (hostId = D) | \+ β (remote) | \+ β (local) |
+| Event | `v2_host_projects` | `v2_workspaces` | Laptop sidebar (project P) | Desktop sidebar (project P) |
+| --- | --- | --- | --- | --- |
+| both backed, no workspaces yet | (P,L), (P,D) | — | Normal, empty | Normal, empty |
+| laptop creates α | unchanged | + α (hostId = L) | + α (local) | + α (remote) |
+| desktop creates β | unchanged | + β (hostId = D) | + β (remote) | + β (local) |
 
-Workspaces bound to creating host. Remote-device rows open the "switch host or set up here" stub, not the workspace directly.
+Backing is independent of workspaces. Workspaces bind to their creating host. Remote-device rows open the "switch host or set up here" stub, not the workspace directly.
 
 ### 5. A host goes offline
 
@@ -271,7 +301,7 @@ Row state surfaces the problem; the pin stays.
 | nothing → cell 2 | `project.create` | Available "+ New project" | Normal immediately |
 | cell 1 → cell 2 | `project.setup` | Available "Pin & set up", sidebar "Set up here" CTA | Normal immediately |
 | cell 3 → cell 2 | `project.setup` (`acknowledgeWorkspaceInvalidation: true`) | Stale-path Repair CTA | Normal immediately |
-| first-workspace-on-new-host | workspace.create throw → inline `project.setup` → retry | New Workspace modal | Normal immediately |
+| workspace-create on unbacked host | workspace.create throw → inline `project.setup` → retry | New Workspace modal | Normal immediately |
 
 ---
 
@@ -290,25 +320,22 @@ Pin behavior (auto-pin on create/setup, cross-device pin sync, unpin UX) is out 
 
 **Phase 1 — core backing-aware sidebar + create/setup**
 
+- [ ] `v2_host_projects` cloud table + Drizzle migration
+- [ ] Electric sync config for `v2_host_projects`, collection registered in `CollectionsProvider`
+- [ ] Cloud `v2HostProjects` router (upsert + delete), authorized by `v2_users_hosts` membership
 - [ ] `project.list` procedure in host-service (local backing + `pathStatus`)
-
-- [ ] `project.create` procedure: `clone` and `importLocal` modes; `empty`/`template` throw `not_implemented`. Enforces `ensureMainWorkspace`.
-
-- [ ] `project.setup`: add `acknowledgeWorkspaceInvalidation`, create main workspace if missing, return `mainWorkspaceId`
-
-- [ ] `useDashboardSidebarData` extended with `localBacked` + `remoteBacked` derivations and row-state per project
-
-- [ ] Sidebar project row renders row state (Normal only surfaced; others stubbed as warning/offline markers)
-
+- [ ] `project.create` procedure: `clone` and `importLocal` modes only; `empty`/`template` throw `not_implemented`. Writes local `host-service.projects` + cloud `v2_host_projects`.
+- [ ] `project.setup` additions: `acknowledgeWorkspaceInvalidation` param; also upserts cloud `v2_host_projects`
+- [ ] `project.remove` deletes cloud `v2_host_projects` for current host
+- [ ] `useDashboardSidebarData` extended with `localBacked` + `remoteBacked` derivations (from `v2HostProjects ⋈ v2Hosts`) and row-state per project
+- [ ] Sidebar project row renders row state (all four: Normal, Stale path stub, Host offline stub, Not set up here stub)
 - [ ] Available surface: "+ New project" and "Pin & set up" actions
-
 - [ ] React Query invalidation on `["project", "list"]` after `project.create` / `project.setup` / `project.remove`
 
 **Phase 2 — row-state polish**
 
 - "Not set up here" and "Host offline" inline CTAs
 - Host chips on workspace rows
-- `ensureMainWorkspace` invariant enforcement in workspace-deletion paths
 
 **Phase 3 — workspace-create inline setup**
 
