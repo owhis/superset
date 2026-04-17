@@ -31,7 +31,9 @@ export function useOpenInExternalEditor(workspaceId: string) {
 
 	return useCallback(
 		(path: string, opts?: OpenInExternalEditorOptions) => {
-			if (workspaceHost && workspaceHost.hostMachineId !== machineId) {
+			// Treat unloaded host data as non-local to avoid firing the mutation
+			// against a potentially remote workspace before locality is confirmed.
+			if (workspaceHost?.hostMachineId !== machineId) {
 				toast.error("Can't open remote workspace paths in an external editor");
 				return;
 			}

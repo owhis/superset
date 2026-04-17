@@ -43,8 +43,13 @@ export function LinkHoverTooltip({ hoveredLink }: LinkHoverTooltipProps) {
 			.then((editor) => {
 				if (!cancelled) setDefaultEditor(editor);
 			})
-			.catch(() => {
-				if (!cancelled) setDefaultEditor(null);
+			.catch((error) => {
+				if (cancelled) return;
+				console.warn(
+					"[LinkHoverTooltip] Failed to fetch default editor:",
+					error,
+				);
+				setDefaultEditor(null);
 			});
 		return () => {
 			cancelled = true;
