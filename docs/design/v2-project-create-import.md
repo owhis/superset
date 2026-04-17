@@ -72,14 +72,15 @@ User-facing intent: **"clone a new project."** Handles the new-project side — 
 project.create({
   name: string,
   visibility: "private" | "public",
-  localPath: string,    // parent dir for clone/empty/template; git root for importLocal
   mode:
-    | { kind: "empty" }
-    | { kind: "clone"; url: string }
-    | { kind: "importLocal" }            // existing local repo, we provision the remote
-    | { kind: "template"; templateId: string }
+    | { kind: "empty";       parentDir: string }
+    | { kind: "clone";       parentDir: string; url: string }
+    | { kind: "importLocal"; repoPath: string }                      // git root of existing local repo
+    | { kind: "template";    parentDir: string; templateId: string }
 }) → { projectId: string; repoPath: string }
 ```
+
+Path semantics are baked into each variant so there's no overloaded meaning: `parentDir` for modes that create a new directory; `repoPath` (git root) for `importLocal`.
 
 Internal order:
 
@@ -104,9 +105,10 @@ User-facing intent: **"import or fix."** Either a cell-1 project that already ex
 ```ts
 project.setup({
   projectId: string,
-  mode: "import" | "clone",
-  localPath: string,
-  acknowledgeWorkspaceInvalidation?: boolean   // required when projects row already exists
+  acknowledgeWorkspaceInvalidation?: boolean,   // required when projects row already exists
+  mode:
+    | { kind: "clone";  parentDir: string }     // host-service clones into parentDir
+    | { kind: "import"; repoPath: string }      // point at an existing git root; remote is validated
 }) → { repoPath: string }
 ```
 
@@ -209,6 +211,8 @@ const { data: remoteBacked } = useLiveQuery(q => q
 
 Both online and offline remote backings are surfaced — offline is what drives the "Host offline" row state. Direct signal, no workspace-count dependency.
 
+> ⚠️ **Implementation-time validation.** The two-source split (host-service tRPC for local, Electric live query for remote) is structurally motivated — `pathStatus` needs filesystem access, Electric gives push-based reactivity for remote changes. In practice, the combined hook may surface friction (ordering, invalidation timing, empty-state flashes). Revisit if the split causes pain during wiring.
+
 ### Row state (per pinned project)
 
 | Row state | Condition | CTA |
@@ -226,14 +230,34 @@ Both online and offline remote backings are surfaced — offline is what drives 
 
 ---
 
-## Available surface (discovery)
+## Available — discovery inside the workspaces tab
 
-Cloud projects in the user's org that aren't pinned locally. Two entry points:
+Not a separate sidebar surface. Lives as a section inside the existing workspaces tab, alongside the pinned workspaces.
 
-- **"Pin & set up"** → adds pin + runs `project.setup`.
-- **"+ New project"** → `project.create`.
+- **D7.1.** Lists cloud projects in the user's org that aren't pinned locally (`v2_projects` ∖ `v2SidebarProjects`). No backing filter — pinned-and-unbacked stays in the sidebar, not here.
+- **D7.2.** Two entry points:
+  - **"+ New project"** → `project.create`
+  - **"Pin & set up"** on a row → adds pin + runs `project.setup`
+- **D7.3.** Pins never drop back into Available. Once pinned, a project lives in the sidebar forever (or until user unpins — separate gesture, out of scope).
+- **D7.4.** No row-state decoration here (Normal / Stale path / Host offline / Not set up here are sidebar concerns). Available lists cloud projects as candidates only.
+- **D7.5. Folder-first entry: "Import existing folder."** Alongside "+ New project." User picks a folder; if its git remote matches an existing cloud project, we bind to that project via `project.setup`. If multiple projects match (two cloud projects share a GitHub repo across orgs, etc.), show a picker. If none match, offer to create instead via `project.create` with `mode: importLocal`.
 
-Pins never fall out of the sidebar, so Available is strictly for first-time pinning.
+### Folder-first import — picker flow
+
+1. User clicks "Import existing folder" → native picker (client).
+2. Client calls new host-service `project.findByPath({ repoPath }) → { candidates: Array<{ id, name, slug, organizationId, organizationName }> }`.
+3. Host-service validates `repoPath` is a git root, reads the remote URL, forwards to new cloud `v2Projects.findByRemote({ repoCloneUrl })` via `ctx.api`.
+4. Cloud filters to projects in orgs the user belongs to, returns matches.
+5. Client branches on `candidates.length`:
+   - **0** → modal offers "No match — create as new project" (pivots to `project.create` `importLocal`).
+   - **1** → auto-advance to `project.setup({ projectId, mode: { kind: "import", repoPath } })`.
+   - **>1** → picker modal lists candidates (name + org); user picks; then `project.setup`.
+
+Decisions baked in:
+- **D7.6.** Picker only appears when ambiguity is real (≥2 matches). One match auto-advances. No match offers creation.
+- **D7.7.** Candidate list scoped to the user's accessible orgs, not global — respects v2 auth scope.
+- **D7.8.** New host-service endpoint `project.findByPath` handles the remote-read + cloud-query in one call (client doesn't fan out).
+- **D7.9.** New cloud endpoint `v2Projects.findByRemote` — dedicated matcher, not a `v2Projects.list` filter, so auth is explicit and intent is clear.
 
 ---
 
@@ -299,7 +323,7 @@ Row state surfaces the problem; the pin stays.
 | Transition | RPC | Entry point | Row state flips |
 | --- | --- | --- | --- |
 | nothing → cell 2 | `project.create` | Available "+ New project" | Normal immediately |
-| cell 1 → cell 2 | `project.setup` | Available "Pin & set up", sidebar "Set up here" CTA | Normal immediately |
+| cell 1 → cell 2 | `project.setup` | Workspaces-tab Available "Pin & set up", sidebar "Set up here" CTA | Normal immediately |
 | cell 3 → cell 2 | `project.setup` (`acknowledgeWorkspaceInvalidation: true`) | Stale-path Repair CTA | Normal immediately |
 | workspace-create on unbacked host | workspace.create throw → inline `project.setup` → retry | New Workspace modal | Normal immediately |
 
@@ -307,7 +331,7 @@ Row state surfaces the problem; the pin stays.
 
 ## Open questions
 
-1. **Disambiguation on import.** If a folder's remote matches multiple cloud projects (forks), `project.setup` needs `projectId` — the caller must already have picked. A "browse a folder → which project?" picker only if a concrete entry point needs it.
+1. ~~**Disambiguation on import.**~~ **Resolved:** Phase 1 ships a folder-first entry point ("Import existing folder") with a picker. See the dedicated section below.
 2. **GitHub auth for repo creation.** Likely cloud-side (GitHub App installation), fetched via `ctx.api`. Org-picker UX is a separate design.
 3. **Template source.** Cloud records, curated registry, or user-provided? Mode exists in the RPC shape; implementation stubbed until decided.
 4. **Mid-flow failure visibility.** With no rollback, a cloud row can exist without any host-service row. Available surfaces this naturally — decide whether the originating client also shows an inline "setup unfinished" recovery path.
@@ -329,7 +353,10 @@ Pin behavior (auto-pin on create/setup, cross-device pin sync, unpin UX) is out 
 - [ ] `project.remove` deletes cloud `v2_host_projects` for current host
 - [ ] `useDashboardSidebarData` extended with `localBacked` + `remoteBacked` derivations (from `v2HostProjects ⋈ v2Hosts`) and row-state per project
 - [ ] Sidebar project row renders row state (all four: Normal, Stale path stub, Host offline stub, Not set up here stub)
-- [ ] Available surface: "+ New project" and "Pin & set up" actions
+- [ ] Available section inside the workspaces tab: "+ New project", "Pin & set up", and "Import existing folder" actions
+- [ ] Host-service `project.findByPath` endpoint (git-remote read + cloud forward)
+- [ ] Cloud `v2Projects.findByRemote` endpoint (scoped by user's org membership)
+- [ ] Folder-first import picker UI (auto-advance on single match; chooser on multiple; fallback to create on none)
 - [ ] React Query invalidation on `["project", "list"]` after `project.create` / `project.setup` / `project.remove`
 
 **Phase 2 — row-state polish**
