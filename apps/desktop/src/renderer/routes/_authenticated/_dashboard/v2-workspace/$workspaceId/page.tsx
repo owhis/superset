@@ -5,15 +5,18 @@ import {
 	ResizablePanel,
 	ResizablePanelGroup,
 } from "@superset/ui/resizable";
+import { toast } from "@superset/ui/sonner";
 import { workspaceTrpc } from "@superset/workspace-client";
 import { eq } from "@tanstack/db";
 import { useLiveQuery } from "@tanstack/react-db";
 import { createFileRoute } from "@tanstack/react-router";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { HiMiniXMark } from "react-icons/hi2";
 import { TbLayoutColumns, TbLayoutRows } from "react-icons/tb";
 import { HotkeyLabel, useHotkey } from "renderer/hotkeys";
+import { electronTrpcClient } from "renderer/lib/trpc-client";
 import { useCollections } from "renderer/routes/_authenticated/providers/CollectionsProvider";
+import { useLocalHostService } from "renderer/routes/_authenticated/providers/LocalHostServiceProvider";
 import { CommandPalette } from "renderer/screens/main/components/CommandPalette";
 import {
 	toAbsoluteWorkspacePath,
@@ -92,6 +95,7 @@ function WorkspaceContent({
 	workspaceId: string;
 	workspaceName: string;
 }) {
+	const collections = useCollections();
 	const { localWorkspaceState, store } = useV2WorkspacePaneLayout({
 		projectId,
 		workspaceId,
@@ -102,8 +106,6 @@ function WorkspaceContent({
 		projectId,
 	});
 	useConsumePendingLaunch({ workspaceId, store });
-	const paneRegistry = usePaneRegistry(workspaceId);
-	const defaultContextMenuActions = useDefaultContextMenuActions(paneRegistry);
 
 	const workspaceQuery = workspaceTrpc.workspace.get.useQuery({
 		id: workspaceId,
@@ -112,13 +114,39 @@ function WorkspaceContent({
 
 	const { recentFiles, recordView } = useRecentlyViewedFiles(workspaceId);
 
-	const selectedFilePath = useStore(store, (s) => {
+	const { machineId } = useLocalHostService();
+	const { data: workspacesWithHost = [] } = useLiveQuery(
+		(q) =>
+			q
+				.from({ workspaces: collections.v2Workspaces })
+				.leftJoin({ hosts: collections.v2Hosts }, ({ workspaces, hosts }) =>
+					eq(workspaces.hostId, hosts.id),
+				)
+				.where(({ workspaces }) => eq(workspaces.id, workspaceId))
+				.select(({ hosts }) => ({
+					hostMachineId: hosts?.machineId ?? null,
+				})),
+		[collections, workspaceId],
+	);
+	const workspaceHost = workspacesWithHost[0];
+
+	const activeFilePanePath = useStore(store, (s) => {
 		const tab = s.tabs.find((t) => t.id === s.activeTabId);
 		if (!tab?.activePaneId) return undefined;
 		const pane = tab.panes[tab.activePaneId];
 		if (pane?.kind === "file") return (pane.data as FilePaneData).filePath;
 		return undefined;
 	});
+
+	const [selectedFilePath, setSelectedFilePath] = useState<string | undefined>(
+		activeFilePanePath,
+	);
+
+	useEffect(() => {
+		if (activeFilePanePath !== undefined) {
+			setSelectedFilePath(activeFilePanePath);
+		}
+	}, [activeFilePanePath]);
 
 	const openFilePathsKey = useStore(store, (s) =>
 		s.tabs
@@ -178,6 +206,42 @@ function WorkspaceContent({
 		},
 		[store, worktreePath, recordView],
 	);
+
+	const revealPath = useCallback(
+		(path: string) => {
+			collections.v2WorkspaceLocalState.update(workspaceId, (draft) => {
+				draft.rightSidebarOpen = true;
+			});
+			setSelectedFilePath(path);
+		},
+		[collections, workspaceId],
+	);
+
+	const openExternal = useCallback(
+		(path: string, opts?: { line?: number; column?: number }) => {
+			if (workspaceHost && workspaceHost.hostMachineId !== machineId) {
+				toast.error("Can't open remote workspace paths in an external editor");
+				return;
+			}
+			electronTrpcClient.external.openFileInEditor
+				.mutate({ path, line: opts?.line, column: opts?.column })
+				.catch((error) => {
+					console.error(
+						"[v2 Terminal] Failed to open in external editor:",
+						error,
+					);
+					toast.error("Failed to open in external editor");
+				});
+		},
+		[workspaceHost, machineId],
+	);
+
+	const paneRegistry = usePaneRegistry(workspaceId, {
+		onOpenFile: openFilePane,
+		onRevealPath: revealPath,
+		onOpenExternal: openExternal,
+	});
+	const defaultContextMenuActions = useDefaultContextMenuActions(paneRegistry);
 
 	const openDiffPane = useCallback(
 		(filePath: string) => {

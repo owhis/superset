@@ -1,5 +1,4 @@
 import type { RendererContext } from "@superset/panes";
-import { toast } from "@superset/ui/sonner";
 import { workspaceTrpc } from "@superset/workspace-client";
 import "@xterm/xterm/css/xterm.css";
 import {
@@ -16,7 +15,6 @@ import {
 } from "renderer/lib/terminal/terminal-runtime-registry";
 import { electronTrpcClient } from "renderer/lib/trpc-client";
 import type {
-	FilePaneData,
 	PaneViewerData,
 	TerminalPaneData,
 } from "renderer/routes/_authenticated/_dashboard/v2-workspace/$workspaceId/types";
@@ -30,6 +28,12 @@ import { useTerminalAppearance } from "./hooks/useTerminalAppearance";
 interface TerminalPaneProps {
 	ctx: RendererContext<PaneViewerData>;
 	workspaceId: string;
+	onOpenFile: (path: string, openInNewTab?: boolean) => void;
+	onRevealPath: (path: string) => void;
+	onOpenExternal: (
+		path: string,
+		opts?: { line?: number; column?: number },
+	) => void;
 }
 
 function subscribeToState(terminalId: string) {
@@ -41,7 +45,13 @@ function getConnectionState(terminalId: string): ConnectionState {
 	return terminalRuntimeRegistry.getConnectionState(terminalId);
 }
 
-export function TerminalPane({ ctx, workspaceId }: TerminalPaneProps) {
+export function TerminalPane({
+	ctx,
+	workspaceId,
+	onOpenFile,
+	onRevealPath,
+	onOpenExternal,
+}: TerminalPaneProps) {
 	const paneData = ctx.pane.data as TerminalPaneData;
 	const { terminalId } = paneData;
 	const containerRef = useRef<HTMLDivElement | null>(null);
@@ -125,8 +135,12 @@ export function TerminalPane({ ctx, workspaceId }: TerminalPaneProps) {
 	const statPathRef = useRef(statPathMutation.mutateAsync);
 	statPathRef.current = statPathMutation.mutateAsync;
 
-	const paneStoreRef = useRef(ctx.store);
-	paneStoreRef.current = ctx.store;
+	const onOpenFileRef = useRef(onOpenFile);
+	onOpenFileRef.current = onOpenFile;
+	const onRevealPathRef = useRef(onRevealPath);
+	onRevealPathRef.current = onRevealPath;
+	const onOpenExternalRef = useRef(onOpenExternal);
+	onOpenExternalRef.current = onOpenExternal;
 
 	useEffect(() => {
 		terminalRuntimeRegistry.setLinkHandlers(terminalId, {
@@ -145,36 +159,21 @@ export function TerminalPane({ ctx, workspaceId }: TerminalPaneProps) {
 					return null;
 				}
 			},
-			onFileLinkClick: async (event, link) => {
+			onFileLinkClick: (event, link) => {
 				if (!event.metaKey && !event.ctrlKey) return;
 				event.preventDefault();
-				const behavior =
-					await electronTrpcClient.settings.getTerminalLinkBehavior
-						.query()
-						.catch(() => "file-viewer" as const);
-				if (behavior === "file-viewer" && !link.isDirectory) {
-					paneStoreRef.current.getState().openPane({
-						pane: {
-							kind: "file",
-							data: {
-								filePath: link.resolvedPath,
-								mode: "editor",
-								hasChanges: false,
-							} satisfies FilePaneData,
-						},
+				if (event.shiftKey) {
+					onOpenExternalRef.current(link.resolvedPath, {
+						line: link.row,
+						column: link.col,
 					});
 					return;
 				}
-				electronTrpcClient.external.openFileInEditor
-					.mutate({
-						path: link.resolvedPath,
-						line: link.row,
-						column: link.col,
-					})
-					.catch((error) => {
-						console.error("[v2 Terminal] Failed to open file:", error);
-						toast.error("Failed to open file in editor");
-					});
+				if (link.isDirectory) {
+					onRevealPathRef.current(link.resolvedPath);
+				} else {
+					onOpenFileRef.current(link.resolvedPath);
+				}
 			},
 			onUrlClick: (url) => {
 				electronTrpcClient.external.openUrl.mutate(url).catch((error) => {
