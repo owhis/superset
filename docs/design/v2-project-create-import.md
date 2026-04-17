@@ -121,15 +121,16 @@ Changes from existing:
 
 ```ts
 project.list() → Array<{
-  id: string              // matches v2_projects.id
+  id: string          // matches v2_projects.id
   repoPath: string
-  pathStatus: "healthy" | "missing"   // statSync(repoPath) at read time
 }>
 ```
 
-One row per `host-service.projects` entry on the calling machine. Cell-3 detection stays server-side where `fs` lives.
+One row per `host-service.projects` entry on the calling machine. Pure DB read, no filesystem check.
 
-Renderer refetches after `project.create` / `project.setup` / `project.remove` mutations via React Query invalidation on the shared `["project", "list"]` key. No subscription — backing rarely changes and invalidation-on-mutation is sufficient.
+**Phase 1: no proactive stale-path detection.** Operations that hit a missing path (e.g. `workspace.create`, `git` calls) surface the error at that moment, and their error handlers invalidate `["project", "list"]` so the sidebar can react. Lazy path to repair is good enough until users complain. Phase 4 adds proactive `statSync` + a Stale-path row state + a refetch interval to catch out-of-band disk changes.
+
+Renderer reads via React Query with invalidation on `["project", "list"]` after `project.create` / `project.setup` / `project.remove` (and on operation errors that indicate a vanished path). No subscription, no polling — local `host-service.projects` only changes via our own mutations.
 
 ### Cloud backing signal: `v2_host_projects`
 
@@ -194,7 +195,7 @@ const { data: localBacked } = useQuery({
   queryKey: ["project", "list"],
   queryFn: () => activeHostClient.project.list.query(),
 })
-// Map<projectId, { repoPath, pathStatus }>
+// Map<projectId, { repoPath }>
 ```
 
 **Remote backing** — Electric-derived from `v2_host_projects`, tolerates sync lag:
@@ -217,10 +218,11 @@ Both online and offline remote backings are surfaced — offline is what drives 
 
 | Row state | Condition | CTA |
 | --- | --- | --- |
-| Normal | local backing `healthy`, or any `remoteBacked.online` host | open / new workspace |
-| Stale path | local backing exists with `pathStatus: "missing"` | Repair (→ `project.setup` with `acknowledgeWorkspaceInvalidation`) |
+| Normal | local backing exists, or any `remoteBacked.online` host | open / new workspace |
 | Host offline | no local backing, no online remote backing, but `remoteBacked.offline` non-empty | passive; reconnect restores |
 | Not set up here | no local backing, no remote backing at all | "Set up here" inline (→ `project.setup`) |
+
+Phase 4 adds a fourth **Stale path** state, triggered by proactive `statSync` of `repoPath`. Phase 1 doesn't distinguish healthy-on-disk from missing-on-disk — operations fail lazily if the path is gone.
 
 ### Workspace row
 
@@ -324,7 +326,7 @@ Row state surfaces the problem; the pin stays.
 | --- | --- | --- | --- |
 | nothing → cell 2 | `project.create` | Available "+ New project" | Normal immediately |
 | cell 1 → cell 2 | `project.setup` | Workspaces-tab Available "Pin & set up", sidebar "Set up here" CTA | Normal immediately |
-| cell 3 → cell 2 | `project.setup` (`acknowledgeWorkspaceInvalidation: true`) | Stale-path Repair CTA | Normal immediately |
+| cell 3 → cell 2 | `project.setup` (`acknowledgeWorkspaceInvalidation: true`) | Phase 4 Stale-path Repair CTA (or lazy on operation error in Phase 1) | Normal immediately |
 | workspace-create on unbacked host | workspace.create throw → inline `project.setup` → retry | New Workspace modal | Normal immediately |
 
 ---

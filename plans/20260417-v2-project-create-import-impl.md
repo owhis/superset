@@ -17,7 +17,7 @@ The MVP. Intentionally broad — the pieces are tightly coupled (backing signal,
 
 ### Host-service (packages/host-service)
 
-- [ ] `project.list` — returns `Array<{ id, repoPath, pathStatus: "healthy"|"missing" }>`. `statSync` at read time.
+- [ ] `project.list` — returns `Array<{ id, repoPath }>`. Pure DB read, no filesystem check. Proactive `statSync` / Stale-path detection is Phase 4.
 - [ ] `project.findByPath({ repoPath })` — validates git root, reads remote, forwards to cloud `v2Projects.findByRemote`. Returns candidate projects.
 - [ ] `project.create` — discriminated-union mode (`empty`/`clone`/`importLocal`/`template`); Phase 1 implements `clone` and `importLocal` only, others throw `not_implemented`. Writes local `host-service.projects` + cloud `v2_host_projects`.
 - [ ] `project.setup` — discriminated-union mode (`clone`/`import`) with per-variant path semantics. Adds `acknowledgeWorkspaceInvalidation` param. Also upserts cloud `v2_host_projects`.
@@ -27,10 +27,10 @@ The MVP. Intentionally broad — the pieces are tightly coupled (backing signal,
 
 - [ ] Register `v2HostProjects` collection in `CollectionsProvider`.
 - [ ] Extend `useDashboardSidebarData`:
-  - Local backing via React Query against `activeHostClient.project.list` (key `["project", "list"]`).
+  - Local backing via React Query against `activeHostClient.project.list` (key `["project", "list"]`). Invalidated after mutations; error handlers on `workspace.create` / git ops invalidate on "vanished path" errors.
   - Remote backing via `useLiveQuery` over `v2_host_projects ⋈ v2_hosts`, partitioned online/offline, excluding current machineId.
-  - Derived row state per pinned project.
-- [ ] Sidebar project row renders all four row states. Phase 1 surfaces Normal fully; Stale path / Host offline / Not set up here render as visual markers with no inline CTA yet (stubs for Phase 2).
+  - Derived row state per pinned project (Normal / Host offline / Not set up here — three states in Phase 1; Stale path is Phase 4).
+- [ ] Sidebar project row renders three row states. Phase 1 surfaces Normal fully; Host offline / Not set up here render as visual markers with no inline CTA yet (stubs for Phase 2).
 - [ ] Workspaces tab: Available section with three actions — "+ New project", "Pin & set up" (per cloud project row), "Import existing folder."
 - [ ] Folder-first picker UI:
   - Native picker → `project.findByPath`.
@@ -46,6 +46,7 @@ The MVP. Intentionally broad — the pieces are tightly coupled (backing signal,
 - Pinning a project whose only backing is on an offline host renders the "Host offline" marker.
 - Pinning a project with no backing anywhere renders the "Not set up here" marker (CTA not yet wired).
 - Importing a folder whose remote matches multiple projects surfaces the picker.
+- Deleting the repo directory out of band is not caught by the sidebar until the user triggers an operation that fails — by design (proactive detection is Phase 4).
 
 ---
 
@@ -69,10 +70,13 @@ Couple `workspace.create` to the setup flow so unbacked-host workspace creation 
 
 ---
 
-## Phase 4 — stale-path repair
+## Phase 4 — stale-path detection + repair
 
-Wire the Repair CTA on cell-3 rows.
+Add proactive Stale-path detection and wire the Repair CTA.
 
+- [ ] `project.list` returns `pathStatus: "healthy" | "missing"` via `statSync` at read time.
+- [ ] `useDashboardSidebarData` adds a modest `refetchInterval` (30–60s) to catch out-of-band directory deletions.
+- [ ] Fourth row state "Stale path" driven by `pathStatus: "missing"` on local backing.
 - [ ] Stale-path sidebar row shows Repair CTA.
 - [ ] Repair opens the `project.setup` modal with `acknowledgeWorkspaceInvalidation: true` pre-set.
 - [ ] Copy explains that re-pointing the path invalidates existing workspace rows under the project; user confirms.
