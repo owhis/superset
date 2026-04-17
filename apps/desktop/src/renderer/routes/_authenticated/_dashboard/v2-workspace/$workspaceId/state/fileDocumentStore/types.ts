@@ -20,6 +20,7 @@ export interface ConflictState {
 }
 
 export interface SharedFileDocument {
+	readonly id: string;
 	readonly workspaceId: string;
 	readonly absolutePath: string;
 

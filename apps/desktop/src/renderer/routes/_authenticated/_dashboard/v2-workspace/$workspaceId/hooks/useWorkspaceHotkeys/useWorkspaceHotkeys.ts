@@ -1,6 +1,7 @@
 import {
 	type FocusDirection,
 	getSpatialNeighborPaneId,
+	type PaneRegistry,
 	type WorkspaceStore,
 } from "@superset/panes";
 import { useCallback } from "react";
@@ -20,11 +21,13 @@ export function useWorkspaceHotkeys({
 	workspaceId,
 	matchedPresets,
 	executePreset,
+	paneRegistry,
 }: {
 	store: StoreApi<WorkspaceStore<PaneViewerData>>;
 	workspaceId: string;
 	matchedPresets: V2TerminalPresetRow[];
 	executePreset: (preset: V2TerminalPresetRow) => void;
+	paneRegistry: PaneRegistry<PaneViewerData>;
 }) {
 	const collections = useCollections();
 
@@ -69,12 +72,16 @@ export function useWorkspaceHotkeys({
 
 	// --- Tab management ---
 
-	useHotkey("CLOSE_TERMINAL", () => {
+	useHotkey("CLOSE_PANE", async () => {
 		const state = store.getState();
 		const active = state.getActivePane();
-		if (active) {
-			state.closePane({ tabId: active.tabId, paneId: active.pane.id });
+		if (!active) return;
+		const definition = paneRegistry[active.pane.kind];
+		if (definition?.onBeforeClose) {
+			const allowed = await definition.onBeforeClose(active.pane);
+			if (!allowed) return;
 		}
+		state.closePane({ tabId: active.tabId, paneId: active.pane.id });
 	});
 
 	useHotkey("CLOSE_TAB", () => {

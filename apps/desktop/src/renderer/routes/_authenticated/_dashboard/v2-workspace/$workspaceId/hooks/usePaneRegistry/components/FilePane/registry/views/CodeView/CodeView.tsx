@@ -9,7 +9,7 @@ export function CodeView({ document, filePath }: ViewProps) {
 
 	return (
 		<CodeEditor
-			key={filePath}
+			key={document.id}
 			value={document.content.value}
 			language={detectLanguage(filePath)}
 			onChange={(next) => document.setContent(next)}

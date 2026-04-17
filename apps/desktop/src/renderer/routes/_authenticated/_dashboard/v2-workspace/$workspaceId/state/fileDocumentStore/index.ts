@@ -3,9 +3,7 @@ export {
 	acquireDocument,
 	dispatchFsEvent,
 	getDocument,
-	initializeFileDocumentStore,
 	releaseDocument,
-	teardownFileDocumentStore,
 } from "./fileDocumentStore";
 export type {
 	ConflictResolution,

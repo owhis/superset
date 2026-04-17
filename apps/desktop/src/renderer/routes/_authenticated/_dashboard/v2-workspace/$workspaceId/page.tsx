@@ -33,7 +33,10 @@ import { useRecentlyViewedFiles } from "./hooks/useRecentlyViewedFiles";
 import { useV2PresetExecution } from "./hooks/useV2PresetExecution";
 import { useV2WorkspacePaneLayout } from "./hooks/useV2WorkspacePaneLayout";
 import { useWorkspaceHotkeys } from "./hooks/useWorkspaceHotkeys";
-import { FileDocumentStoreProvider } from "./state/fileDocumentStore";
+import {
+	FileDocumentStoreProvider,
+	getDocument,
+} from "./state/fileDocumentStore";
 import type {
 	BrowserPaneData,
 	ChatPaneData,
@@ -149,7 +152,6 @@ function WorkspaceContent({
 							data: {
 								filePath,
 								mode: "editor",
-								hasChanges: false,
 							} as FilePaneData,
 						},
 					],
@@ -170,7 +172,6 @@ function WorkspaceContent({
 					data: {
 						filePath,
 						mode: "editor",
-						hasChanges: false,
 					} as FilePaneData,
 				},
 			});
@@ -304,7 +305,7 @@ function WorkspaceContent({
 			{
 				key: "close",
 				icon: <HiMiniXMark className="size-3.5" />,
-				tooltip: <HotkeyLabel label="Close pane" id="CLOSE_TERMINAL" />,
+				tooltip: <HotkeyLabel label="Close pane" id="CLOSE_PANE" />,
 				onClick: (ctx) => ctx.actions.close(),
 			},
 		],
@@ -313,7 +314,13 @@ function WorkspaceContent({
 
 	const sidebarOpen = localWorkspaceState?.rightSidebarOpen ?? false;
 
-	useWorkspaceHotkeys({ store, workspaceId, matchedPresets, executePreset });
+	useWorkspaceHotkeys({
+		store,
+		workspaceId,
+		matchedPresets,
+		executePreset,
+		paneRegistry,
+	});
 	useHotkey("QUICK_OPEN", handleQuickOpen);
 
 	return (
@@ -352,10 +359,11 @@ function WorkspaceContent({
 							)}
 							onBeforeCloseTab={(tab) => {
 								const dirtyFiles = Object.values(tab.panes)
-									.filter(
-										(p) =>
-											p.kind === "file" && (p.data as FilePaneData).hasChanges,
-									)
+									.filter((p) => {
+										if (p.kind !== "file") return false;
+										const filePath = (p.data as FilePaneData).filePath;
+										return getDocument(workspaceId, filePath)?.dirty === true;
+									})
 									.map((p) =>
 										(p.data as FilePaneData).filePath.split("/").pop(),
 									);

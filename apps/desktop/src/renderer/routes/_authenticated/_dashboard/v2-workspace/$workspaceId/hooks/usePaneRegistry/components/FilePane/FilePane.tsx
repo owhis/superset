@@ -1,10 +1,9 @@
 import type { RendererContext } from "@superset/panes";
+import { alert } from "@superset/ui/atoms/Alert";
 import { useCallback, useEffect } from "react";
 import { useSharedFileDocument } from "../../../../state/fileDocumentStore";
 import type { FilePaneData, PaneViewerData } from "../../../../types";
-import { ConflictDialog } from "./components/ConflictDialog";
 import { ErrorState } from "./components/ErrorState";
-import { ExternalChangeBar } from "./components/ExternalChangeBar";
 import { LoadingState } from "./components/LoadingState";
 import { OrphanedBanner } from "./components/OrphanedBanner";
 import { SaveErrorBanner } from "./components/SaveErrorBanner";
@@ -24,15 +23,49 @@ export function FilePane({ context, workspaceId }: FilePaneProps) {
 		absolutePath: filePath,
 	});
 
-	// Mirror document dirty state back into the pane data so the tab indicator stays in sync.
+	// Follow the underlying file if it's renamed on disk — the store migrates
+	// the entry, document.absolutePath returns the new path, and we reconcile
+	// the pane's own filePath so the tab title updates.
 	useEffect(() => {
-		if (document.dirty !== data.hasChanges) {
+		if (document.absolutePath !== data.filePath) {
 			context.actions.updateData({
 				...data,
-				hasChanges: document.dirty,
+				filePath: document.absolutePath,
 			} as PaneViewerData);
 		}
-	}, [document.dirty, data, context.actions]);
+	}, [document.absolutePath, data, context.actions]);
+
+	useEffect(() => {
+		if (document.dirty && !context.pane.pinned) {
+			context.actions.pin();
+		}
+	}, [document.dirty, context.pane.pinned, context.actions]);
+
+	const hasConflict = document.conflict !== null;
+	useEffect(() => {
+		if (!hasConflict) return;
+		const name = filePath.split("/").pop();
+		alert({
+			title: `Do you want to save the changes you made to ${name}?`,
+			description: "Your changes will be lost if you don't save them.",
+			actions: [
+				{
+					label: "Save",
+					onClick: () => document.resolveConflict("overwrite"),
+				},
+				{
+					label: "Don't Save",
+					variant: "secondary",
+					onClick: () => document.resolveConflict("reload"),
+				},
+				{
+					label: "Cancel",
+					variant: "ghost",
+					onClick: () => document.resolveConflict("keep"),
+				},
+			],
+		});
+	}, [hasConflict, document, filePath]);
 
 	const handleChangeView = useCallback(
 		(viewId: string) => {
@@ -78,8 +111,6 @@ export function FilePane({ context, workspaceId }: FilePaneProps) {
 	}
 
 	const ViewRenderer = activeView.Renderer;
-	const localContent =
-		document.content.kind === "text" ? document.content.value : "";
 
 	return (
 		<div className="flex h-full w-full flex-col">
@@ -88,9 +119,6 @@ export function FilePane({ context, workspaceId }: FilePaneProps) {
 					dirty={document.dirty}
 					onDiscard={() => void document.reload()}
 				/>
-			)}
-			{document.hasExternalChange && !document.conflict && (
-				<ExternalChangeBar onReload={() => void document.reload()} />
 			)}
 			{document.saveError && (
 				<SaveErrorBanner
@@ -108,18 +136,6 @@ export function FilePane({ context, workspaceId }: FilePaneProps) {
 					onForceView={handleForceView}
 				/>
 			</div>
-			{document.conflict && (
-				<ConflictDialog
-					open
-					filePath={filePath}
-					localContent={localContent}
-					diskContent={document.conflict.diskContent}
-					pendingSave={document.pendingSave}
-					onKeepEditing={() => void document.resolveConflict("keep")}
-					onReload={() => void document.resolveConflict("reload")}
-					onOverwrite={() => void document.resolveConflict("overwrite")}
-				/>
-			)}
 		</div>
 	);
 }

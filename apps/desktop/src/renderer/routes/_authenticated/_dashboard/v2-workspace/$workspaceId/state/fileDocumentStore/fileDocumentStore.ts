@@ -11,8 +11,10 @@ import type {
 type WorkspaceTrpcClient = ReturnType<typeof workspaceTrpc.createClient>;
 
 interface DocumentEntry {
+	id: string;
 	workspaceId: string;
 	absolutePath: string;
+	trpcClient: WorkspaceTrpcClient;
 	content: ContentState;
 	savedContentText: string | null;
 	pendingSave: boolean;
@@ -30,7 +32,6 @@ interface DocumentEntry {
 const DEFAULT_MAX_BYTES = 2 * 1024 * 1024;
 const BINARY_CHECK_SIZE = 8192;
 
-let activeTrpcClient: WorkspaceTrpcClient | null = null;
 const entries = new Map<string, DocumentEntry>();
 
 function key(workspaceId: string, absolutePath: string): string {
@@ -76,28 +77,8 @@ function toBytes(value: string | Uint8Array): Uint8Array {
 	return typeof value === "string" ? decodeBase64(value) : value;
 }
 
-function requireClient(): WorkspaceTrpcClient {
-	if (!activeTrpcClient) {
-		throw new Error(
-			"fileDocumentStore accessed before initialization; ensure FileDocumentStoreProvider is mounted",
-		);
-	}
-	return activeTrpcClient;
-}
-
-export function initializeFileDocumentStore(config: {
-	trpcClient: WorkspaceTrpcClient;
-}): void {
-	activeTrpcClient = config.trpcClient;
-}
-
-export function teardownFileDocumentStore(): void {
-	activeTrpcClient = null;
-	entries.clear();
-}
-
 async function loadEntry(entry: DocumentEntry): Promise<void> {
-	const client = requireClient();
+	const client = entry.trpcClient;
 	try {
 		const result = await client.filesystem.readFile.query({
 			workspaceId: entry.workspaceId,
@@ -154,7 +135,7 @@ async function fetchCurrentDiskContent(
 	entry: DocumentEntry,
 ): Promise<string | null> {
 	if (entry.isBinary) return null;
-	const client = requireClient();
+	const client = entry.trpcClient;
 	try {
 		const result = await client.filesystem.readFile.query({
 			workspaceId: entry.workspaceId,
@@ -172,6 +153,9 @@ async function fetchCurrentDiskContent(
 
 function createHandle(entry: DocumentEntry): SharedFileDocument {
 	return {
+		get id() {
+			return entry.id;
+		},
 		get workspaceId() {
 			return entry.workspaceId;
 		},
@@ -218,7 +202,7 @@ function createHandle(entry: DocumentEntry): SharedFileDocument {
 					error: new Error("Cannot save non-text content"),
 				};
 			}
-			const client = requireClient();
+			const client = entry.trpcClient;
 			const currentValue = entry.content.value;
 			const currentRevision = entry.content.revision;
 			entry.pendingSave = true;
@@ -312,13 +296,16 @@ function createHandle(entry: DocumentEntry): SharedFileDocument {
 export function acquireDocument(
 	workspaceId: string,
 	absolutePath: string,
+	trpcClient: WorkspaceTrpcClient,
 ): SharedFileDocument {
 	const k = key(workspaceId, absolutePath);
 	let entry = entries.get(k);
 	if (!entry) {
 		entry = {
+			id: crypto.randomUUID(),
 			workspaceId,
 			absolutePath,
+			trpcClient,
 			content: { kind: "loading" },
 			savedContentText: null,
 			pendingSave: false,
@@ -376,45 +363,47 @@ export function dispatchFsEvent(
 	workspaceId: string,
 	event: FsWatchEvent,
 ): void {
-	for (const entry of entries.values()) {
+	// Snapshot before iterating — the rename branch below does entries.delete +
+	// entries.set on the same map, and JS Map iterators visit keys inserted
+	// mid-iteration, which would revisit the same entry and loop forever.
+	for (const entry of Array.from(entries.values())) {
 		if (entry.workspaceId !== workspaceId) continue;
 		const affects =
 			entry.absolutePath === event.absolutePath ||
 			(event.kind === "rename" && event.oldAbsolutePath === entry.absolutePath);
 		if (!affects) continue;
 
-		switch (event.kind) {
-			case "delete": {
-				entry.orphaned = true;
+		const isContentMutation =
+			event.kind === "create" ||
+			event.kind === "update" ||
+			event.kind === "overflow" ||
+			(event.kind === "rename" && event.absolutePath === entry.absolutePath);
+
+		if (event.kind === "delete") {
+			entry.orphaned = true;
+			notify(entry);
+			continue;
+		}
+
+		if (
+			event.kind === "rename" &&
+			event.oldAbsolutePath === entry.absolutePath
+		) {
+			const oldKey = key(entry.workspaceId, entry.absolutePath);
+			entries.delete(oldKey);
+			entry.absolutePath = event.absolutePath;
+			entries.set(key(entry.workspaceId, entry.absolutePath), entry);
+			notify(entry);
+			continue;
+		}
+
+		if (isContentMutation) {
+			if (entry.orphaned) entry.orphaned = false;
+			if (computeDirty(entry)) {
+				entry.hasExternalChange = true;
 				notify(entry);
-				break;
-			}
-			case "rename": {
-				// Migrate the entry to its new absolute path
-				const oldKey = key(entry.workspaceId, entry.absolutePath);
-				entries.delete(oldKey);
-				entry.absolutePath = event.absolutePath;
-				entries.set(key(entry.workspaceId, entry.absolutePath), entry);
-				if (computeDirty(entry)) {
-					entry.hasExternalChange = true;
-				}
-				notify(entry);
-				break;
-			}
-			case "create":
-			case "update":
-			case "overflow": {
-				// Clear orphan if the file reappeared
-				if (entry.orphaned) {
-					entry.orphaned = false;
-				}
-				if (computeDirty(entry)) {
-					entry.hasExternalChange = true;
-					notify(entry);
-				} else {
-					void loadEntry(entry);
-				}
-				break;
+			} else {
+				void loadEntry(entry);
 			}
 		}
 	}
