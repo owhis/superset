@@ -301,9 +301,10 @@ export const automationRouter = {
 		}),
 
 	/**
-	 * Fire an automation immediately — inserts a scheduled_for = now() run and
-	 * returns the row. Dispatch is picked up on the next cron tick, or the
-	 * caller can hit the dispatcher directly with the returned id.
+	 * Fire an automation immediately — bumps next_run_at to now() so the next
+	 * dispatcher tick (≤1 min) picks it up. Doesn't insert a run row itself;
+	 * the dispatcher owns that write to keep the idempotency key on
+	 * (automation_id, scheduled_for) consistent.
 	 */
 	runNow: paidPlanProcedure
 		.input(z.object({ id: z.string().uuid() }))
@@ -315,37 +316,28 @@ export const automationRouter = {
 				input.id,
 			);
 
-			const scheduledFor = bucketToMinute(new Date());
-
-			const [run] = await dbWs
-				.insert(automationRuns)
-				.values({
-					automationId: automation.id,
-					organizationId: automation.organizationId,
-					scheduledFor,
-					status: "pending",
-				})
-				.onConflictDoNothing({
-					target: [automationRuns.automationId, automationRuns.scheduledFor],
-				})
-				.returning();
-
-			if (!run) {
-				// There's already a run for this minute bucket — fetch + return it.
-				const [existingRun] = await db
-					.select()
-					.from(automationRuns)
-					.where(
-						and(
-							eq(automationRuns.automationId, automation.id),
-							eq(automationRuns.scheduledFor, scheduledFor),
-						),
-					)
-					.limit(1);
-				return existingRun;
+			if (!automation.enabled) {
+				throw new TRPCError({
+					code: "BAD_REQUEST",
+					message: "Automation is paused. Resume it before triggering a run.",
+				});
 			}
 
-			return run;
+			const now = new Date();
+			// Nudge one second into the past so the dispatcher's lte(next_run_at, now)
+			// window catches it on the very next tick.
+			const nextRunAt = new Date(now.getTime() - 1_000);
+
+			const [updated] = await dbWs
+				.update(automations)
+				.set({ nextRunAt })
+				.where(eq(automations.id, automation.id))
+				.returning();
+
+			return {
+				automationId: automation.id,
+				nextRunAt: updated?.nextRunAt ?? nextRunAt,
+			};
 		}),
 
 	/** Run history for a given automation (paginated). */

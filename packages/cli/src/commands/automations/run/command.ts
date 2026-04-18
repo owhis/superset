@@ -7,10 +7,12 @@ export default command({
 		id: positional().required().desc("Automation id"),
 	},
 	run: async ({ ctx, options }) => {
-		const run = await ctx.api.automation.runNow.mutate({ id: options.id });
+		const result = await ctx.api.automation.runNow.mutate({
+			id: options.id,
+		});
 		return {
-			data: run,
-			message: `Triggered automation ${options.id} (run ${run?.id ?? "?"})`,
+			data: result,
+			message: `Triggered automation ${options.id}. Dispatcher will pick it up within 1 minute.`,
 		};
 	},
 });

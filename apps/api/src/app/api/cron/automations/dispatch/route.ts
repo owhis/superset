@@ -11,8 +11,11 @@ import {
 	v2UsersHosts,
 } from "@superset/db/schema";
 import {
+	buildPromptCommandFromAgentConfig,
+	getCommandFromAgentConfig,
 	indexResolvedAgentConfigs,
 	resolveAgentConfigs,
+	type TerminalResolvedAgentConfig,
 } from "@superset/shared/agent-settings";
 import {
 	deduplicateBranchName,
@@ -191,7 +194,11 @@ async function createWorkspaceOnHost(args: {
 			names: { workspaceName: string; branchName: string };
 			composer: { prompt?: string; runSetupScript?: boolean };
 		},
-		{ workspaceId: string }
+		{
+			workspace: { id: string };
+			terminals: unknown[];
+			warnings: string[];
+		}
 	>(
 		{
 			relayUrl: args.relayUrl,
@@ -210,7 +217,7 @@ async function createWorkspaceOnHost(args: {
 		},
 	);
 
-	return { workspaceId: result.workspaceId, branchName };
+	return { workspaceId: result.workspace.id, branchName };
 }
 
 async function dispatchChatSession(args: {
@@ -433,10 +440,11 @@ async function dispatchOne(
 				})
 				.where(eq(automationRuns.id, run.id));
 		} else {
-			// Terminal: build the agent command with the prompt embedded.
+			// Terminal agent — agentConfig.kind === "terminal" via discriminated union.
 			const command = buildTerminalCommand({
 				prompt: automation.prompt,
 				config: agentConfig,
+				randomId: run.id,
 			});
 
 			const { terminalId } = await dispatchTerminalSession({
@@ -485,27 +493,21 @@ function describeError(err: unknown, context: string): string {
 
 function buildTerminalCommand(args: {
 	prompt: string;
-	config: {
-		kind: string;
-		command: string;
-		promptCommand?: string;
-		promptCommandSuffix?: string;
-	};
+	config: TerminalResolvedAgentConfig;
+	randomId: string;
 }): string {
-	if (args.config.kind !== "terminal") {
-		throw new Error(
-			`expected terminal agent config, got kind=${args.config.kind}`,
-		);
+	const command = args.prompt
+		? buildPromptCommandFromAgentConfig({
+				prompt: args.prompt,
+				randomId: args.randomId,
+				config: args.config,
+			})
+		: getCommandFromAgentConfig(args.config);
+
+	if (!command) {
+		throw new Error(`no command configured for agent "${args.config.id}"`);
 	}
-	// The host-service terminal runtime will actually expand the prompt via
-	// buildPromptCommandString. For the initial-command string sent over the
-	// wire we include the raw prompt after the agent's base command.
-	const base = args.config.promptCommand?.trim() || args.config.command.trim();
-	const suffix = args.config.promptCommandSuffix?.trim();
-	const commandWithPrompt = [base, JSON.stringify(args.prompt), suffix]
-		.filter(Boolean)
-		.join(" ");
-	return commandWithPrompt;
+	return command;
 }
 
 export async function POST(request: Request): Promise<Response> {
