@@ -1,6 +1,6 @@
 export {
 	type FolderFirstImportState,
 	type FolderImportCandidate,
-	useFolderFirstImport,
 	type UseFolderFirstImportResult,
+	useFolderFirstImport,
 } from "./useFolderFirstImport";

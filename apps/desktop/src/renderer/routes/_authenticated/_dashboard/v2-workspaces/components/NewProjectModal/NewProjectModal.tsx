@@ -91,8 +91,8 @@ export function NewProjectModal({
 					<DialogHeader>
 						<DialogTitle>New project</DialogTitle>
 						<DialogDescription>
-							Clone a GitHub repository into a local folder and register it as
-							a new project in this organization.
+							Clone a GitHub repository into a local folder and register it as a
+							new project in this organization.
 						</DialogDescription>
 					</DialogHeader>
 					<div className="space-y-3 py-4">

@@ -1,5 +1,5 @@
-import { TRPCClientError } from "@trpc/client";
 import { useQueryClient } from "@tanstack/react-query";
+import { TRPCClientError } from "@trpc/client";
 import { useCallback, useState } from "react";
 import { electronTrpc } from "renderer/lib/electron-trpc";
 import { getHostServiceClientByUrl } from "renderer/lib/host-service-client";
@@ -162,10 +162,10 @@ export function useFolderFirstImport(options?: {
 			setState({ kind: "no-match", repoPath, working: false });
 			return;
 		}
-		if (candidates.length === 1) {
+		const [only, ...rest] = candidates;
+		if (only && rest.length === 0) {
 			// Auto-advance: no ambiguity, no user input needed — unless the
 			// project is already set up on this host at a different path.
-			const only = candidates[0]!;
 			const result = await runSetup(only.id, repoPath);
 			if (result.status === "ok") {
 				reportSuccess(result);

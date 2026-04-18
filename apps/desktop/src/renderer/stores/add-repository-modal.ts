@@ -37,7 +37,9 @@ export const useAddRepositoryModalStore = create<AddRepositoryModalState>()(
 			folderImportTrigger: 0,
 			openNewProject: () => set({ active: { kind: "new-project" } }),
 			triggerFolderImport: () =>
-				set((state) => ({ folderImportTrigger: state.folderImportTrigger + 1 })),
+				set((state) => ({
+					folderImportTrigger: state.folderImportTrigger + 1,
+				})),
 			openPinAndSetup: (target) =>
 				set({ active: { kind: "pin-and-setup", target } }),
 			close: () => set({ active: { kind: "none" } }),

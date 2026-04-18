@@ -44,7 +44,7 @@ export function AddRepositoryModals() {
 		// identity changes every render (new hook instance per render) and
 		// we don't want to restart the flow on those changes.
 		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [folderImportTrigger]);
+	}, [folderImportTrigger, folderImport.start]);
 
 	return (
 		<>

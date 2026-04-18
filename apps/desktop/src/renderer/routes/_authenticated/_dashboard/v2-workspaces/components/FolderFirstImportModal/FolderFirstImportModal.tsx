@@ -226,8 +226,8 @@ function CandidatePickerContent({
 			<DialogHeader>
 				<DialogTitle>Pick a project</DialogTitle>
 				<DialogDescription>
-					This folder's git remote matches multiple projects you have access
-					to. Which one is this folder for?
+					This folder's git remote matches multiple projects you have access to.
+					Which one is this folder for?
 				</DialogDescription>
 			</DialogHeader>
 			<div className="space-y-3 py-4">

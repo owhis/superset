@@ -105,9 +105,7 @@ export const DashboardSidebarProjectRow = forwardRef<
 							({totalWorkspaceCount})
 						</span>
 					)}
-					{!isRenaming && (
-						<ProjectBackingStateIndicator state={backingState} />
-					)}
+					{!isRenaming && <ProjectBackingStateIndicator state={backingState} />}
 				</div>
 
 				<Tooltip delayDuration={500}>

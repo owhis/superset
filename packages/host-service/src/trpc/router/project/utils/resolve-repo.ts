@@ -66,7 +66,15 @@ export async function resolveWithPrimaryRemote(
 	if (originParsed) {
 		return { repoPath: gitRoot, remoteName: "origin", parsed: originParsed };
 	}
-	const [firstName, firstParsed] = [...remotes.entries()][0]!;
+	// remotes.size > 0 was asserted above, so iterator.next() must yield one.
+	const first = remotes.entries().next().value;
+	if (!first) {
+		throw new TRPCError({
+			code: "INTERNAL_SERVER_ERROR",
+			message: "Remote iteration produced no entries",
+		});
+	}
+	const [firstName, firstParsed] = first;
 	return { repoPath: gitRoot, remoteName: firstName, parsed: firstParsed };
 }
 

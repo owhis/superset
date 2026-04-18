@@ -65,13 +65,14 @@ export function useDashboardSidebarData() {
 	// Local backing — authoritative for this machine. Invalidated by
 	// project.create / project.setup / project.remove mutations and by
 	// operations that surface a vanished-path error.
-	const { data: localProjectList = EMPTY_LOCAL_PROJECT_LIST } =
-		useQuery<LocalProjectListRow[]>({
-			queryKey: ["project", "list", activeHostUrl],
-			enabled: activeHostClient !== null,
-			queryFn: () =>
-				activeHostClient?.project.list.query() ?? EMPTY_LOCAL_PROJECT_LIST,
-		});
+	const { data: localProjectList = EMPTY_LOCAL_PROJECT_LIST } = useQuery<
+		LocalProjectListRow[]
+	>({
+		queryKey: ["project", "list", activeHostUrl],
+		enabled: activeHostClient !== null,
+		queryFn: () =>
+			activeHostClient?.project.list.query() ?? EMPTY_LOCAL_PROJECT_LIST,
+	});
 
 	const locallyBackedProjectIds = useMemo(
 		() => new Set(localProjectList.map((p) => p.id)),

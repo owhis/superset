@@ -47,13 +47,14 @@ export function ProjectBackingStateIndicator({
 	if (variant === "dot-only") {
 		return (
 			<span
+				role="img"
+				aria-label={meta.tooltip}
+				title={meta.tooltip}
 				className={cn(
 					"size-1.5 rounded-full ring-1 ring-background",
 					meta.dotClass,
 					className,
 				)}
-				title={meta.tooltip}
-				aria-label={meta.tooltip}
 			/>
 		);
 	}
