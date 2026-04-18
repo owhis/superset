@@ -60,22 +60,28 @@ export function parseNumstat(
 	return result;
 }
 
+/**
+ * Parse `git diff --name-status -z`. Each record is the status letter
+ * followed by one path (regular) or two paths (rename/copy), with NUL
+ * separators. Using -z avoids path quoting mismatches with numstat -z
+ * for non-ASCII filenames.
+ */
 export function parseNameStatus(
 	raw: string,
 ): Array<{ status: string; path: string; oldPath?: string }> {
 	const results: Array<{ status: string; path: string; oldPath?: string }> = [];
-	for (const line of raw.trim().split("\n")) {
-		if (!line) continue;
-		const parts = line.split("\t");
-		const statusCode = parts[0]?.[0] ?? "?";
+	const fields = raw.split("\0");
+	for (let i = 0; i < fields.length; i++) {
+		const head = fields[i];
+		if (!head) continue;
+		const statusCode = head[0] ?? "?";
 		if (statusCode === "R" || statusCode === "C") {
-			results.push({
-				status: statusCode,
-				path: parts[2] ?? "",
-				oldPath: parts[1],
-			});
+			const oldPath = fields[++i] ?? "";
+			const newPath = fields[++i] ?? "";
+			results.push({ status: statusCode, path: newPath, oldPath });
 		} else {
-			results.push({ status: statusCode, path: parts[1] ?? "" });
+			const path = fields[++i] ?? "";
+			results.push({ status: statusCode, path });
 		}
 	}
 	return results;
@@ -109,8 +115,13 @@ export async function resolveBaseComparison(
 	const branchName = explicitBranch ?? (await getDefaultBranchName(git));
 	if (!branchName) return null;
 	const upstream = await resolveUpstream(git, branchName);
+	// Git encodes a branch tracking another local branch as
+	// `branch.<name>.remote = .` — in that case the merge target is
+	// already a bare branch name in this repo, not `./<name>`.
 	const baseRef = upstream
-		? `${upstream.remote}/${upstream.remoteBranch}`
+		? upstream.remote === "."
+			? upstream.remoteBranch
+			: `${upstream.remote}/${upstream.remoteBranch}`
 		: `origin/${branchName}`;
 	return { branchName, baseRef };
 }
@@ -180,7 +191,7 @@ export async function getChangedFilesForDiff(
 ): Promise<ChangedFile[]> {
 	try {
 		const [nameStatusRaw, numstatRaw] = await Promise.all([
-			git.raw(["diff", "--name-status", ...diffArgs]),
+			git.raw(["diff", "--name-status", "-z", ...diffArgs]),
 			git.raw(["diff", "--numstat", "-z", ...diffArgs]),
 		]);
 		const nameStatus = parseNameStatus(nameStatusRaw);

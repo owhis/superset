@@ -16,7 +16,7 @@ When you start work, you don't modify main directly. You make a parallel chain s
 
 A picture of what's on disk after you've made some commits:
 
-```
+```text
 main:        A — B — C — D — E         ← main keeps advancing because
                      \                   other people merge their stuff
 your branch:          X — Y — Z        ← you added X, Y, Z
