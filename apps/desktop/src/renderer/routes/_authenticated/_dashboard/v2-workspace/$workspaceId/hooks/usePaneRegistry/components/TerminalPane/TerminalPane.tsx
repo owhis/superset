@@ -25,6 +25,7 @@ import { TerminalSearch } from "renderer/screens/main/components/WorkspaceView/C
 import { useTheme } from "renderer/stores/theme";
 import { resolveTerminalThemeType } from "renderer/stores/theme/utils";
 import { useTerminalAppearance } from "./hooks/useTerminalAppearance";
+import { shellEscapePath } from "./utils";
 
 interface TerminalPaneProps {
 	ctx: RendererContext<PaneViewerData>;
@@ -197,8 +198,58 @@ export function TerminalPane({ ctx, workspaceId }: TerminalPaneProps) {
 		[terminalId, connectionState],
 	);
 
+	const [isDropActive, setIsDropActive] = useState(false);
+	const dragCounterRef = useRef(0);
+
+	const resolveDroppedPath = (dataTransfer: DataTransfer): string | null => {
+		const plainText = dataTransfer.getData("text/plain");
+		if (plainText) return plainText;
+		const file = dataTransfer.files[0];
+		if (!file) return null;
+		const path = window.webUtils.getPathForFile(file);
+		return path || null;
+	};
+
+	const handleDragEnter = (event: React.DragEvent) => {
+		event.preventDefault();
+		dragCounterRef.current += 1;
+		setIsDropActive(true);
+	};
+
+	const handleDragOver = (event: React.DragEvent) => {
+		event.preventDefault();
+		event.dataTransfer.dropEffect = "copy";
+	};
+
+	const handleDragLeave = (event: React.DragEvent) => {
+		event.preventDefault();
+		dragCounterRef.current -= 1;
+		if (dragCounterRef.current <= 0) {
+			dragCounterRef.current = 0;
+			setIsDropActive(false);
+		}
+	};
+
+	const handleDrop = (event: React.DragEvent) => {
+		event.preventDefault();
+		dragCounterRef.current = 0;
+		setIsDropActive(false);
+		if (connectionState === "closed") return;
+		const path = resolveDroppedPath(event.dataTransfer);
+		if (!path) return;
+		terminalRuntimeRegistry.getTerminal(terminalId)?.focus();
+		terminalRuntimeRegistry.paste(terminalId, shellEscapePath(path));
+	};
+
 	return (
-		<div className="flex h-full w-full flex-col p-2">
+		<div
+			role="application"
+			className="flex h-full w-full flex-col p-2"
+			onDragEnter={handleDragEnter}
+			onDragOver={handleDragOver}
+			onDragLeave={handleDragLeave}
+			onDrop={handleDrop}
+		>
 			<div className="relative min-h-0 flex-1 overflow-hidden">
 				<TerminalSearch
 					searchAddon={searchAddon}
@@ -211,6 +262,9 @@ export function TerminalPane({ ctx, workspaceId }: TerminalPaneProps) {
 					style={{ backgroundColor: appearance.background }}
 				/>
 				<ScrollToBottomButton terminal={terminal} />
+				{isDropActive && (
+					<div className="pointer-events-none absolute inset-0 rounded-sm border-2 border-primary/60 border-dashed bg-primary/10" />
+				)}
 			</div>
 			{connectionState === "closed" && (
 				<div className="flex items-center gap-2 border-t border-border px-3 py-1.5 text-xs text-muted-foreground">
