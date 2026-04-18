@@ -1,5 +1,11 @@
-import { afterEach, describe, expect, it } from "bun:test";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { afterEach, describe, expect, it, mock } from "bun:test";
+import {
+	mkdirSync,
+	mkdtempSync,
+	rmSync,
+	symlinkSync,
+	writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import {
@@ -246,6 +252,66 @@ Body`,
 		expect(review?.source).toBe("project");
 		expect(review?.kind).toBe("custom");
 		expect(review?.description).toBe("custom review");
+	});
+
+	it("resolves .claude/commands when Git materialized it as a plain-file symlink shim", () => {
+		const cwd = makeTempDirectory("slash-cwd-");
+		const home = makeTempDirectory("slash-home-");
+
+		writeCommandFile(
+			cwd,
+			"ship",
+			"---\ndescription: resolved via shim\n---",
+			"commands",
+			".agents",
+		);
+
+		const claudeDirectory = join(cwd, ".claude");
+		mkdirSync(claudeDirectory, { recursive: true });
+		writeFileSync(join(claudeDirectory, "commands"), "../.agents/commands");
+
+		const warnMock = mock(() => {});
+		const originalWarn = console.warn;
+		console.warn = warnMock;
+
+		try {
+			const registry = buildSlashCommandRegistry(cwd, {
+				homeDirectory: home,
+				includeBuiltIns: false,
+			});
+
+			expect(registry.map((command) => command.name)).toEqual(["ship"]);
+			expect(registry[0]?.description).toBe("resolved via shim");
+			expect(registry[0]?.source).toBe("project");
+			expect(warnMock).not.toHaveBeenCalled();
+		} finally {
+			console.warn = originalWarn;
+		}
+	});
+
+	it("resolves .claude/commands when it is a real symlink", () => {
+		const cwd = makeTempDirectory("slash-cwd-");
+		const home = makeTempDirectory("slash-home-");
+
+		writeCommandFile(
+			cwd,
+			"deploy",
+			"---\ndescription: resolved via symlink\n---",
+			"commands",
+			".agents",
+		);
+
+		const claudeDirectory = join(cwd, ".claude");
+		mkdirSync(claudeDirectory, { recursive: true });
+		symlinkSync("../.agents/commands", join(claudeDirectory, "commands"));
+
+		const registry = buildSlashCommandRegistry(cwd, {
+			homeDirectory: home,
+			includeBuiltIns: false,
+		});
+
+		expect(registry.map((command) => command.name)).toEqual(["deploy"]);
+		expect(registry[0]?.description).toBe("resolved via symlink");
 	});
 
 	it("uses cache for repeated lookups with the same options", () => {

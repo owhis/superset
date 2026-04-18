@@ -1,6 +1,6 @@
-import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { homedir } from "node:os";
-import { join, sep } from "node:path";
+import { dirname, isAbsolute, join, resolve, sep } from "node:path";
 import { getBuiltInSlashCommands } from "./builtins";
 import { parseSlashCommandFrontmatter } from "./frontmatter";
 import type { SlashCommandRegistryEntry, SlashCommandSource } from "./types";
@@ -162,6 +162,42 @@ function getCommandDirectoryEntries(options: ResolvedRegistryOptions): Array<{
 	];
 }
 
+const SYMLINK_SHIM_MAX_BYTES = 1024;
+
+function resolveCommandDirectory(candidate: string): string | null {
+	if (!existsSync(candidate)) return null;
+
+	let stats: ReturnType<typeof statSync>;
+	try {
+		stats = statSync(candidate);
+	} catch {
+		return null;
+	}
+
+	if (stats.isDirectory()) return candidate;
+	if (!stats.isFile() || stats.size > SYMLINK_SHIM_MAX_BYTES) return null;
+
+	let contents: string;
+	try {
+		contents = readFileSync(candidate, "utf-8").trim();
+	} catch {
+		return null;
+	}
+	if (!contents || contents.includes("\n")) return null;
+
+	const resolved = isAbsolute(contents)
+		? contents
+		: resolve(dirname(candidate), contents);
+
+	try {
+		if (!statSync(resolved).isDirectory()) return null;
+	} catch {
+		return null;
+	}
+
+	return resolved;
+}
+
 function listMarkdownFiles(directory: string): string[] {
 	const markdownFiles: string[] = [];
 
@@ -238,15 +274,16 @@ export function buildSlashCommandRegistry(
 	for (const { directory, source } of getCommandDirectoryEntries(
 		resolvedOptions,
 	)) {
-		if (!existsSync(directory)) continue;
+		const resolvedDirectory = resolveCommandDirectory(directory);
+		if (!resolvedDirectory) continue;
 
 		try {
-			for (const fileName of listMarkdownFiles(directory)) {
+			for (const fileName of listMarkdownFiles(resolvedDirectory)) {
 				const name = toCommandName(fileName);
 				if (seenNames.has(name)) continue;
 
 				seenNames.add(name);
-				const filePath = join(directory, fileName);
+				const filePath = join(resolvedDirectory, fileName);
 				const raw = readFileSync(filePath, "utf-8");
 				const metadata = parseSlashCommandFrontmatter(raw);
 
@@ -262,7 +299,7 @@ export function buildSlashCommandRegistry(
 			}
 		} catch (error) {
 			console.warn(
-				`[slash-commands] Failed to read commands from ${directory}:`,
+				`[slash-commands] Failed to read commands from ${resolvedDirectory}:`,
 				error,
 			);
 		}
