@@ -25,7 +25,7 @@ import { TerminalSearch } from "renderer/screens/main/components/WorkspaceView/C
 import { useTheme } from "renderer/stores/theme";
 import { resolveTerminalThemeType } from "renderer/stores/theme/utils";
 import { useTerminalAppearance } from "./hooks/useTerminalAppearance";
-import { shellEscapePath } from "./utils";
+import { shellEscapePaths } from "./utils";
 
 interface TerminalPaneProps {
 	ctx: RendererContext<PaneViewerData>;
@@ -201,13 +201,16 @@ export function TerminalPane({ ctx, workspaceId }: TerminalPaneProps) {
 	const [isDropActive, setIsDropActive] = useState(false);
 	const dragCounterRef = useRef(0);
 
-	const resolveDroppedPath = (dataTransfer: DataTransfer): string | null => {
+	const resolveDroppedText = (dataTransfer: DataTransfer): string | null => {
+		const files = Array.from(dataTransfer.files);
+		if (files.length > 0) {
+			const paths = files
+				.map((file) => window.webUtils.getPathForFile(file))
+				.filter(Boolean);
+			return paths.length > 0 ? shellEscapePaths(paths) : null;
+		}
 		const plainText = dataTransfer.getData("text/plain");
-		if (plainText) return plainText;
-		const file = dataTransfer.files[0];
-		if (!file) return null;
-		const path = window.webUtils.getPathForFile(file);
-		return path || null;
+		return plainText ? shellEscapePaths([plainText]) : null;
 	};
 
 	const handleDragEnter = (event: React.DragEvent) => {
@@ -235,10 +238,10 @@ export function TerminalPane({ ctx, workspaceId }: TerminalPaneProps) {
 		dragCounterRef.current = 0;
 		setIsDropActive(false);
 		if (connectionState === "closed") return;
-		const path = resolveDroppedPath(event.dataTransfer);
-		if (!path) return;
+		const text = resolveDroppedText(event.dataTransfer);
+		if (!text) return;
 		terminalRuntimeRegistry.getTerminal(terminalId)?.focus();
-		terminalRuntimeRegistry.paste(terminalId, shellEscapePath(path));
+		terminalRuntimeRegistry.paste(terminalId, text);
 	};
 
 	return (
