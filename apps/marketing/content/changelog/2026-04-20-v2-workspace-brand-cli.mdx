@@ -1,12 +1,48 @@
 ---
-title: The v2 workspace, brand refresh, and a standalone Superset CLI
+title: Chat UX overhaul, the v2 workspace, a brand refresh, and a standalone CLI
 date: 2026-04-20
 image: /changelog/IMAGE_PLACEHOLDER.png
 ---
 
-{/* TODO: Replace header image with a screenshot of the new v2 workspace (panes + diff viewer + brand) */}
+{/* TODO: Replace header image with a screenshot of the new v2 workspace (panes + diff viewer + chat + brand) */}
 
-A big update covering the last three weeks: the v2 workspace is now fully featured with panes, a diff viewer, a file editor, a review tab, and a browser pane. The Superset CLI shipped and then grew a self-contained tarball that can run the host-service anywhere. The desktop app got a full brand refresh, and GitHub integration is now free on every plan.
+A big update covering the last three weeks. The chat interface got a top-to-bottom UX overhaul with a new rich-text prompt editor, slash-command and file-mention chips, and a redesigned tool-call system. The v2 workspace is now fully featured with panes, a diff viewer, a file editor, a review tab, and a browser pane. The Superset CLI shipped and then grew a self-contained tarball that can run the host-service anywhere. The desktop app got a full brand refresh, and GitHub integration is now free on every plan.
+
+## Chat UX overhaul <PRBadge url="https://github.com/superset-sh/superset/pull/3039" />
+
+{/* TODO: Screenshot — Tiptap prompt input with a /command chip and an @file chip, plus a redesigned tool-call row */}
+
+The chat interface has been rebuilt from the prompt input down to every tool call row.
+
+### Tiptap prompt input
+
+The plain textarea is gone. The prompt is now a ProseMirror-based rich text editor with inline chips for commands and file references.
+
+- **Slash command chips** — type `/` to open a command menu; the command becomes an inline chip anywhere in the message instead of submitting immediately. Chips with an `argumentHint` expose an inline editable input with auto-sizing and keyboard nav; `/model` shows a dropdown of available models.
+- **File mention chips** — type `@` to open a file-search popover anchored to the cursor. Picking a file inserts a chip that serializes to `@path` on send.
+- **Skill preload** — `/command` chips are extracted before the LLM turn so the harness loads the right skill first. A `SkillToolCall` row shows in the message while the skill loads.
+- **Preview on hover** — hovering a chip shows a popover with its description (hidden while an arg input is focused).
+- IME composition guard prevents submit while CJK input is pending; Tab no longer auto-selects commands (Enter or click only).
+
+### Redesigned tool calls
+
+- Compact, monospaced `ToolInput` / `ToolOutput` / `ToolHeader` layout with a braille spinner and left-side icons
+- Subagent activity rendered inline as a collapsible tool wrapper, with full markdown for task prompt and response
+- Clickable file names on every file-related tool call row (read, write, LSP inspect) — clicking opens the file in the editor pane
+- Syntax-highlighted read-file output with filename header and line-range label; expand/collapse and copy on every code block
+
+### ask_user flow
+
+- Footer overlay with pinned header/footer and scrollable option buttons — no more inline question UI
+- Status chips (Awaiting Response / Answered / Cancelled) with a collapsible answer bubble; cancelled shows immediately when aborted
+- Optimistic dismiss on submit; prompt textarea auto-focuses after answering
+- `ask_user` is now required for all Superset questions — no plain-text fallbacks
+
+### Workspace status and notifications
+
+- A pending question puts an orange dot on the workspace nav and fires a native OS toast, driven server-side through the lifecycle event pipeline so it works when the tab is unfocused
+- Orange dot clears immediately on answer submit
+- Auto-scroll to bottom on message send, new question arrival, and answer submit
 
 ## The v2 workspace is ready
 
