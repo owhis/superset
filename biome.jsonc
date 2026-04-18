@@ -11,6 +11,7 @@
 			"!**/drizzle",
 			"!**/*.template.js",
 			"!**/*.template.sh",
+			"!apps/desktop/docs/automations-ui/**",
 			"!apps/mobile/uniwind-types.d.ts"
 		]
 	},

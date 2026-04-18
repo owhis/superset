@@ -1,5 +1,10 @@
 import { describe, expect, test } from "bun:test";
-import { cronToRrule, describeRrule, nextOccurrences, parseRrule } from "./rrule";
+import {
+	cronToRrule,
+	describeRrule,
+	nextOccurrences,
+	parseRrule,
+} from "./rrule";
 
 describe("cronToRrule", () => {
 	test("every 2 minutes", () => {
@@ -74,9 +79,10 @@ describe("nextOccurrences", () => {
 		});
 		expect(occurrences).toHaveLength(5);
 		for (let i = 1; i < occurrences.length; i++) {
-			expect(occurrences[i]!.getTime()).toBeGreaterThan(
-				occurrences[i - 1]!.getTime(),
-			);
+			const current = occurrences[i];
+			const previous = occurrences[i - 1];
+			if (!current || !previous) throw new Error("unexpected undefined");
+			expect(current.getTime()).toBeGreaterThan(previous.getTime());
 		}
 	});
 });
