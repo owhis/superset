@@ -24,18 +24,38 @@ export function mapGitStatus(code: string): FileStatus {
 	}
 }
 
+/**
+ * Parse the NUL-delimited output of `git diff --numstat -z`. Renames
+ * appear as `<add>\t<del>\t\0<old>\0<new>\0` — three NUL-separated
+ * cells — and are indexed under both source and destination paths so
+ * callers keyed by either get a hit.
+ */
 export function parseNumstat(
 	raw: string,
 ): Map<string, { additions: number; deletions: number }> {
 	const result = new Map<string, { additions: number; deletions: number }>();
-	for (const line of raw.trim().split("\n")) {
-		if (!line) continue;
-		const [add, del, ...pathParts] = line.split("\t");
-		const path = pathParts.join("\t");
-		result.set(path, {
-			additions: add === "-" ? 0 : Number.parseInt(add ?? "0", 10),
-			deletions: del === "-" ? 0 : Number.parseInt(del ?? "0", 10),
-		});
+	const entries = raw.split("\0");
+	for (let i = 0; i < entries.length; i++) {
+		const entry = entries[i];
+		if (!entry) continue;
+		const t1 = entry.indexOf("\t");
+		const t2 = t1 >= 0 ? entry.indexOf("\t", t1 + 1) : -1;
+		if (t1 < 0 || t2 < 0) continue;
+		const add = entry.slice(0, t1);
+		const del = entry.slice(t1 + 1, t2);
+		const pathMaybe = entry.slice(t2 + 1);
+		const stats = {
+			additions: add === "-" ? 0 : Number.parseInt(add || "0", 10),
+			deletions: del === "-" ? 0 : Number.parseInt(del || "0", 10),
+		};
+		if (pathMaybe === "") {
+			const oldPath = entries[++i] ?? "";
+			const newPath = entries[++i] ?? "";
+			if (newPath) result.set(newPath, stats);
+			if (oldPath) result.set(oldPath, stats);
+		} else {
+			result.set(pathMaybe, stats);
+		}
 	}
 	return result;
 }
@@ -161,7 +181,7 @@ export async function getChangedFilesForDiff(
 	try {
 		const [nameStatusRaw, numstatRaw] = await Promise.all([
 			git.raw(["diff", "--name-status", ...diffArgs]),
-			git.raw(["diff", "--numstat", ...diffArgs]),
+			git.raw(["diff", "--numstat", "-z", ...diffArgs]),
 		]);
 		const nameStatus = parseNameStatus(nameStatusRaw);
 		const numstat = parseNumstat(numstatRaw);

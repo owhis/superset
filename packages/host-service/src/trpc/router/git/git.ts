@@ -54,12 +54,7 @@ export const gitRouter = router({
 
 			const branches = await Promise.all(
 				branchNames.map((name) =>
-					buildBranch(
-						git,
-						name,
-						name === currentBranchName,
-						base?.baseRef,
-					),
+					buildBranch(git, name, name === currentBranchName, base?.baseRef),
 				),
 			);
 
@@ -116,7 +111,7 @@ export const gitRouter = router({
 
 			// Staged — use status.files index character for correct status
 			const stagedNumstat = parseNumstat(
-				await git.raw(["diff", "--numstat", "--cached"]).catch(() => ""),
+				await git.raw(["diff", "--numstat", "-z", "--cached"]).catch(() => ""),
 			);
 			const staged: ChangedFile[] = [];
 			for (const file of status.files) {
@@ -137,7 +132,7 @@ export const gitRouter = router({
 
 			// Unstaged — use status.files working_dir character
 			const unstagedNumstat = parseNumstat(
-				await git.raw(["diff", "--numstat"]).catch(() => ""),
+				await git.raw(["diff", "--numstat", "-z"]).catch(() => ""),
 			);
 			const unstaged: ChangedFile[] = [];
 			for (const file of status.files) {
