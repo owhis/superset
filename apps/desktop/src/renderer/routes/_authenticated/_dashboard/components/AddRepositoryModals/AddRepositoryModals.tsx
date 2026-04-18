@@ -69,6 +69,7 @@ export function AddRepositoryModals() {
 				onCancel={folderImport.cancel}
 				onConfirmCreateAsNew={folderImport.confirmCreateAsNew}
 				onConfirmPickCandidate={folderImport.confirmPickCandidate}
+				onConfirmRepoint={folderImport.confirmRepoint}
 			/>
 		</>
 	);

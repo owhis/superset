@@ -8,6 +8,7 @@ import {
 	DialogTitle,
 } from "@superset/ui/dialog";
 import { Label } from "@superset/ui/label";
+import { TRPCClientError } from "@trpc/client";
 import { useQueryClient } from "@tanstack/react-query";
 import { type FormEvent, useState } from "react";
 import { getHostServiceClientByUrl } from "renderer/lib/host-service-client";
@@ -23,6 +24,13 @@ interface PinAndSetupModalProps {
 	onError?: (message: string) => void;
 }
 
+function isConflictError(err: unknown): boolean {
+	return (
+		err instanceof TRPCClientError &&
+		(err.data as { code?: string } | undefined)?.code === "CONFLICT"
+	);
+}
+
 export function PinAndSetupModal({
 	project,
 	onOpenChange,
@@ -35,12 +43,17 @@ export function PinAndSetupModal({
 
 	const [parentDir, setParentDir] = useState<string | null>(null);
 	const [working, setWorking] = useState(false);
+	// When setup returns CONFLICT (project already set up at a different path),
+	// flip into re-point confirmation mode: same form, different copy + a
+	// destructive submit button that retries with the ack flag set.
+	const [conflict, setConflict] = useState(false);
 
 	const canSubmit = project !== null && parentDir !== null && !working;
 
 	const reset = () => {
 		setParentDir(null);
 		setWorking(false);
+		setConflict(false);
 	};
 
 	const handleOpenChange = (next: boolean) => {
@@ -49,15 +62,16 @@ export function PinAndSetupModal({
 		onOpenChange(next);
 	};
 
-	const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
-		event.preventDefault();
-		if (!canSubmit || !activeHostUrl || !project || !parentDir) return;
-
+	const runSetup = async (acknowledgeWorkspaceInvalidation: boolean) => {
+		if (!activeHostUrl || !project || !parentDir) return;
 		setWorking(true);
 		try {
 			const client = getHostServiceClientByUrl(activeHostUrl);
 			const result = await client.project.setup.mutate({
 				projectId: project.id,
+				acknowledgeWorkspaceInvalidation: acknowledgeWorkspaceInvalidation
+					? true
+					: undefined,
 				mode: { kind: "clone", parentDir },
 			});
 			ensureProjectInSidebar(project.id);
@@ -68,9 +82,20 @@ export function PinAndSetupModal({
 			reset();
 			onOpenChange(false);
 		} catch (err) {
+			if (!acknowledgeWorkspaceInvalidation && isConflictError(err)) {
+				setConflict(true);
+				setWorking(false);
+				return;
+			}
 			onError?.(err instanceof Error ? err.message : String(err));
 			setWorking(false);
 		}
+	};
+
+	const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+		event.preventDefault();
+		if (!canSubmit) return;
+		void runSetup(conflict);
 	};
 
 	return (
@@ -78,10 +103,13 @@ export function PinAndSetupModal({
 			<DialogContent className="max-w-md">
 				<form onSubmit={handleSubmit}>
 					<DialogHeader>
-						<DialogTitle>Pin & set up</DialogTitle>
+						<DialogTitle>
+							{conflict ? "Re-point project?" : "Pin & set up"}
+						</DialogTitle>
 						<DialogDescription>
-							Clone {project?.name ?? "the project"} onto this device and pin
-							it to the sidebar.
+							{conflict
+								? `${project?.name ?? "This project"} is already set up on this device at a different path. Re-pointing it here will invalidate existing workspaces — their worktrees won't open until each is re-created.`
+								: `Clone ${project?.name ?? "the project"} onto this device and pin it to the sidebar.`}
 						</DialogDescription>
 					</DialogHeader>
 					<div className="space-y-3 py-4">
@@ -117,8 +145,18 @@ export function PinAndSetupModal({
 						>
 							Cancel
 						</Button>
-						<Button type="submit" disabled={!canSubmit}>
-							{working ? "Setting up…" : "Pin & set up"}
+						<Button
+							type="submit"
+							variant={conflict ? "destructive" : "default"}
+							disabled={!canSubmit}
+						>
+							{working
+								? conflict
+									? "Re-pointing…"
+									: "Setting up…"
+								: conflict
+									? "Re-point anyway"
+									: "Pin & set up"}
 						</Button>
 					</DialogFooter>
 				</form>
