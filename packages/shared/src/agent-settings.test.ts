@@ -1,9 +1,9 @@
 import { describe, expect, test } from "bun:test";
-import { getBuiltinAgentDefinition } from "@superset/shared/agent-catalog";
+import { getBuiltinAgentDefinition } from "./agent-catalog";
 import {
 	DEFAULT_CONTEXT_PROMPT_TEMPLATE_SYSTEM,
 	DEFAULT_CONTEXT_PROMPT_TEMPLATE_USER,
-} from "@superset/shared/agent-prompt-template";
+} from "./agent-prompt-template";
 import {
 	applyCustomAgentDefinitionPatch,
 	createOverrideEnvelopeWithPatch,

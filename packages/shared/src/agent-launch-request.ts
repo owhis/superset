@@ -1,8 +1,5 @@
-import type { TaskInput } from "@superset/shared/agent-command";
-import type {
-	AgentLaunchRequest,
-	AgentLaunchSource,
-} from "@superset/shared/agent-launch";
+import type { TaskInput } from "./agent-command";
+import type { AgentLaunchRequest, AgentLaunchSource } from "./agent-launch";
 import {
 	type AgentDefinitionId,
 	buildFileCommandFromAgentConfig,

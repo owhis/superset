@@ -1,33 +1,33 @@
 import {
-	type AgentCustomDefinition,
-	type AgentPresetField,
-	type AgentPresetOverride,
-	type AgentPresetOverrideEnvelope,
-	agentCustomDefinitionSchema,
-	agentPresetOverrideEnvelopeSchema,
-} from "@superset/local-db";
-import {
 	type AgentDefinition,
 	type AgentDefinitionId,
 	BUILTIN_AGENT_DEFINITIONS,
 	type ChatAgentDefinition,
 	isTerminalAgentDefinition,
 	type TerminalAgentDefinition,
-} from "@superset/shared/agent-catalog";
-import type { TaskInput } from "@superset/shared/agent-command";
-import { createTerminalAgentDefinition } from "@superset/shared/agent-definition";
+} from "./agent-catalog";
+import type { TaskInput } from "./agent-command";
+import {
+	type AgentCustomDefinition,
+	type AgentPresetField,
+	type AgentPresetOverride,
+	type AgentPresetOverrideEnvelope,
+	agentCustomDefinitionSchema,
+	agentPresetOverrideEnvelopeSchema,
+} from "./agent-custom";
+import { createTerminalAgentDefinition } from "./agent-definition";
 import {
 	buildPromptCommandString,
 	buildPromptFileCommandString,
 	type PromptTransport,
-} from "@superset/shared/agent-prompt-launch";
+} from "./agent-prompt-launch";
 import {
 	DEFAULT_CHAT_TASK_PROMPT_TEMPLATE,
 	DEFAULT_TERMINAL_TASK_PROMPT_TEMPLATE,
 	getSupportedTaskPromptVariables,
 	renderTaskPromptTemplate,
 	validateTaskPromptTemplate,
-} from "@superset/shared/agent-prompt-template";
+} from "./agent-prompt-template";
 
 const TERMINAL_OVERRIDE_FIELDS = [
 	"enabled",
@@ -618,4 +618,4 @@ export function resetAgentPresetOverride({
 export function resetAllAgentPresetOverrides(): AgentPresetOverrideEnvelope {
 	return EMPTY_AGENT_PRESET_OVERRIDE_ENVELOPE;
 }
-export type { AgentDefinitionId } from "@superset/shared/agent-catalog";
+export type { AgentDefinitionId } from "./agent-catalog";

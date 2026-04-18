@@ -44,6 +44,18 @@
 			"types": "./src/agent-prompt-template.ts",
 			"default": "./src/agent-prompt-template.ts"
 		},
+		"./agent-custom": {
+			"types": "./src/agent-custom.ts",
+			"default": "./src/agent-custom.ts"
+		},
+		"./agent-settings": {
+			"types": "./src/agent-settings.ts",
+			"default": "./src/agent-settings.ts"
+		},
+		"./agent-launch-request": {
+			"types": "./src/agent-launch-request.ts",
+			"default": "./src/agent-launch-request.ts"
+		},
 		"./task-slug": {
 			"types": "./src/task-slug.ts",
 			"default": "./src/task-slug.ts"

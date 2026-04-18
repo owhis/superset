@@ -1,4 +1,10 @@
 import type { AgentLaunchRequest } from "@superset/shared/agent-launch";
+import { buildPromptAgentLaunchRequest } from "@superset/shared/agent-launch-request";
+import {
+	type AgentDefinitionId,
+	getEnabledAgentConfigs,
+	indexResolvedAgentConfigs,
+} from "@superset/shared/agent-settings";
 import {
 	PromptInput,
 	PromptInputAttachment,
@@ -61,12 +67,6 @@ import {
 	useSetPendingWorkspace,
 	useSetPendingWorkspaceStatus,
 } from "renderer/stores/new-workspace-modal";
-import { buildPromptAgentLaunchRequest } from "shared/utils/agent-launch-request";
-import {
-	type AgentDefinitionId,
-	getEnabledAgentConfigs,
-	indexResolvedAgentConfigs,
-} from "shared/utils/agent-settings";
 import { sanitizeBranchNameWithMaxLength } from "shared/utils/branch";
 import type { LinkedPR } from "../../NewWorkspaceModalDraftContext";
 import { useNewWorkspaceModalDraft } from "../../NewWorkspaceModalDraftContext";
