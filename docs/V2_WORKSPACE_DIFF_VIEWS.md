@@ -4,6 +4,8 @@ An explainer for every place the UI shows "what changed" for a workspace, what c
 
 Written for people who don't know git. If you do know git: this doc maps each UI surface to the specific git command and explains why we picked that comparison over the alternatives.
 
+Each surface below has a matching `describe` block in `packages/host-service/src/trpc/router/git/v2-diff-surfaces.integration.test.ts` (titled `Surface A`, `Surfaces B/C`, etc.) that spins up a real on-disk repo and verifies the behavior described here.
+
 ---
 
 ## The setup (what git is actually doing)
