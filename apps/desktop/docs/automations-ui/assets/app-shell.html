@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>app-shell</title>
+  <link rel="stylesheet" href="./tokens.css" />
+  <style>
+    html, body { height: 100%; }
+    body {
+      display: grid;
+      grid-template-rows: 44px 1fr;
+      overflow: hidden;
+    }
+
+    /* Top bar */
+    .topbar {
+      display: flex;
+      align-items: center;
+      padding: 0 12px;
+      gap: 10px;
+      border-bottom: 1px solid var(--border);
+      background: var(--background);
+      -webkit-app-region: drag;
+      font-size: 12px;
+      color: var(--muted-foreground);
+    }
+    .traffic-lights {
+      display: flex;
+      gap: 8px;
+      margin-right: 8px;
+    }
+    .traffic-lights span {
+      width: 12px; height: 12px; border-radius: 999px; display: inline-block;
+    }
+    .traffic-lights span:nth-child(1) { background: #ff5f56; }
+    .traffic-lights span:nth-child(2) { background: #ffbd2e; }
+    .traffic-lights span:nth-child(3) { background: #27c93f; }
+    .nav-btns { display: flex; gap: 4px; color: var(--muted-foreground); }
+    .nav-btns span {
+      width: 26px; height: 24px; display: inline-flex; align-items: center; justify-content: center;
+      border-radius: 6px;
+    }
+    .nav-btns span:hover { background: var(--accent); }
+    .update-btn {
+      margin-left: 8px;
+      background: #2d7fdc;
+      color: white;
+      padding: 3px 12px;
+      border-radius: 999px;
+      font-weight: 500;
+      font-size: 11px;
+    }
+    .topbar-spacer { flex: 1; }
+
+    /* Sidebar */
+    .sidebar-container {
+      display: grid;
+      grid-template-columns: 240px 1fr;
+      height: 100%;
+      overflow: hidden;
+    }
+    .sidebar {
+      background: var(--sidebar);
+      border-right: 1px solid var(--sidebar-border);
+      padding: 10px 8px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .sidebar-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 6px 10px;
+      border-radius: 6px;
+      color: var(--sidebar-foreground);
+      font-size: 13px;
+      cursor: pointer;
+    }
+    .sidebar-item:hover { background: var(--sidebar-accent); }
+    .sidebar-item.active { background: var(--sidebar-accent); }
+    .sidebar-item .icon { color: var(--muted-foreground); }
+    .sidebar-section {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 10px 6px;
+      font-size: 11px;
+      color: var(--muted-foreground);
+      font-weight: 500;
+      letter-spacing: 0.02em;
+    }
+    .sidebar-section-actions {
+      display: inline-flex;
+      gap: 2px;
+    }
+    .sidebar-section-actions span {
+      width: 22px; height: 22px; display: inline-flex; align-items: center; justify-content: center;
+      border-radius: 4px; cursor: pointer;
+    }
+    .sidebar-section-actions span:hover { background: var(--sidebar-accent); }
+    .workspace-item {
+      padding: 6px 10px;
+      color: var(--sidebar-foreground);
+      font-size: 12.5px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    .workspace-item:hover { background: var(--sidebar-accent); }
+    .workspace-item.active { background: var(--sidebar-accent); }
+    .workspace-item .wicon {
+      width: 18px;
+      height: 18px;
+      border-radius: 4px;
+      background: var(--secondary);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      color: var(--muted-foreground);
+      flex-shrink: 0;
+    }
+    .workspace-item .wname {
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .workspace-item .wbranch {
+      color: var(--muted-foreground);
+      font-size: 11px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    }
+    .workspace-section-title {
+      padding: 14px 10px 6px;
+      font-size: 11px;
+      color: var(--muted-foreground);
+      font-weight: 500;
+    }
+
+    .sidebar-footer {
+      margin-top: auto;
+      padding: 10px 10px;
+      font-size: 12px;
+      color: var(--muted-foreground);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      border-top: 1px solid var(--sidebar-border);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- TOP BAR -->
+  <div class="topbar">
+    <div class="traffic-lights"><span></span><span></span><span></span></div>
+    <div class="nav-btns">
+      <span>‹</span>
+      <span>›</span>
+    </div>
+    <button class="update-btn">Update</button>
+    <div class="topbar-spacer"></div>
+  </div>
+
+  <!-- BODY -->
+  <div class="sidebar-container">
+    <aside class="sidebar">
+      <div class="sidebar-item">
+        <span class="icon">✎</span>
+        <span>New thread</span>
+      </div>
+      <div class="sidebar-item" id="nav-automations">
+        <span class="icon">⏱</span>
+        <span>Automations</span>
+      </div>
+
+      <div class="sidebar-section">
+        <span>Superset (6)</span>
+        <span class="sidebar-section-actions">
+          <span class="icon">＋</span>
+        </span>
+      </div>
+
+      <div class="workspace-item">
+        <span class="wicon">🗂</span>
+        <span class="wname">linear-working</span>
+      </div>
+      <div class="workspace-item">
+        <span class="wicon">🗂</span>
+        <span class="wname">hotkeys-again</span>
+      </div>
+      <div class="workspace-item">
+        <span class="wicon">🗂</span>
+        <span class="wname">cli</span>
+      </div>
+      <div class="workspace-item">
+        <span class="wicon">🗂</span>
+        <span class="wname">sprites</span>
+      </div>
+
+      <div class="workspace-section-title">Active Development (1)</div>
+
+      <div class="workspace-item active">
+        <span class="wicon">🗂</span>
+        <span class="wname">hot-fender</span>
+      </div>
+      <div class="workspace-item">
+        <span class="wicon">🗂</span>
+        <span class="wname">mesquite-cut</span>
+      </div>
+    </aside>
+
+    <main style="overflow:hidden"></main>
+  </div>
+
+  <script>
+    // Allow parent to mark the active sidebar item via hash, e.g. #nav=automations
+    const params = new URLSearchParams(location.hash.slice(1));
+    const nav = params.get("nav");
+    if (nav === "automations") {
+      document.getElementById("nav-automations").classList.add("active");
+    }
+  </script>
+</body>
+</html>

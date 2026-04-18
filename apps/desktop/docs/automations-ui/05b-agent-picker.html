@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>05b — Agent picker (AgentSelect from new-workspace modal)</title>
+  <link rel="stylesheet" href="./assets/tokens.css" />
+  <style>
+    html, body { height: 100vh; overflow: hidden; }
+    .shell-frame { position: absolute; inset: 0; border: 0; width: 100%; height: 100%; z-index: 0; }
+    .dim-overlay {
+      position: absolute;
+      top: 44px; left: 240px; right: 0; bottom: 0;
+      background: rgba(0, 0, 0, 0.45);
+      z-index: 1;
+    }
+
+    /* Create modal underneath, to show context */
+    .modal {
+      position: absolute;
+      top: 88px; left: 280px; right: 40px; bottom: 40px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      box-shadow: 0 30px 80px rgba(0, 0, 0, 0.45);
+      z-index: 2;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .modal-header {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      padding: 18px 24px 0;
+    }
+    .info-icon {
+      width: 28px; height: 28px; border-radius: 999px;
+      display: inline-flex; align-items: center; justify-content: center;
+      color: var(--muted-foreground); border: 1px solid var(--border); font-size: 13px;
+    }
+    .use-template-btn {
+      background: transparent; color: var(--foreground);
+      padding: 7px 14px; border-radius: 999px;
+      border: 1px solid var(--border); font-size: 13px;
+    }
+    .modal-body { flex: 1; padding: 24px 32px; display: flex; flex-direction: column; gap: 16px; }
+    .title-input { font-size: 22px; color: var(--foreground); }
+    .prompt-textarea { flex: 1; font-size: 14px; line-height: 1.6; color: var(--muted-foreground); min-height: 280px; }
+
+    .modal-footer {
+      padding: 16px 24px; border-top: 1px solid var(--border);
+      display: flex; align-items: center; gap: 10px;
+    }
+    .chip-ghost {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 6px 12px; border-radius: 8px;
+      color: var(--foreground); font-size: 13px;
+      background: var(--secondary);
+    }
+    .chip-ghost.active { border: 1px solid var(--ring); }
+    .footer-spacer { flex: 1; }
+    .cancel-btn { background: transparent; color: var(--muted-foreground); padding: 7px 14px; font-size: 13px; }
+    .create-btn {
+      background: var(--secondary); color: var(--muted-foreground);
+      padding: 7px 18px; border-radius: 999px; font-size: 13px;
+    }
+
+    /* Agent picker popover (mirrors the AgentSelect from new-workspace modal) */
+    .agent-popover {
+      position: absolute;
+      bottom: 76px;
+      left: 420px;
+      width: 280px;
+      background: var(--popover);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      box-shadow: 0 30px 80px rgba(0, 0, 0, 0.6);
+      z-index: 4;
+      overflow: hidden;
+      padding: 6px 0;
+    }
+    .agent-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 8px 14px;
+      font-size: 14px;
+      color: var(--foreground);
+      cursor: pointer;
+    }
+    .agent-item:hover {
+      background: var(--accent);
+    }
+    .agent-item .agent-icon {
+      width: 20px;
+      height: 20px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      flex-shrink: 0;
+    }
+    .agent-item .agent-check {
+      margin-left: auto;
+      color: var(--foreground);
+      opacity: 0.9;
+    }
+    .agent-item.selected {
+      background: var(--secondary);
+    }
+    .agent-item.muted {
+      color: var(--muted-foreground);
+    }
+    .agent-divider {
+      border-top: 1px solid var(--border);
+      margin: 6px 0;
+    }
+
+    .pop-arrow {
+      position: absolute;
+      bottom: -8px;
+      left: 104px;
+      width: 14px;
+      height: 14px;
+      background: var(--popover);
+      border: 1px solid var(--border);
+      border-right: none;
+      border-bottom: none;
+      transform: rotate(-135deg);
+    }
+
+    /* Agent icon glyphs match the new-workspace modal */
+    .ag-claude { color: #e07850; }
+    .ag-amp    { color: #ff6b6b; }
+    .ag-codex  { color: #999999; }
+    .ag-gemini { color: #7ba7ff; }
+    .ag-mastra { color: #eae8e6; }
+    .ag-opencode { color: #eae8e6; }
+    .ag-pi     { color: #eae8e6; }
+    .ag-copilot { color: #eae8e6; }
+    .ag-cursor { color: #a8a5a3; }
+    .ag-superset { color: #eae8e6; }
+  </style>
+</head>
+<body>
+  <iframe class="shell-frame" src="./assets/app-shell.html#nav=automations"></iframe>
+  <div class="dim-overlay"></div>
+
+  <div class="modal">
+    <div class="modal-header">
+      <span class="info-icon">ⓘ</span>
+      <button class="use-template-btn">Use template</button>
+    </div>
+
+    <div class="modal-body">
+      <div class="title-input">Weekly release notes</div>
+      <div class="prompt-textarea">Draft weekly release notes from merged PRs (include links when available).</div>
+    </div>
+
+    <div class="modal-footer">
+      <span class="chip-ghost">💻 Satyas-MacBook-Pro <span class="caret">▾</span></span>
+      <span class="chip-ghost">🖥 New workspace <span class="caret">▾</span></span>
+      <span class="chip-ghost active">🤖 Claude <span class="caret">▾</span></span>
+      <span class="chip-ghost">⏱ Fridays at 9:00 AM <span class="caret">▾</span></span>
+      <div class="footer-spacer"></div>
+      <button class="cancel-btn">Cancel</button>
+      <button class="create-btn">Create</button>
+    </div>
+  </div>
+
+  <!-- AgentSelect popover, anchored to the Agent chip -->
+  <div class="agent-popover">
+    <div class="agent-item muted">
+      <span class="agent-icon">∅</span>
+      <span>No agent</span>
+    </div>
+    <div class="agent-item selected">
+      <span class="agent-icon ag-claude">✶</span>
+      <span>Claude</span>
+      <span class="agent-check">✓</span>
+    </div>
+    <div class="agent-item">
+      <span class="agent-icon ag-amp">☰</span>
+      <span>Amp</span>
+    </div>
+    <div class="agent-item">
+      <span class="agent-icon ag-codex">◎</span>
+      <span>Codex</span>
+    </div>
+    <div class="agent-item">
+      <span class="agent-icon ag-gemini">✦</span>
+      <span>Gemini</span>
+    </div>
+    <div class="agent-item">
+      <span class="agent-icon ag-mastra">𝕸</span>
+      <span>Mastracode</span>
+    </div>
+    <div class="agent-item">
+      <span class="agent-icon ag-opencode">▢</span>
+      <span>OpenCode</span>
+    </div>
+    <div class="agent-item">
+      <span class="agent-icon ag-pi">ℼ</span>
+      <span>Pi</span>
+    </div>
+    <div class="agent-item">
+      <span class="agent-icon ag-copilot">◉</span>
+      <span>Copilot</span>
+    </div>
+    <div class="agent-item">
+      <span class="agent-icon ag-cursor">◆</span>
+      <span>Cursor Agent</span>
+    </div>
+    <div class="agent-item">
+      <span class="agent-icon ag-superset">⋈</span>
+      <span>Superset Chat</span>
+    </div>
+
+    <div class="agent-divider"></div>
+
+    <div class="agent-item muted">
+      <span class="agent-icon">⚙</span>
+      <span>Configure agents…</span>
+    </div>
+
+    <div class="pop-arrow"></div>
+  </div>
+</body>
+</html>

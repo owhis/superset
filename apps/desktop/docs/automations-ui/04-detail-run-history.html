@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>04 — Automation detail with run history</title>
+  <link rel="stylesheet" href="./assets/tokens.css" />
+  <style>
+    html, body { height: 100vh; overflow: hidden; }
+    .shell-frame { position: absolute; inset: 0; border: 0; width: 100%; height: 100%; z-index: 0; }
+    .content-overlay {
+      position: absolute;
+      top: 44px;
+      left: 240px;
+      right: 0;
+      bottom: 0;
+      background: var(--background);
+      display: grid;
+      grid-template-columns: 1fr 280px;
+      z-index: 1;
+    }
+
+    .detail-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 32px;
+      border-bottom: 1px solid var(--border);
+      font-size: 13px;
+    }
+    .breadcrumb { display: flex; align-items: center; gap: 8px; color: var(--muted-foreground); }
+    .breadcrumb .current { color: var(--foreground); }
+    .action-bar { display: flex; gap: 6px; align-items: center; }
+    .icon-btn {
+      width: 32px; height: 32px; display: inline-flex; align-items: center;
+      justify-content: center; border-radius: 8px; color: var(--muted-foreground); cursor: pointer;
+    }
+    .icon-btn:hover { background: var(--accent); color: var(--foreground); }
+    .run-now-btn {
+      background: #2d7fdc; color: white; padding: 7px 14px; border-radius: 8px;
+      display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 500; margin-left: 8px;
+    }
+
+    .main-body { padding: 40px 48px; overflow-y: auto; }
+    .title { font-size: 28px; font-weight: 600; margin: 0 0 20px; }
+    .prompt-body {
+      font-size: 14px; line-height: 1.65; color: var(--foreground);
+      white-space: pre-wrap; margin-bottom: 32px;
+    }
+    .prompt-body em {
+      color: var(--muted-foreground); font-style: normal; display: block;
+      margin-top: 16px; font-weight: 500;
+    }
+    .meta-row {
+      display: flex; flex-wrap: wrap; gap: 8px;
+      padding-top: 24px; border-top: 1px solid var(--border);
+    }
+
+    .right-rail {
+      border-left: 1px solid var(--border); padding: 24px; background: var(--background);
+      display: flex; flex-direction: column; gap: 28px; overflow-y: auto;
+    }
+    .rail-section .section-title {
+      color: var(--muted-foreground); font-size: 12px; font-weight: 500; margin: 0 0 12px;
+    }
+    .rail-row {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 4px 0; font-size: 13px; gap: 8px;
+    }
+    .rail-row .label { color: var(--muted-foreground); display: flex; align-items: center; gap: 8px; }
+    .rail-row .value { color: var(--foreground); text-align: right; }
+
+    .run-item {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--border);
+      gap: 4px;
+      font-size: 12.5px;
+      cursor: pointer;
+    }
+    .run-item:last-child { border-bottom: 0; }
+    .run-item:hover { background: rgba(255, 255, 255, 0.02); }
+    .run-item .when { color: var(--foreground); }
+    .run-item .status {
+      font-size: 11px;
+      padding: 1px 8px;
+      border-radius: 999px;
+      white-space: nowrap;
+    }
+    .run-item .status.dispatched { background: rgba(109,167,240,0.15); color: #6da7f0; }
+    .run-item .status.skipped { background: rgba(168,165,163,0.15); color: var(--muted-foreground); }
+    .run-item .status.failed { background: rgba(204,68,68,0.15); color: var(--destructive); }
+    .run-item .meta {
+      grid-column: 1 / -1;
+      color: var(--muted-foreground);
+      font-size: 11.5px;
+    }
+    .see-all {
+      color: var(--muted-foreground);
+      font-size: 12.5px;
+      padding: 12px 0 0;
+      cursor: pointer;
+      display: inline-block;
+    }
+    .see-all:hover { color: var(--foreground); }
+  </style>
+</head>
+<body>
+  <iframe class="shell-frame" src="./assets/app-shell.html#nav=automations"></iframe>
+  <div class="content-overlay">
+    <div style="display:flex; flex-direction:column; overflow:hidden;">
+      <div class="detail-header">
+        <div class="breadcrumb">
+          <span>Automations</span>
+          <span>›</span>
+          <span class="current">Weekly release notes</span>
+        </div>
+        <div class="action-bar">
+          <span class="icon-btn" title="Pause">‖</span>
+          <span class="icon-btn" title="Delete">🗑</span>
+          <button class="run-now-btn">▶ Run now</button>
+        </div>
+      </div>
+
+      <div class="main-body">
+        <h1 class="title">Weekly release notes</h1>
+
+        <div class="prompt-body">Draft weekly release notes from merged PRs (include links when available).
+
+<em>Scope &amp; grounding:</em>
+- Stay strictly within the repo history for the week.
+- Use PR numbers/titles; avoid claims about impact unless supported by PR description/tests/metrics in repo.</div>
+      </div>
+    </div>
+
+    <aside class="right-rail">
+      <div class="rail-section">
+        <h4 class="section-title">Status</h4>
+        <div class="rail-row">
+          <span class="label">ⓘ Status</span>
+          <span class="pill active">● Active</span>
+        </div>
+        <div class="rail-row">
+          <span class="label">⏱ Next run</span>
+          <span class="pill">Apr 24, 2026, 9:00 AM</span>
+        </div>
+        <div class="rail-row">
+          <span class="label">⌛ Last ran</span>
+          <span class="value">Apr 17, 9:02 AM</span>
+        </div>
+      </div>
+
+      <div class="rail-section">
+        <h4 class="section-title">Details</h4>
+        <div class="rail-row">
+          <span class="label">💻 Device</span>
+          <span class="value">Satyas-MacBook-Pro ▾</span>
+        </div>
+        <div class="rail-row">
+          <span class="label">🖥 Workspace</span>
+          <span class="value">New workspace ▾</span>
+        </div>
+        <div class="rail-row">
+          <span class="label">⏱ Repeats</span>
+          <span class="value">Fridays at 9:00 AM ▾</span>
+        </div>
+        <div class="rail-row">
+          <span class="label">🤖 Agent</span>
+          <span class="value">Claude ▾</span>
+        </div>
+      </div>
+
+      <div class="rail-section">
+        <h4 class="section-title">Previous runs</h4>
+        <div>
+          <div class="run-item" title="hot-fender/scheduled-run/run_9f3c…a201">
+            <span class="when">Apr 17, 9:02 AM</span>
+            <span class="status dispatched">dispatched</span>
+            <span class="meta">💬 chat · hot-fender ↗</span>
+          </div>
+          <div class="run-item" title="hot-fender/scheduled-run/run_7b11…c4e0">
+            <span class="when">Apr 10, 9:00 AM</span>
+            <span class="status dispatched">dispatched</span>
+            <span class="meta">💬 chat · hot-fender ↗</span>
+          </div>
+          <div class="run-item" title="no session — skipped before dispatch">
+            <span class="when">Apr 3, 9:00 AM</span>
+            <span class="status skipped">skipped</span>
+            <span class="meta">host offline · no session opened</span>
+          </div>
+          <div class="run-item" title="dispatch error — no session opened">
+            <span class="when">Mar 27, 9:00 AM</span>
+            <span class="status failed">failed</span>
+            <span class="meta">⌨ terminal · relay timeout · retry next fire</span>
+          </div>
+        </div>
+        <a class="see-all">see all →</a>
+      </div>
+    </aside>
+  </div>
+</body>
+</html>

@@ -1,0 +1,324 @@
+/*
+ * Design tokens mirrored from apps/desktop/src/renderer/globals.css
+ * Dark-theme (ember) palette as used in the real app.
+ * Mocks import this so they look identical to the running desktop app.
+ */
+
+:root {
+  --background: #151110;
+  --foreground: #eae8e6;
+  --card: #201e1c;
+  --card-foreground: #eae8e6;
+  --popover: #201e1c;
+  --popover-foreground: #eae8e6;
+  --primary: #eae8e6;
+  --primary-foreground: #151110;
+  --secondary: #2a2827;
+  --secondary-foreground: #eae8e6;
+  --muted: #2a2827;
+  --muted-foreground: #a8a5a3;
+  --accent: #2a2827;
+  --accent-foreground: #eae8e6;
+  --tertiary: #1a1716;
+  --tertiary-active: #252220;
+  --destructive: #cc4444;
+  --destructive-foreground: #ffcccc;
+  --border: #2a2827;
+  --input: #2a2827;
+  --ring: #3a3837;
+  --chart-1: #e07850;
+  --chart-2: #50a878;
+  --chart-3: #d4a84b;
+  --chart-4: #7b68ee;
+  --chart-5: #dc6b6b;
+  --radius: 0.625rem;
+  --sidebar: #1a1716;
+  --sidebar-foreground: #eae8e6;
+  --sidebar-primary: #e07850;
+  --sidebar-primary-foreground: #151110;
+  --sidebar-accent: #252220;
+  --sidebar-accent-foreground: #eae8e6;
+  --sidebar-border: #2a2827;
+  --sidebar-ring: #3a3837;
+
+  /* Semantic colors for automations UI */
+  --status-active: #50a878;
+  --status-paused: #a8a5a3;
+  --status-warning: #d4a84b;
+  --status-error: #cc4444;
+}
+
+* {
+  border-color: var(--border);
+  -webkit-font-smoothing: antialiased;
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    Roboto, "Helvetica Neue", Arial, sans-serif;
+  background: var(--background);
+  color: var(--foreground);
+  font-size: 14px;
+}
+
+/* App shell frame — full viewport */
+.app-shell {
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  grid-template-rows: 44px 1fr;
+  grid-template-areas:
+    "topbar topbar"
+    "sidebar main";
+  height: 100vh;
+  width: 100vw;
+  overflow: hidden;
+}
+
+.app-shell .topbar {
+  grid-area: topbar;
+  background: var(--background);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  gap: 8px;
+  -webkit-app-region: drag;
+}
+
+.app-shell .sidebar {
+  grid-area: sidebar;
+  background: var(--sidebar);
+  border-right: 1px solid var(--sidebar-border);
+  padding: 12px 8px;
+  overflow-y: auto;
+}
+
+.app-shell .main {
+  grid-area: main;
+  background: var(--background);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Pill + dot utilities common to automation screens */
+.dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  flex-shrink: 0;
+}
+.dot.filled.active {
+  background: var(--status-active);
+}
+.dot.filled.paused {
+  background: var(--status-paused);
+}
+.dot.filled.warning {
+  background: var(--status-warning);
+}
+.dot.filled.error {
+  background: var(--status-error);
+}
+.dot.hollow {
+  background: transparent;
+  border: 1.5px solid var(--muted-foreground);
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: var(--secondary);
+  color: var(--secondary-foreground);
+  font-size: 12px;
+  font-weight: 500;
+}
+.pill.active {
+  background: rgba(80, 168, 120, 0.15);
+  color: var(--status-active);
+}
+.pill.paused {
+  background: var(--muted);
+  color: var(--muted-foreground);
+}
+.pill.warning {
+  background: rgba(212, 168, 75, 0.15);
+  color: var(--status-warning);
+}
+
+/* Chip (metadata selector, clickable) */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: var(--secondary);
+  color: var(--foreground);
+  font-size: 13px;
+  cursor: pointer;
+  border: 1px solid transparent;
+}
+.chip:hover {
+  border-color: var(--ring);
+}
+.chip .caret {
+  opacity: 0.6;
+}
+
+/* Primary CTA button */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  border: 1px solid transparent;
+  background: var(--secondary);
+  color: var(--foreground);
+}
+.btn:hover {
+  background: var(--accent);
+}
+.btn.primary {
+  background: var(--primary);
+  color: var(--primary-foreground);
+}
+.btn.primary:hover {
+  background: #d4d2cf;
+}
+.btn.destructive {
+  background: var(--destructive);
+  color: var(--destructive-foreground);
+}
+.btn.ghost {
+  background: transparent;
+}
+.btn.ghost:hover {
+  background: var(--accent);
+}
+.btn.pill-primary {
+  background: #ffffff;
+  color: #151110;
+  border-radius: 999px;
+  padding: 6px 14px;
+  font-weight: 500;
+}
+
+/* Card (template / previous run) */
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px;
+}
+.card:hover {
+  border-color: var(--ring);
+}
+
+/* Divider */
+.divider {
+  border: 0;
+  border-top: 1px solid var(--border);
+  margin: 0;
+}
+
+/* Input / textarea */
+.input,
+.textarea {
+  width: 100%;
+  background: transparent;
+  color: var(--foreground);
+  border: 0;
+  outline: none;
+  font-family: inherit;
+  font-size: 14px;
+  padding: 0;
+}
+.input::placeholder,
+.textarea::placeholder {
+  color: var(--muted-foreground);
+}
+.textarea {
+  resize: none;
+}
+
+/* Right rail (detail sidebar) */
+.right-rail {
+  width: 260px;
+  border-left: 1px solid var(--border);
+  padding: 20px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  background: var(--background);
+  flex-shrink: 0;
+}
+.right-rail .section-title {
+  color: var(--muted-foreground);
+  font-size: 12px;
+  font-weight: 500;
+  margin-bottom: 8px;
+}
+.right-rail .row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+  font-size: 13px;
+}
+.right-rail .row .label {
+  color: var(--muted-foreground);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.right-rail .row .value {
+  color: var(--foreground);
+}
+
+/* Scrollbars */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background-color: rgba(63, 63, 70, 0.5);
+  border-radius: 5px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* Utility: icons rendered as text glyphs should be slightly muted */
+.icon {
+  opacity: 0.75;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Dialog overlay (for modals on top of app shell) */
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 20;
+}

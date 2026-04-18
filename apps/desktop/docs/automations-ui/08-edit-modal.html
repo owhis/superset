@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>08 — Edit modal</title>
+  <link rel="stylesheet" href="./assets/tokens.css" />
+  <style>
+    html, body { height: 100vh; overflow: hidden; }
+    .shell-frame { position: absolute; inset: 0; border: 0; width: 100%; height: 100%; z-index: 0; }
+    .dim-overlay {
+      position: absolute;
+      top: 44px; left: 240px; right: 0; bottom: 0;
+      background: rgba(0, 0, 0, 0.45);
+      z-index: 1;
+    }
+
+    .modal {
+      position: absolute;
+      top: 88px; left: 280px; right: 40px; bottom: 40px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      box-shadow: 0 30px 80px rgba(0, 0, 0, 0.45);
+      z-index: 2;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 18px 24px 0;
+    }
+    .header-label {
+      color: var(--muted-foreground);
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      padding: 0 8px;
+    }
+    .info-icon {
+      width: 28px; height: 28px; border-radius: 999px;
+      display: inline-flex; align-items: center; justify-content: center;
+      color: var(--muted-foreground); border: 1px solid var(--border); font-size: 13px;
+    }
+
+    .modal-body {
+      flex: 1;
+      padding: 20px 32px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      overflow-y: auto;
+    }
+    .title-input {
+      font-size: 22px;
+      font-weight: 500;
+      color: var(--foreground);
+    }
+    .prompt-textarea {
+      flex: 1;
+      font-size: 14px;
+      line-height: 1.65;
+      color: var(--foreground);
+      min-height: 280px;
+      white-space: pre-wrap;
+    }
+    .prompt-textarea em {
+      color: var(--muted-foreground); font-style: normal;
+      display: block; margin-top: 16px; font-weight: 500;
+    }
+
+    .preserved-note {
+      font-size: 12px;
+      color: var(--muted-foreground);
+      padding: 8px 12px;
+      background: var(--secondary);
+      border-radius: 6px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      align-self: flex-start;
+    }
+
+    .modal-footer {
+      padding: 16px 24px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .chip-ghost {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 6px 12px; border-radius: 8px;
+      color: var(--foreground); font-size: 13px;
+      background: var(--secondary);
+    }
+    .footer-spacer { flex: 1; }
+    .cancel-btn {
+      background: transparent; color: var(--muted-foreground);
+      padding: 7px 14px; font-size: 13px; cursor: pointer;
+    }
+    .save-btn {
+      background: #ffffff;
+      color: #151110;
+      padding: 7px 18px;
+      border-radius: 999px;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <iframe class="shell-frame" src="./assets/app-shell.html#nav=automations"></iframe>
+  <div class="dim-overlay"></div>
+
+  <div class="modal">
+    <div class="modal-header">
+      <span class="header-label">Edit automation</span>
+      <span class="info-icon">ⓘ</span>
+    </div>
+
+    <div class="modal-body">
+      <input class="input title-input" value="Weekly release notes" />
+      <div class="textarea prompt-textarea">Draft weekly release notes from merged PRs (include links when available).
+
+<em>Scope &amp; grounding:</em>
+- Stay strictly within the repo history for the week; do not add extra sections beyond what the data supports.
+- Use PR numbers/titles; avoid claims about impact unless supported by PR description/tests/metrics in repo.</div>
+
+      <div class="preserved-note">ⓘ This automation has 3 previous runs — they'll be preserved.</div>
+    </div>
+
+    <div class="modal-footer">
+      <span class="chip-ghost">💻 Satyas-MacBook-Pro <span class="caret">▾</span></span>
+      <span class="chip-ghost">🖥 New workspace <span class="caret">▾</span></span>
+      <span class="chip-ghost">🤖 Claude <span class="caret">▾</span></span>
+      <span class="chip-ghost">⏱ Fridays at 9:00 AM <span class="caret">▾</span></span>
+      <div class="footer-spacer"></div>
+      <button class="cancel-btn">Cancel</button>
+      <button class="save-btn">Save changes</button>
+    </div>
+  </div>
+</body>
+</html>

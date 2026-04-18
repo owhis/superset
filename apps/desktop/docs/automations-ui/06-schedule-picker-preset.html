@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>06 — Schedule picker (preset)</title>
+  <link rel="stylesheet" href="./assets/tokens.css" />
+  <style>
+    html, body { height: 100vh; overflow: hidden; }
+    .shell-frame { position: absolute; inset: 0; border: 0; width: 100%; height: 100%; z-index: 0; }
+    .dim-overlay {
+      position: absolute;
+      top: 44px; left: 240px; right: 0; bottom: 0;
+      background: rgba(0, 0, 0, 0.45);
+      z-index: 1;
+    }
+
+    /* Replayed create modal underneath, to show context */
+    .modal {
+      position: absolute;
+      top: 88px; left: 280px; right: 40px; bottom: 40px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      box-shadow: 0 30px 80px rgba(0, 0, 0, 0.45);
+      z-index: 2;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .modal-body { flex: 1; padding: 24px 32px; }
+    .title-input { font-size: 22px; color: var(--muted-foreground); }
+    .prompt-textarea {
+      min-height: 280px; font-size: 14px; color: var(--muted-foreground);
+      line-height: 1.6; margin-top: 16px;
+    }
+    .modal-footer {
+      padding: 16px 24px; border-top: 1px solid var(--border);
+      display: flex; align-items: center; gap: 10px;
+    }
+    .chip-ghost {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 6px 12px; border-radius: 8px;
+      color: var(--muted-foreground); font-size: 13px;
+    }
+    .chip-ghost.active {
+      background: var(--secondary); color: var(--foreground);
+      border: 1px solid var(--ring);
+    }
+    .footer-spacer { flex: 1; }
+    .cancel-btn {
+      background: transparent; color: var(--muted-foreground);
+      padding: 7px 14px; font-size: 13px;
+    }
+    .create-btn {
+      background: var(--secondary); color: var(--muted-foreground);
+      padding: 7px 18px; border-radius: 999px; font-size: 13px;
+    }
+
+    /* Popover */
+    .popover {
+      position: absolute;
+      bottom: 76px;
+      left: 500px;
+      width: 320px;
+      background: var(--popover);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      box-shadow: 0 30px 80px rgba(0, 0, 0, 0.6);
+      padding: 14px;
+      z-index: 4;
+    }
+    .popover h5 {
+      font-size: 11px;
+      color: var(--muted-foreground);
+      margin: 0 0 8px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+    .popover .selector {
+      background: var(--secondary);
+      border-radius: 8px;
+      padding: 8px 12px;
+      font-size: 13px;
+      color: var(--foreground);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 10px;
+      cursor: pointer;
+    }
+    .menu {
+      background: var(--popover);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+      margin-bottom: 12px;
+    }
+    .menu-item {
+      padding: 8px 12px;
+      font-size: 13px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      cursor: pointer;
+    }
+    .menu-item:hover {
+      background: var(--accent);
+    }
+    .menu-item.selected {
+      color: var(--foreground);
+    }
+    .menu-item .check { color: var(--status-active); }
+    .menu-divider {
+      border-top: 1px solid var(--border);
+      margin: 4px 0;
+    }
+    .next-runs {
+      margin-top: 10px;
+    }
+    .next-runs .run {
+      font-size: 12px;
+      color: var(--muted-foreground);
+      padding: 3px 0;
+      font-variant-numeric: tabular-nums;
+    }
+    .pop-arrow {
+      position: absolute;
+      bottom: -8px;
+      left: 110px;
+      width: 14px;
+      height: 14px;
+      background: var(--popover);
+      border: 1px solid var(--border);
+      border-right: none;
+      border-bottom: none;
+      transform: rotate(-135deg);
+    }
+  </style>
+</head>
+<body>
+  <iframe class="shell-frame" src="./assets/app-shell.html#nav=automations"></iframe>
+  <div class="dim-overlay"></div>
+
+  <div class="modal">
+    <div class="modal-body">
+      <div class="title-input">Weekly release notes</div>
+      <div class="prompt-textarea">Draft weekly release notes from merged PRs (include links when available).</div>
+    </div>
+    <div class="modal-footer">
+      <span class="chip-ghost">💻 Satyas-MacBook-Pro <span class="caret">▾</span></span>
+      <span class="chip-ghost">🖥 New workspace <span class="caret">▾</span></span>
+      <span class="chip-ghost">🤖 Claude <span class="caret">▾</span></span>
+      <span class="chip-ghost active">⏱ Daily at 9:00 AM <span class="caret">▾</span></span>
+      <span class="chip-ghost">⋯</span>
+      <div class="footer-spacer"></div>
+      <button class="cancel-btn">Cancel</button>
+      <button class="create-btn">Create</button>
+    </div>
+  </div>
+
+  <!-- Popover anchored to the Schedule chip -->
+  <div class="popover">
+    <h5>Schedule</h5>
+    <div class="selector">
+      <span>Daily at 9:00 AM</span>
+      <span class="caret">▾</span>
+    </div>
+    <div class="menu">
+      <div class="menu-item selected"><span>Daily at 9:00 AM</span><span class="check">✓</span></div>
+      <div class="menu-item"><span>Weekdays at 9:00 AM</span><span></span></div>
+      <div class="menu-item"><span>Weekly on Monday at 9:00 AM</span><span></span></div>
+      <div class="menu-item"><span>Monthly on the 1st at 9:00 AM</span><span></span></div>
+      <div class="menu-divider"></div>
+      <div class="menu-item"><span>Custom…</span><span>›</span></div>
+    </div>
+
+    <div class="next-runs">
+      <h5>Next runs</h5>
+      <div class="run">Apr 18, 2026 · 9:00 AM PT</div>
+      <div class="run">Apr 19, 2026 · 9:00 AM PT</div>
+      <div class="run">Apr 20, 2026 · 9:00 AM PT</div>
+      <div class="run">Apr 21, 2026 · 9:00 AM PT</div>
+      <div class="run">Apr 22, 2026 · 9:00 AM PT</div>
+    </div>
+
+    <div class="pop-arrow"></div>
+  </div>
+</body>
+</html>
