@@ -22,6 +22,7 @@ interface DashboardSidebarCollapsedProjectContentProps
 	onWorkspaceHover: (workspaceId: string) => void | Promise<void>;
 	onToggleCollapse: () => void;
 	onSetUpHere: () => void;
+	onRepairPath: () => void;
 }
 
 export const DashboardSidebarCollapsedProjectContent = forwardRef<
@@ -40,6 +41,7 @@ export const DashboardSidebarCollapsedProjectContent = forwardRef<
 			onWorkspaceHover,
 			onToggleCollapse,
 			onSetUpHere,
+			onRepairPath,
 			className,
 			...props
 		},
@@ -61,7 +63,9 @@ export const DashboardSidebarCollapsedProjectContent = forwardRef<
 							onClick={
 								backingState === "not-set-up-here"
 									? onSetUpHere
-									: onToggleCollapse
+									: backingState === "stale-path"
+										? onRepairPath
+										: onToggleCollapse
 							}
 							className={cn(
 								"relative flex items-center justify-center size-8 rounded-md",
@@ -86,6 +90,10 @@ export const DashboardSidebarCollapsedProjectContent = forwardRef<
 						{backingState === "not-set-up-here" ? (
 							<span className="text-xs text-amber-500">
 								Not set up — click to set up here
+							</span>
+						) : backingState === "stale-path" ? (
+							<span className="text-xs text-destructive">
+								Path missing — click to repair
 							</span>
 						) : (
 							<span className="text-xs text-muted-foreground">

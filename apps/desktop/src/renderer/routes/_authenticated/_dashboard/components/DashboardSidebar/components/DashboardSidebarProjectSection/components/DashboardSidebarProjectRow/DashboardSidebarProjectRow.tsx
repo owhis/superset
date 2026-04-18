@@ -23,6 +23,7 @@ interface DashboardSidebarProjectRowProps
 	onToggleCollapse: () => void;
 	onNewWorkspace: () => void;
 	onSetUpHere: () => void;
+	onRepairPath: () => void;
 }
 
 export const DashboardSidebarProjectRow = forwardRef<
@@ -45,6 +46,7 @@ export const DashboardSidebarProjectRow = forwardRef<
 			onToggleCollapse,
 			onNewWorkspace,
 			onSetUpHere,
+			onRepairPath,
 			className,
 			...props
 		},
@@ -108,8 +110,8 @@ export const DashboardSidebarProjectRow = forwardRef<
 						</span>
 					)}
 					{/* Only render the passive "Offline" marker here — the
-					    "Not set up here" state surfaces as the Set up button on
-					    the right instead, which is actionable. */}
+					    "Not set up here" / "Stale path" states surface as
+					    action buttons on the right instead. */}
 					{!isRenaming && backingState === "host-offline" && (
 						<ProjectBackingStateIndicator state={backingState} />
 					)}
@@ -126,6 +128,18 @@ export const DashboardSidebarProjectRow = forwardRef<
 						className="shrink-0 ml-1 rounded px-2 py-0.5 text-xs font-medium text-amber-600 hover:bg-amber-500/10 dark:text-amber-400 transition-colors"
 					>
 						Set up
+					</button>
+				) : !isRenaming && backingState === "stale-path" ? (
+					<button
+						type="button"
+						onClick={(event) => {
+							event.stopPropagation();
+							onRepairPath();
+						}}
+						onContextMenu={(event) => event.stopPropagation()}
+						className="shrink-0 ml-1 rounded px-2 py-0.5 text-xs font-medium text-destructive hover:bg-destructive/10 transition-colors"
+					>
+						Repair
 					</button>
 				) : (
 					<Tooltip delayDuration={500}>

@@ -1,4 +1,4 @@
-import { rmSync } from "node:fs";
+import { rmSync, statSync } from "node:fs";
 import { parseGitHubRemote } from "@superset/shared/github-remote";
 import { TRPCError } from "@trpc/server";
 import { eq } from "drizzle-orm";
@@ -14,12 +14,28 @@ import {
 import { deleteHostBacking } from "./utils/persist-project";
 import { resolveWithPrimaryRemote } from "./utils/resolve-repo";
 
+// Phase 4: cheap per-row existence check so the sidebar can surface
+// "Stale path" without blocking operations. Note this is synchronous fs —
+// cheap for a handful of projects, revisit if the list grows large.
+function probePathStatus(repoPath: string): "healthy" | "missing" {
+	try {
+		const s = statSync(repoPath);
+		return s.isDirectory() ? "healthy" : "missing";
+	} catch {
+		return "missing";
+	}
+}
+
 export const projectRouter = router({
 	list: protectedProcedure.query(({ ctx }) => {
-		return ctx.db
+		const rows = ctx.db
 			.select({ id: projects.id, repoPath: projects.repoPath })
 			.from(projects)
 			.all();
+		return rows.map((row) => ({
+			...row,
+			pathStatus: probePathStatus(row.repoPath),
+		}));
 	}),
 
 	findByPath: protectedProcedure

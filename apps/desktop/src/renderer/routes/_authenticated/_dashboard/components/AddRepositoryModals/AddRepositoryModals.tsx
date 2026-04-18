@@ -58,10 +58,18 @@ export function AddRepositoryModals() {
 			/>
 			<PinAndSetupModal
 				project={active.kind === "pin-and-setup" ? active.target : null}
+				forceRepoint={
+					active.kind === "pin-and-setup" ? active.forceRepoint : false
+				}
 				onOpenChange={(open) => {
 					if (!open) close();
 				}}
-				onSuccess={() => toast.success("Project pinned and set up.")}
+				onSuccess={() => {
+					toast.success("Project pinned and set up.");
+					// Per-open one-shot callback (e.g. retry a pending workspace
+					// create that surfaced PROJECT_NOT_SETUP).
+					if (active.kind === "pin-and-setup") active.onSuccess?.();
+				}}
 				onError={(message) => toast.error(`Setup failed: ${message}`)}
 			/>
 			<FolderFirstImportModal

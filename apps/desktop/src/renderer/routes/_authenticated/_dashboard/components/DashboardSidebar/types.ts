@@ -61,9 +61,13 @@ export type DashboardSidebarProjectChild =
 	  };
 
 export type DashboardSidebarProjectBackingState =
-	// Project is backed on the current host, or at least one remote host
-	// backing it is online — user can do everything.
+	// Project is backed on the current host with a healthy path, or at
+	// least one remote host backing it is online — user can do everything.
 	| "normal"
+	// Project is set up on this host but the repoPath no longer exists on
+	// disk. Re-pointing via project.setup repairs it (and invalidates any
+	// existing workspace worktrees under the old path).
+	| "stale-path"
 	// No local backing, no online remote backing, but at least one offline
 	// remote host backs it — passive state, resolves when that host reconnects.
 	| "host-offline"

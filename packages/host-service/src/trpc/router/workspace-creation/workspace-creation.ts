@@ -1,9 +1,8 @@
-import { existsSync, mkdirSync } from "node:fs";
-import { dirname, join, resolve, sep } from "node:path";
+import { existsSync } from "node:fs";
+import { join, resolve, sep } from "node:path";
 import { getDeviceName, getHashedDeviceId } from "@superset/shared/device-info";
 import { TRPCError } from "@trpc/server";
 import { eq } from "drizzle-orm";
-import simpleGit from "simple-git";
 import { z } from "zod";
 import { projects, workspaces } from "../../../db/schema";
 import {
@@ -15,6 +14,7 @@ import {
 } from "../../../runtime/git/refs";
 import { createTerminalSessionInternal } from "../../../terminal/terminal";
 import type { HostServiceContext } from "../../../types";
+import type { ProjectNotSetupCause } from "../../error-types";
 import { protectedProcedure, router } from "../../index";
 import { execGh } from "./utils/exec-gh";
 import { resolveStartPoint } from "./utils/resolve-start-point";
@@ -82,6 +82,20 @@ function safeResolveWorktreePath(repoPath: string, branchName: string): string {
 		});
 	}
 	return worktreePath;
+}
+
+function projectNotSetupError(projectId: string): TRPCError {
+	// Surfaces the projectId via `cause` so the renderer can open the Pin &
+	// set up modal pre-filled with it. The code is PRECONDITION_FAILED so the
+	// renderer can still treat other errors (network, permissions) distinctly.
+	return new TRPCError({
+		code: "PRECONDITION_FAILED",
+		message: "Project is not set up on this host",
+		cause: {
+			kind: "PROJECT_NOT_SETUP",
+			projectId,
+		} satisfies ProjectNotSetupCause,
+	});
 }
 
 async function resolveGithubRepo(
@@ -538,37 +552,15 @@ export const workspaceCreationRouter = router({
 			const deviceName = getDeviceName();
 			setProgress(input.pendingId, "ensuring_repo");
 
-			// 1. Resolve / ensure project locally
-			let localProject = ctx.db.query.projects
+			// 1. Require the project be set up on this host. The renderer
+			// catches PROJECT_NOT_SETUP and opens Pin & set up so the user
+			// picks where to clone explicitly (vs the old silent auto-clone
+			// into ~/.superset/repos/).
+			const localProject = ctx.db.query.projects
 				.findFirst({ where: eq(projects.id, input.projectId) })
 				.sync();
-
 			if (!localProject) {
-				const cloudProject = await ctx.api.v2Project.get.query({
-					organizationId: ctx.organizationId,
-					id: input.projectId,
-				});
-
-				if (!cloudProject.repoCloneUrl) {
-					throw new TRPCError({
-						code: "BAD_REQUEST",
-						message: "Project has no linked GitHub repository — cannot clone",
-					});
-				}
-
-				const homeDir = process.env.HOME || process.env.USERPROFILE || "/tmp";
-				const repoPath = join(homeDir, ".superset", "repos", input.projectId);
-
-				if (!existsSync(repoPath)) {
-					mkdirSync(dirname(repoPath), { recursive: true });
-					await simpleGit().clone(cloudProject.repoCloneUrl, repoPath);
-				}
-
-				localProject = ctx.db
-					.insert(projects)
-					.values({ id: input.projectId, repoPath })
-					.returning()
-					.get();
+				throw projectNotSetupError(input.projectId);
 			}
 
 			setProgress(input.pendingId, "creating_worktree");
@@ -842,33 +834,12 @@ export const workspaceCreationRouter = router({
 			const deviceName = getDeviceName();
 			setProgress(input.pendingId, "ensuring_repo");
 
-			// 1. Ensure project locally (clone if missing) — same as create
-			let localProject = ctx.db.query.projects
+			// 1. Require the project be set up on this host — same as create.
+			const localProject = ctx.db.query.projects
 				.findFirst({ where: eq(projects.id, input.projectId) })
 				.sync();
-
 			if (!localProject) {
-				const cloudProject = await ctx.api.v2Project.get.query({
-					organizationId: ctx.organizationId,
-					id: input.projectId,
-				});
-				if (!cloudProject.repoCloneUrl) {
-					throw new TRPCError({
-						code: "BAD_REQUEST",
-						message: "Project has no linked GitHub repository — cannot clone",
-					});
-				}
-				const homeDir = process.env.HOME || process.env.USERPROFILE || "/tmp";
-				const repoPath = join(homeDir, ".superset", "repos", input.projectId);
-				if (!existsSync(repoPath)) {
-					mkdirSync(dirname(repoPath), { recursive: true });
-					await simpleGit().clone(cloudProject.repoCloneUrl, repoPath);
-				}
-				localProject = ctx.db
-					.insert(projects)
-					.values({ id: input.projectId, repoPath })
-					.returning()
-					.get();
+				throw projectNotSetupError(input.projectId);
 			}
 
 			setProgress(input.pendingId, "creating_worktree");
@@ -1092,10 +1063,7 @@ export const workspaceCreationRouter = router({
 				.findFirst({ where: eq(projects.id, input.projectId) })
 				.sync();
 			if (!localProject) {
-				throw new TRPCError({
-					code: "NOT_FOUND",
-					message: "Project is not set up locally",
-				});
+				throw projectNotSetupError(input.projectId);
 			}
 
 			const branch = input.branch.trim();

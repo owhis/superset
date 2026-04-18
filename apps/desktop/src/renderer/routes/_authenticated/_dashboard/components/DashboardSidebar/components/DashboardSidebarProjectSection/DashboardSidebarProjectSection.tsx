@@ -64,21 +64,24 @@ export function DashboardSidebarProjectSection({
 	// Phase 2: "Set up here" inline CTA for unbacked-on-this-host rows.
 	// Opens the same Pin & set up modal that the Available section uses,
 	// with the project pre-filled so the user only has to pick a folder.
+	// Phase 4: "Repair" reuses the same modal with forceRepoint so the
+	// user gets the destructive-confirmation copy immediately.
 	const openPinAndSetup = useOpenPinAndSetupModal();
-	const handleSetUpHere = useCallback(() => {
-		openPinAndSetup({
+	const pinTarget = useMemo(
+		() => ({
 			id: project.id,
 			name: project.name,
 			githubOwner: project.githubOwner,
 			githubRepoName: project.githubRepoName,
-		});
-	}, [
-		openPinAndSetup,
-		project.githubOwner,
-		project.githubRepoName,
-		project.id,
-		project.name,
-	]);
+		}),
+		[project.githubOwner, project.githubRepoName, project.id, project.name],
+	);
+	const handleSetUpHere = useCallback(() => {
+		openPinAndSetup(pinTarget);
+	}, [openPinAndSetup, pinTarget]);
+	const handleRepairPath = useCallback(() => {
+		openPinAndSetup(pinTarget, { forceRepoint: true });
+	}, [openPinAndSetup, pinTarget]);
 
 	if (isSidebarCollapsed) {
 		return (
@@ -101,6 +104,7 @@ export function DashboardSidebarProjectSection({
 						onWorkspaceHover={onWorkspaceHover}
 						onToggleCollapse={() => onToggleCollapse(project.id)}
 						onSetUpHere={handleSetUpHere}
+						onRepairPath={handleRepairPath}
 					/>
 				</div>
 			</DashboardSidebarProjectContextMenu>
@@ -131,6 +135,7 @@ export function DashboardSidebarProjectSection({
 					onToggleCollapse={() => onToggleCollapse(project.id)}
 					onNewWorkspace={handleNewWorkspace}
 					onSetUpHere={handleSetUpHere}
+					onRepairPath={handleRepairPath}
 					{...(dragHandleAttributes ?? {})}
 					{...(dragHandleListeners ?? {})}
 				/>

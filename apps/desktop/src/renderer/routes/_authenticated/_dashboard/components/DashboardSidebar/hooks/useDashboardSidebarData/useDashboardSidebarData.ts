@@ -27,7 +27,11 @@ const PENDING_WORKSPACE_TAB_ORDER = Number.MAX_SAFE_INTEGER;
 // render. That produces a Radix/compose-refs setState loop when the item
 // is a draggable button. Pinning the empty fallbacks keeps references
 // stable across renders and stops the churn.
-type LocalProjectListRow = { id: string; repoPath: string };
+type LocalProjectListRow = {
+	id: string;
+	repoPath: string;
+	pathStatus: "healthy" | "missing";
+};
 type RemoteBackingRow = {
 	projectId: string;
 	hostId: string;
@@ -36,6 +40,12 @@ type RemoteBackingRow = {
 };
 const EMPTY_LOCAL_PROJECT_LIST: LocalProjectListRow[] = [];
 const EMPTY_REMOTE_BACKING_ROWS: RemoteBackingRow[] = [];
+
+// Phase 4: poll project.list so out-of-band directory deletions surface
+// without requiring the user to trigger an operation that fails. Kept at
+// 30s to stay lightweight — repoPath changes are the only signal we need
+// to catch and they happen infrequently.
+const PROJECT_LIST_REFETCH_INTERVAL_MS = 30_000;
 
 export function useDashboardSidebarData() {
 	const { data: session } = authClient.useSession();
@@ -70,12 +80,13 @@ export function useDashboardSidebarData() {
 	>({
 		queryKey: ["project", "list", activeHostUrl],
 		enabled: activeHostClient !== null,
+		refetchInterval: PROJECT_LIST_REFETCH_INTERVAL_MS,
 		queryFn: () =>
 			activeHostClient?.project.list.query() ?? EMPTY_LOCAL_PROJECT_LIST,
 	});
 
-	const locallyBackedProjectIds = useMemo(
-		() => new Set(localProjectList.map((p) => p.id)),
+	const localProjectPathStatus = useMemo(
+		() => new Map(localProjectList.map((p) => [p.id, p.pathStatus])),
 		[localProjectList],
 	);
 
@@ -117,13 +128,20 @@ export function useDashboardSidebarData() {
 
 	const deriveBackingState = useCallback(
 		(projectId: string): DashboardSidebarProjectBackingState => {
-			if (locallyBackedProjectIds.has(projectId)) return "normal";
+			// Local backing wins — but pathStatus discriminates healthy vs
+			// stale. A stale local path takes precedence over remote backing
+			// because the user clearly wanted this project set up here and
+			// should fix it rather than silently fall back to a teammate's
+			// copy.
+			const localStatus = localProjectPathStatus.get(projectId);
+			if (localStatus === "healthy") return "normal";
+			if (localStatus === "missing") return "stale-path";
 			const remote = remoteBackingByProject.get(projectId);
 			if (remote?.online.size) return "normal";
 			if (remote?.offline.size) return "host-offline";
 			return "not-set-up-here";
 		},
-		[locallyBackedProjectIds, remoteBackingByProject],
+		[localProjectPathStatus, remoteBackingByProject],
 	);
 
 	const { data: rawSidebarProjects = [] } = useLiveQuery(

@@ -23,6 +23,13 @@ const STATE_META: Record<
 		dotClass: "bg-amber-500",
 		textClass: "text-amber-600 dark:text-amber-400",
 	},
+	"stale-path": {
+		label: "Path missing",
+		tooltip:
+			"This project's folder is missing on disk. Click Repair to re-point it.",
+		dotClass: "bg-destructive",
+		textClass: "text-destructive",
+	},
 };
 
 interface ProjectBackingStateIndicatorProps {

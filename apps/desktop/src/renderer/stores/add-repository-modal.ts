@@ -15,7 +15,20 @@ export interface PinAndSetupTarget {
 type ActiveModal =
 	| { kind: "none" }
 	| { kind: "new-project" }
-	| { kind: "pin-and-setup"; target: PinAndSetupTarget };
+	| {
+			kind: "pin-and-setup";
+			target: PinAndSetupTarget;
+			// Optional one-shot callback invoked by the host component after the
+			// modal's setup mutation resolves successfully. Used by callers that
+			// want to retry the operation that originally surfaced
+			// PROJECT_NOT_SETUP (e.g. the pending workspace-create page).
+			onSuccess?: () => void;
+			// When true, the modal opens directly in "re-point" mode and sends
+			// acknowledgeWorkspaceInvalidation on the first submit. Used for
+			// stale-path repair where the user explicitly chose Repair and we
+			// already know the project is set up here.
+			forceRepoint?: boolean;
+	  };
 
 interface AddRepositoryModalState {
 	active: ActiveModal;
@@ -26,7 +39,10 @@ interface AddRepositoryModalState {
 	folderImportTrigger: number;
 	openNewProject: () => void;
 	triggerFolderImport: () => void;
-	openPinAndSetup: (target: PinAndSetupTarget) => void;
+	openPinAndSetup: (
+		target: PinAndSetupTarget,
+		opts?: { onSuccess?: () => void; forceRepoint?: boolean },
+	) => void;
 	close: () => void;
 }
 
@@ -40,8 +56,15 @@ export const useAddRepositoryModalStore = create<AddRepositoryModalState>()(
 				set((state) => ({
 					folderImportTrigger: state.folderImportTrigger + 1,
 				})),
-			openPinAndSetup: (target) =>
-				set({ active: { kind: "pin-and-setup", target } }),
+			openPinAndSetup: (target, opts) =>
+				set({
+					active: {
+						kind: "pin-and-setup",
+						target,
+						onSuccess: opts?.onSuccess,
+						forceRepoint: opts?.forceRepoint,
+					},
+				}),
 			close: () => set({ active: { kind: "none" } }),
 		}),
 		{ name: "add-repository-modal" },
