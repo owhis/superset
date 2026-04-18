@@ -22,7 +22,7 @@ interface LinkHoverTooltipProps {
 
 function getLabel(info: LinkHoverInfo, shift: boolean): string {
 	if (info.kind === "url") {
-		return shift ? "Open in external browser" : "Open in browser";
+		return shift ? "Open in external browser" : "Open in pane";
 	}
 	if (shift) return "Open in external editor";
 	return info.isDirectory ? "Reveal in sidebar" : "Open in pane";
