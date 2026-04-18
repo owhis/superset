@@ -1,10 +1,6 @@
-import type { ExternalApp } from "@superset/local-db";
 import { AnimatePresence, motion } from "framer-motion";
-import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { getAppOption } from "renderer/components/OpenInExternalDropdown/constants";
 import type { LinkHoverInfo } from "renderer/lib/terminal/terminal-runtime-registry";
-import { electronTrpcClient } from "renderer/lib/trpc-client";
 import type { LinkClickHint } from "../../hooks/useLinkClickHint";
 import type { HoveredLink } from "../../hooks/useLinkHoverState";
 
@@ -24,52 +20,15 @@ interface LinkHoverTooltipProps {
 	hint: LinkClickHint | null;
 }
 
-function getAppLabel(app: ExternalApp): string {
-	const option = getAppOption(app);
-	return option?.displayLabel ?? option?.label ?? "external editor";
-}
-
-function getLabel(
-	info: LinkHoverInfo,
-	shift: boolean,
-	defaultEditor: ExternalApp | null,
-): string {
+function getLabel(info: LinkHoverInfo, shift: boolean): string {
 	if (info.kind === "url") {
 		return shift ? "Open in external browser" : "Open in browser";
 	}
-	if (shift) {
-		return defaultEditor
-			? `Open in ${getAppLabel(defaultEditor)}`
-			: "Open externally";
-	}
-	return info.isDirectory ? "Reveal in sidebar" : "Open in editor";
+	if (shift) return "Open in external editor";
+	return info.isDirectory ? "Reveal in sidebar" : "Open in pane";
 }
 
 export function LinkHoverTooltip({ hoveredLink, hint }: LinkHoverTooltipProps) {
-	const [defaultEditor, setDefaultEditor] = useState<ExternalApp | null>(null);
-	const hovering = hoveredLink !== null;
-
-	useEffect(() => {
-		if (!hovering) return;
-		let cancelled = false;
-		electronTrpcClient.settings.getDefaultEditor
-			.query()
-			.then((editor) => {
-				if (!cancelled) setDefaultEditor(editor);
-			})
-			.catch((error) => {
-				if (cancelled) return;
-				console.warn(
-					"[LinkHoverTooltip] Failed to fetch default editor:",
-					error,
-				);
-				setDefaultEditor(null);
-			});
-		return () => {
-			cancelled = true;
-		};
-	}, [hovering]);
-
 	const showingHover = Boolean(hoveredLink?.modifier);
 
 	return createPortal(
@@ -82,7 +41,7 @@ export function LinkHoverTooltip({ hoveredLink, hint }: LinkHoverTooltipProps) {
 						top: hoveredLink.clientY + TOOLTIP_OFFSET_PX,
 					}}
 				>
-					{getLabel(hoveredLink.info, hoveredLink.shift, defaultEditor)}
+					{getLabel(hoveredLink.info, hoveredLink.shift)}
 				</div>
 			)}
 			<AnimatePresence>
