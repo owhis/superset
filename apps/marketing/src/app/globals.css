@@ -428,6 +428,21 @@
 	animation: mc-ore-sparkle 2s ease-in-out infinite;
 }
 
+/* ── Pixel Creature Wander ── */
+@keyframes mc-creature-wander {
+	0%,
+	100% {
+		transform: translateX(-10px);
+	}
+	50% {
+		transform: translateX(20px);
+	}
+}
+
+.mc-creature-wander {
+	animation: mc-creature-wander 5s ease-in-out infinite;
+}
+
 @utility scrollbar-hide {
 	-ms-overflow-style: none;
 	scrollbar-width: none;
