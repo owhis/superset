@@ -11,13 +11,15 @@ const STATE_META: Record<
 > = {
 	"host-offline": {
 		label: "Offline",
-		tooltip: "This project is backed on a host that's currently offline.",
+		tooltip:
+			"Only backed on a device that's currently offline. Will resume when it reconnects.",
 		dotClass: "bg-muted-foreground/60",
 		textClass: "text-muted-foreground",
 	},
 	"not-set-up-here": {
 		label: "Not here",
-		tooltip: "This project isn't set up on this device yet.",
+		tooltip:
+			"This project isn't set up on this device yet. Click Set up to clone it here.",
 		dotClass: "bg-amber-500",
 		textClass: "text-amber-600 dark:text-amber-400",
 	},

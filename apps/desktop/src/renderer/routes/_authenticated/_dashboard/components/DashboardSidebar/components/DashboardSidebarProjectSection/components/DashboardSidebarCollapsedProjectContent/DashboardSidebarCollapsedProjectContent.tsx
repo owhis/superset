@@ -21,6 +21,7 @@ interface DashboardSidebarCollapsedProjectContentProps
 	workspaceShortcutLabels: Map<string, string>;
 	onWorkspaceHover: (workspaceId: string) => void | Promise<void>;
 	onToggleCollapse: () => void;
+	onSetUpHere: () => void;
 }
 
 export const DashboardSidebarCollapsedProjectContent = forwardRef<
@@ -38,6 +39,7 @@ export const DashboardSidebarCollapsedProjectContent = forwardRef<
 			workspaceShortcutLabels,
 			onWorkspaceHover,
 			onToggleCollapse,
+			onSetUpHere,
 			className,
 			...props
 		},
@@ -56,7 +58,11 @@ export const DashboardSidebarCollapsedProjectContent = forwardRef<
 					<TooltipTrigger asChild>
 						<button
 							type="button"
-							onClick={onToggleCollapse}
+							onClick={
+								backingState === "not-set-up-here"
+									? onSetUpHere
+									: onToggleCollapse
+							}
 							className={cn(
 								"relative flex items-center justify-center size-8 rounded-md",
 								"hover:bg-muted/50 transition-colors",
@@ -77,10 +83,16 @@ export const DashboardSidebarCollapsedProjectContent = forwardRef<
 					</TooltipTrigger>
 					<TooltipContent side="right" className="flex flex-col gap-0.5">
 						<span className="font-medium">{projectName}</span>
-						<span className="text-xs text-muted-foreground">
-							{totalWorkspaceCount} workspace
-							{totalWorkspaceCount !== 1 ? "s" : ""}
-						</span>
+						{backingState === "not-set-up-here" ? (
+							<span className="text-xs text-amber-500">
+								Not set up — click to set up here
+							</span>
+						) : (
+							<span className="text-xs text-muted-foreground">
+								{totalWorkspaceCount} workspace
+								{totalWorkspaceCount !== 1 ? "s" : ""}
+							</span>
+						)}
 					</TooltipContent>
 				</Tooltip>
 
