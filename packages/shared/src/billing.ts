@@ -13,8 +13,5 @@ export function isPaidPlan(plan: string | null | undefined): boolean {
 export function isActiveSubscriptionStatus(
 	status: string | null | undefined,
 ): status is ActiveSubscriptionStatus {
-	return (
-		status === "active" ||
-		status === "trialing"
-	);
+	return status === "active" || status === "trialing";
 }

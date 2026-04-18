@@ -5,6 +5,7 @@ import {
 	getEnabledAgentConfigs,
 	indexResolvedAgentConfigs,
 } from "@superset/shared/agent-settings";
+import { sanitizeBranchNameWithMaxLength } from "@superset/shared/workspace-launch";
 import {
 	PromptInput,
 	PromptInputAttachment,
@@ -67,7 +68,6 @@ import {
 	useSetPendingWorkspace,
 	useSetPendingWorkspaceStatus,
 } from "renderer/stores/new-workspace-modal";
-import { sanitizeBranchNameWithMaxLength } from "shared/utils/branch";
 import type { LinkedPR } from "../../NewWorkspaceModalDraftContext";
 import { useNewWorkspaceModalDraft } from "../../NewWorkspaceModalDraftContext";
 import { GitHubIssueLinkCommand } from "./components/GitHubIssueLinkCommand";

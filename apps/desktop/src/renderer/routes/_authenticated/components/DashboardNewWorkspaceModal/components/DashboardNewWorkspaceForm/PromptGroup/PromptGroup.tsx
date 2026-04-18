@@ -1,5 +1,9 @@
 import { getEnabledAgentConfigs } from "@superset/shared/agent-settings";
 import {
+	sanitizeUserBranchName,
+	slugifyForBranch,
+} from "@superset/shared/workspace-launch";
+import {
 	PromptInput,
 	PromptInputAttachment,
 	PromptInputAttachments,
@@ -24,7 +28,6 @@ import { useAgentLaunchPreferences } from "renderer/hooks/useAgentLaunchPreferen
 import { PLATFORM } from "renderer/hotkeys";
 import { electronTrpc } from "renderer/lib/electron-trpc";
 import { useNewWorkspaceModalOpen } from "renderer/stores/new-workspace-modal";
-import { sanitizeUserBranchName, slugifyForBranch } from "shared/utils/branch";
 import { useDashboardNewWorkspaceDraft } from "../../../DashboardNewWorkspaceDraftContext";
 import { DevicePicker } from "../components/DevicePicker";
 import { AttachmentButtons } from "./components/AttachmentButtons";

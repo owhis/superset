@@ -123,9 +123,7 @@ export async function getCurrentPlan(
  */
 export const paidPlanProcedure = protectedProcedure.use(
 	async ({ ctx, next }) => {
-		const plan = await getCurrentPlan(
-			ctx.session.session.activeOrganizationId,
-		);
+		const plan = await getCurrentPlan(ctx.session.session.activeOrganizationId);
 
 		if (!isPaidPlan(plan)) {
 			throw new TRPCError({

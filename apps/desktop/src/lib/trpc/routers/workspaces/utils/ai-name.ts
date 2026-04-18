@@ -3,13 +3,13 @@ import {
 	generateTitleFromMessageWithStreamingModel,
 } from "@superset/chat/server/desktop";
 import { workspaces } from "@superset/local-db";
+import { deriveWorkspaceTitleFromPrompt } from "@superset/shared/workspace-launch";
 import { and, eq, isNull } from "drizzle-orm";
 import {
 	callSmallModel,
 	type SmallModelAttempt,
 } from "lib/ai/call-small-model";
 import { localDb } from "main/lib/local-db";
-import { deriveWorkspaceTitleFromPrompt } from "shared/utils/workspace-naming";
 import { getWorkspaceAutoRenameDecision } from "./workspace-auto-rename";
 
 export type WorkspaceAutoRenameResult =

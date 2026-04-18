@@ -2,8 +2,8 @@ import {
 	generateTitleFromMessage,
 	generateTitleFromMessageWithStreamingModel,
 } from "@superset/chat/server/desktop";
+import { sanitizeBranchNameWithMaxLength } from "@superset/shared/workspace-launch";
 import { callSmallModel } from "lib/ai/call-small-model";
-import { sanitizeBranchNameWithMaxLength } from "shared/utils/branch";
 
 const BRANCH_NAME_INSTRUCTIONS =
 	"Generate a concise git branch name (2-4 words, kebab-case, descriptive). Return ONLY the branch name, nothing else.";
