@@ -67,3 +67,28 @@ export type SandboxStatus = z.infer<typeof sandboxStatusEnum>;
 export const workspaceTypeValues = ["local", "cloud"] as const;
 export const workspaceTypeEnum = z.enum(workspaceTypeValues);
 export type WorkspaceType = z.infer<typeof workspaceTypeEnum>;
+
+export const automationWorkspaceModeValues = [
+	"new_per_run",
+	"existing",
+] as const;
+export const automationWorkspaceModeEnum = z.enum(
+	automationWorkspaceModeValues,
+);
+export type AutomationWorkspaceMode = z.infer<
+	typeof automationWorkspaceModeEnum
+>;
+
+export const automationRunStatusValues = [
+	"pending",
+	"dispatching",
+	"dispatched",
+	"skipped_offline",
+	"dispatch_failed",
+] as const;
+export const automationRunStatusEnum = z.enum(automationRunStatusValues);
+export type AutomationRunStatus = z.infer<typeof automationRunStatusEnum>;
+
+export const automationSessionKindValues = ["chat", "terminal"] as const;
+export const automationSessionKindEnum = z.enum(automationSessionKindValues);
+export type AutomationSessionKind = z.infer<typeof automationSessionKindEnum>;

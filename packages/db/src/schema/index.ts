@@ -1,4 +1,5 @@
 export * from "./auth";
+export * from "./automations";
 export * from "./enums";
 export * from "./github";
 export * from "./ingest";
