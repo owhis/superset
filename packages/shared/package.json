@@ -48,6 +48,10 @@
 			"types": "./src/agent-custom.ts",
 			"default": "./src/agent-custom.ts"
 		},
+		"./billing": {
+			"types": "./src/billing.ts",
+			"default": "./src/billing.ts"
+		},
 		"./agent-settings": {
 			"types": "./src/agent-settings.ts",
 			"default": "./src/agent-settings.ts"

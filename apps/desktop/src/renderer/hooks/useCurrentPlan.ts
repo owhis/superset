@@ -1,8 +1,14 @@
+import {
+	isActiveSubscriptionStatus,
+	isPaidPlan,
+	type PlanTier,
+} from "@superset/shared/billing";
 import { useLiveQuery } from "@tanstack/react-db";
 import { authClient } from "renderer/lib/auth-client";
 import { useCollections } from "renderer/routes/_authenticated/providers/CollectionsProvider";
 
-export type UserPlan = "free" | "pro" | "enterprise";
+/** @deprecated use PlanTier from @superset/shared/billing */
+export type UserPlan = PlanTier;
 
 interface ResolveCurrentPlanArgs {
 	subscriptionPlan?: string | null;
@@ -10,7 +16,7 @@ interface ResolveCurrentPlanArgs {
 	subscriptionsLoaded: boolean;
 }
 
-function isPaidPlan(
+function isPaidPlanTier(
 	plan: string | null | undefined,
 ): plan is "pro" | "enterprise" {
 	return plan === "pro" || plan === "enterprise";
@@ -20,8 +26,8 @@ export function resolveCurrentPlan({
 	subscriptionPlan,
 	sessionPlan,
 	subscriptionsLoaded,
-}: ResolveCurrentPlanArgs): UserPlan {
-	if (isPaidPlan(subscriptionPlan)) {
+}: ResolveCurrentPlanArgs): PlanTier {
+	if (isPaidPlanTier(subscriptionPlan)) {
 		return subscriptionPlan;
 	}
 
@@ -29,14 +35,14 @@ export function resolveCurrentPlan({
 		return "free";
 	}
 
-	if (isPaidPlan(sessionPlan)) {
+	if (isPaidPlanTier(sessionPlan)) {
 		return sessionPlan;
 	}
 
 	return "free";
 }
 
-export function useCurrentPlan(): UserPlan {
+export function useCurrentPlan(): PlanTier {
 	const { data: session } = authClient.useSession();
 	const collections = useCollections();
 
@@ -45,8 +51,8 @@ export function useCurrentPlan(): UserPlan {
 		[collections],
 	);
 
-	const activeSubscription = subscriptionsData?.find(
-		(subscription) => subscription.status === "active",
+	const activeSubscription = subscriptionsData?.find((subscription) =>
+		isActiveSubscriptionStatus(subscription.status),
 	);
 
 	return resolveCurrentPlan({
@@ -54,4 +60,9 @@ export function useCurrentPlan(): UserPlan {
 		sessionPlan: session?.session?.plan,
 		subscriptionsLoaded: subscriptionsData !== undefined,
 	});
+}
+
+/** Convenience hook: true when the active subscription is on a paid tier. */
+export function useIsPaidPlan(): boolean {
+	return isPaidPlan(useCurrentPlan());
 }
