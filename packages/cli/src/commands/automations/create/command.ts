@@ -11,8 +11,11 @@ export default command({
 		name: string().required().desc("Human-readable automation name"),
 		prompt: string().desc("Prompt to send to the agent"),
 		promptFile: string().desc("Path to a file containing the prompt"),
-		rrule: string().desc("RFC 5545 RRULE body (e.g. FREQ=DAILY;BYHOUR=9)"),
-		cron: string().desc("5-field cron expression (alternative to --rrule)"),
+		rrule: string()
+			.required()
+			.desc(
+				"RFC 5545 RRULE body, e.g. FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR;BYHOUR=9;BYMINUTE=0",
+			),
 		timezone: string().desc(`IANA timezone (default: host TZ, else UTC)`),
 		dtstart: string().desc("ISO 8601 start anchor (default: now)"),
 		project: string().desc(
@@ -32,19 +35,6 @@ export default command({
 			throw new Error("Provide --prompt <text> or --prompt-file <path>");
 		}
 
-		let rrule: string;
-		if (options.rrule) {
-			rrule = options.rrule;
-		} else if (options.cron) {
-			const parsed = await ctx.api.automation.parseCron.mutate({
-				cron: options.cron,
-				timezone: options.timezone ?? DEFAULT_TIMEZONE,
-			});
-			rrule = parsed.rrule;
-		} else {
-			throw new Error("Provide --rrule <body> or --cron <expression>");
-		}
-
 		if (!options.project && !options.workspace) {
 			throw new Error(
 				"Provide --project (for new-workspace-per-run) or --workspace (to reuse an existing workspace)",
@@ -61,7 +51,7 @@ export default command({
 			workspaceMode,
 			v2ProjectId: options.project ?? null,
 			v2WorkspaceId: options.workspace ?? null,
-			rrule,
+			rrule: options.rrule,
 			dtstart: options.dtstart ? new Date(options.dtstart) : undefined,
 			timezone: options.timezone ?? DEFAULT_TIMEZONE,
 			mcpScope: [],

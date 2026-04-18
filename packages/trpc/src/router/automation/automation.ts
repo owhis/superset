@@ -11,16 +11,10 @@ import { and, desc, eq } from "drizzle-orm";
 import { z } from "zod";
 import { paidPlanProcedure } from "../../trpc";
 import { requireActiveOrgMembership } from "../utils/active-org";
-import {
-	cronToRrule,
-	describeRrule,
-	nextOccurrences,
-	parseRrule,
-} from "./rrule";
+import { describeRrule, nextOccurrences, parseRrule } from "./rrule";
 import {
 	createAutomationSchema,
 	listRunsSchema,
-	parseCronSchema,
 	parseRruleSchema,
 	updateAutomationSchema,
 } from "./schema";
@@ -371,36 +365,6 @@ export const automationRouter = {
 				.where(eq(automationRuns.automationId, input.automationId))
 				.orderBy(desc(automationRuns.createdAt))
 				.limit(input.limit);
-		}),
-
-	/** Cron → RRule sugar. Pure server helper, no DB. */
-	parseCron: paidPlanProcedure
-		.input(parseCronSchema)
-		.mutation(async ({ input }) => {
-			const rrule = cronToRrule(input.cron);
-			const dtstart = input.dtstart ?? new Date();
-			const { nextRunAt } = parseRrule({
-				rrule,
-				dtstart,
-				timezone: input.timezone,
-			});
-			return {
-				rrule,
-				dtstart,
-				timezone: input.timezone,
-				scheduleText: describeRrule({
-					rrule,
-					dtstart,
-					timezone: input.timezone,
-				}),
-				nextRunAt,
-				nextRuns: nextOccurrences({
-					rrule,
-					dtstart,
-					timezone: input.timezone,
-					count: 5,
-				}),
-			};
 		}),
 
 	/** Validate an RRule body + preview its next occurrences. */

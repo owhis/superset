@@ -1,37 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import {
-	cronToRrule,
-	describeRrule,
-	nextOccurrences,
-	parseRrule,
-} from "./rrule";
-
-describe("cronToRrule", () => {
-	test("every 2 minutes", () => {
-		expect(cronToRrule("*/2 * * * *")).toBe("FREQ=MINUTELY;INTERVAL=2");
-	});
-
-	test("daily at 9", () => {
-		expect(cronToRrule("0 9 * * *")).toBe("FREQ=DAILY;BYHOUR=9;BYMINUTE=0");
-	});
-
-	test("weekdays at 9", () => {
-		expect(cronToRrule("0 9 * * 1-5")).toBe(
-			"FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR;BYHOUR=9;BYMINUTE=0",
-		);
-	});
-
-	test("monthly on the 1st at 9", () => {
-		expect(cronToRrule("0 9 1 * *")).toBe(
-			"FREQ=MONTHLY;BYMONTHDAY=1;BYHOUR=9;BYMINUTE=0",
-		);
-	});
-
-	test("rejects non-standard cron", () => {
-		expect(() => cronToRrule("0 9")).toThrow();
-		expect(() => cronToRrule("bogus")).toThrow();
-	});
-});
+import { describeRrule, nextOccurrences, parseRrule } from "./rrule";
 
 describe("parseRrule", () => {
 	test("returns a future next occurrence", () => {

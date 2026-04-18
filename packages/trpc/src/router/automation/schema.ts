@@ -70,12 +70,6 @@ export const listRunsSchema = z.object({
 	limit: z.number().int().min(1).max(100).default(20),
 });
 
-export const parseCronSchema = z.object({
-	cron: z.string().min(1).max(200),
-	timezone: iana,
-	dtstart: z.coerce.date().optional(),
-});
-
 export const parseRruleSchema = z.object({
 	rrule: rruleBody,
 	timezone: iana,

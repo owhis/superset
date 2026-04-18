@@ -1155,8 +1155,14 @@ PORT    URL                      WORKSPACE      TERMINAL         DETECTED
 ## `superset automations` (cloud + device for execution)
 
 Gated behind a paid plan (`plan !== "free"` on the active organization).
-Schedules are stored as RRule (RFC 5545); the CLI accepts cron expressions
-as sugar via `--cron` and converts server-side.
+Schedules use RRule (RFC 5545). The desktop UI exposes preset pickers;
+the CLI takes the RRule directly — common shapes look like:
+
+- Daily at 9 AM: `FREQ=DAILY;BYHOUR=9;BYMINUTE=0`
+- Weekdays at 9 AM: `FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR;BYHOUR=9;BYMINUTE=0`
+- Weekly on Monday at 10 AM: `FREQ=WEEKLY;BYDAY=MO;BYHOUR=10;BYMINUTE=0`
+- Monthly on the 1st at 9 AM: `FREQ=MONTHLY;BYMONTHDAY=1;BYHOUR=9;BYMINUTE=0`
+- Every 15 minutes: `FREQ=MINUTELY;INTERVAL=15`
 
 ### `superset automations list`
 
@@ -1193,8 +1199,7 @@ ID          NAME                AGENT     SCHEDULE                  ENABLED  NEX
 ```
 Input:
   --name <name>                required
-  --rrule <rrule> |            one of --rrule / --cron required
-    --cron <5-field cron>      sugar; server converts to RRule
+  --rrule <rrule>              required, RFC 5545 RRULE body
   --project <projectId>        required unless --workspace provided
     (new workspace is created per run inside this project)
   --workspace <workspaceId>    reuse this existing workspace every run
@@ -1217,7 +1222,7 @@ Next run: 2026-04-24T09:00:00-07:00
 Input:
   --name <name>
   --prompt <text> | --prompt-file <path>
-  --rrule <rrule> | --cron <cron> (cron requires --timezone)
+  --rrule <rrule>
   --timezone <IANA>
   --dtstart <iso8601>
   --agent <preset-id>

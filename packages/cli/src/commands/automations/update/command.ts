@@ -9,8 +9,7 @@ export default command({
 		name: string().desc("New name"),
 		prompt: string().desc("New prompt"),
 		promptFile: string().desc("Path to a file with the new prompt"),
-		rrule: string().desc("New RRule body"),
-		cron: string().desc("New cron expression (alternative to --rrule)"),
+		rrule: string().desc("New RRule body (RFC 5545)"),
 		timezone: string().desc("New IANA timezone"),
 		dtstart: string().desc("New ISO 8601 start anchor"),
 		agent: string().desc("New agent preset id"),
@@ -23,19 +22,6 @@ export default command({
 			: undefined;
 		const prompt = options.prompt ?? promptFromFile;
 
-		let rrule: string | undefined;
-		if (options.rrule) {
-			rrule = options.rrule;
-		} else if (options.cron && options.timezone) {
-			const parsed = await ctx.api.automation.parseCron.mutate({
-				cron: options.cron,
-				timezone: options.timezone,
-			});
-			rrule = parsed.rrule;
-		} else if (options.cron) {
-			throw new Error("--cron also requires --timezone");
-		}
-
 		if (options.enabled !== undefined) {
 			await ctx.api.automation.setEnabled.mutate({
 				id: options.id,
@@ -47,7 +33,7 @@ export default command({
 			id: options.id,
 			name: options.name,
 			prompt,
-			rrule,
+			rrule: options.rrule,
 			timezone: options.timezone,
 			dtstart: options.dtstart ? new Date(options.dtstart) : undefined,
 			agentType: options.agent,
