@@ -8,10 +8,7 @@ import {
 } from "./port-scanner";
 import type { TerminalSession } from "./types";
 
-// How often to poll for port changes (in ms).
-// The hint-based scan (HINT_SCAN_DELAY_MS) handles prompt detection when a dev
-// server starts. This periodic scan is a safety-net sweep, so a longer interval
-// is fine and reduces process spawns (ps/lsof) that trigger EDR agent overhead.
+// safety-net sweep; hint scans handle dev-server starts
 export const SCAN_INTERVAL_MS = 10_000;
 
 // Delay before scanning after a port hint is detected (in ms)
@@ -20,9 +17,7 @@ const HINT_SCAN_DELAY_MS = 500;
 // Ports to ignore (common system ports that are usually not dev servers)
 const IGNORED_PORTS = new Set([22, 80, 443, 5432, 3306, 6379, 27017]);
 
-// Sessions with no detected ports and no port-hint output in this window are
-// considered idle and skipped during periodic scans. Hint scans still fire
-// immediately when a dev server starts.
+// skipped by periodic scan; hint scans still fire immediately
 export const IDLE_SESSION_TIMEOUT_MS = 60_000;
 
 /**
@@ -233,14 +228,7 @@ class PortManager extends EventEmitter {
 		};
 	}
 
-	/**
-	 * A session is considered idle if it has no currently-detected ports AND
-	 * has not seen port-hint output within IDLE_SESSION_TIMEOUT_MS. Idle
-	 * sessions are skipped during periodic scans to avoid unnecessary
-	 * ps/lsof spawns that drive EDR agent CPU usage.
-	 */
 	private isSessionIdle(paneId: string): boolean {
-		// If the session has detected ports, it's not idle
 		for (const port of this.ports.values()) {
 			if (port.paneId === paneId) return false;
 		}

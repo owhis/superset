@@ -230,12 +230,6 @@ export class HistoryWriter {
 	/**
 	 * Write terminal data to the scrollback file.
 	 * Non-blocking - errors are swallowed to avoid disrupting terminal operation.
-	 *
-	 * Data is buffered in memory and flushed to disk at most once every
-	 * WRITE_DEBOUNCE_MS to reduce filesystem modification events. This is
-	 * critical on machines with kernel-level EDR agents that intercept every
-	 * file write — batching many small PTY chunks into a single write reduces
-	 * the EDR's CPU overhead dramatically.
 	 */
 	write(data: string): void {
 		if (this.closed || this.streamErrored || !this.stream) {
@@ -263,7 +257,6 @@ export class HistoryWriter {
 			this.debounceBuffer.push(data);
 			this.debounceBufferBytes += bytes;
 
-			// Schedule a flush if one isn't already pending
 			if (!this.debounceTimer) {
 				this.debounceTimer = setTimeout(() => {
 					this.debounceTimer = null;
@@ -364,16 +357,13 @@ export class HistoryWriter {
 		this.flushDebounceBuffer();
 		this.flushPendingWrites();
 
-		// If backpressured, wait for drain; otherwise data has been accepted
-		// by the kernel buffer and we can return immediately. Note: the
-		// "drain" event only fires after stream.write() returned false.
+		// drain only fires after stream.write() returned false
 		if (!this.isBackpressured) {
 			return;
 		}
 
 		return new Promise<void>((resolve) => {
 			this.stream?.once("drain", resolve);
-			// Re-check in case drain fired between the check and listener attach
 			if (!this.isBackpressured) {
 				resolve();
 			}
@@ -388,8 +378,6 @@ export class HistoryWriter {
 			return;
 		}
 
-		// Flush debounce buffer before marking as closed (flushDebounceBuffer
-		// early-returns when this.closed is true)
 		if (this.debounceTimer) {
 			clearTimeout(this.debounceTimer);
 			this.debounceTimer = null;
