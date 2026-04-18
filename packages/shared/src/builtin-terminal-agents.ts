@@ -91,7 +91,7 @@ export const BUILTIN_TERMINAL_AGENTS = [
 		description:
 			"Google's open-source terminal agent for coding, problem-solving, and task work.",
 		command: "gemini --approval-mode=auto_edit",
-		promptCommand: "gemini",
+		promptCommand: "gemini --approval-mode=auto_edit",
 		includeInDefaultTerminalPresets: true,
 	}),
 	createBuiltinTerminalAgent({
@@ -120,8 +120,8 @@ export const BUILTIN_TERMINAL_AGENTS = [
 		label: "Copilot",
 		description:
 			"GitHub's coding agent for planning, editing, and building in your repo.",
-		command: "copilot --allow-all-tools",
-		promptCommand: "copilot -i --allow-all-tools",
+		command: "copilot --allow-tool=write",
+		promptCommand: "copilot -i --allow-tool=write",
 		includeInDefaultTerminalPresets: true,
 	}),
 	createBuiltinTerminalAgent({
