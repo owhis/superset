@@ -331,8 +331,15 @@ export const gitRouter = router({
 			if (input.category === "against-base") {
 				const base = await resolveBaseComparison(git, input.baseBranch);
 				const baseRef = base?.baseRef ?? "HEAD";
+				// Use the merge base so the diff excludes unrelated changes
+				// landed on the base branch after we forked — matches what the
+				// file list (3-dot diff) is already filtered by.
+				const originRef = await git
+					.raw(["merge-base", baseRef, "HEAD"])
+					.then((s) => s.trim())
+					.catch(() => baseRef);
 				try {
-					originalContent = await git.show([`${baseRef}:${input.path}`]);
+					originalContent = await git.show([`${originRef}:${input.path}`]);
 				} catch {}
 				try {
 					modifiedContent = await git.show([`HEAD:${input.path}`]);
