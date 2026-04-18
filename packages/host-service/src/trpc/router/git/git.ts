@@ -19,9 +19,9 @@ import type {
 import {
 	buildBranch,
 	getChangedFilesForDiff,
-	getDefaultBranchName,
 	mapGitStatus,
 	parseNumstat,
+	resolveBaseComparison,
 } from "./utils/git-helpers";
 import {
 	type GraphQLThreadsResult,
@@ -40,7 +40,7 @@ export const gitRouter = router({
 			const currentBranchName = (
 				await git.revparse(["--abbrev-ref", "HEAD"]).catch(() => "")
 			).trim();
-			const defaultBranchName = await getDefaultBranchName(git);
+			const base = await resolveBaseComparison(git);
 
 			let branchNames: string[] = [];
 			try {
@@ -58,7 +58,7 @@ export const gitRouter = router({
 						git,
 						name,
 						name === currentBranchName,
-						defaultBranchName ? `origin/${defaultBranchName}` : undefined,
+						base?.baseRef,
 					),
 				),
 			);
@@ -80,11 +80,9 @@ export const gitRouter = router({
 			const currentBranchName = (
 				await git.revparse(["--abbrev-ref", "HEAD"]).catch(() => "")
 			).trim();
-			const defaultBranchName =
-				input.baseBranch ?? (await getDefaultBranchName(git));
-			const baseRef = defaultBranchName
-				? `origin/${defaultBranchName}`
-				: "HEAD";
+			const base = await resolveBaseComparison(git, input.baseBranch);
+			const defaultBranchName = base?.branchName ?? null;
+			const baseRef = base?.baseRef ?? "HEAD";
 
 			const [currentBranch, defaultBranch, status, ignoredRaw] =
 				await Promise.all([
@@ -186,11 +184,8 @@ export const gitRouter = router({
 			const worktreePath = resolveWorktreePath(ctx, input.workspaceId);
 			const git = await ctx.git(worktreePath);
 
-			const defaultBranchName =
-				input.baseBranch ?? (await getDefaultBranchName(git));
-			const baseRef = defaultBranchName
-				? `origin/${defaultBranchName}`
-				: "HEAD";
+			const base = await resolveBaseComparison(git, input.baseBranch);
+			const baseRef = base?.baseRef ?? "HEAD";
 
 			const commits: Commit[] = [];
 			try {
@@ -339,9 +334,8 @@ export const gitRouter = router({
 			let modifiedContent = "";
 
 			if (input.category === "against-base") {
-				const baseBranch =
-					input.baseBranch ?? (await getDefaultBranchName(git));
-				const baseRef = baseBranch ? `origin/${baseBranch}` : "HEAD";
+				const base = await resolveBaseComparison(git, input.baseBranch);
+				const baseRef = base?.baseRef ?? "HEAD";
 				try {
 					originalContent = await git.show([`${baseRef}:${input.path}`]);
 				} catch {}

@@ -1,4 +1,5 @@
 import type { SimpleGit } from "simple-git";
+import { resolveUpstream } from "../../../../runtime/git/refs";
 import type { Branch, ChangedFile, FileStatus } from "../types";
 
 /** Map git's single-letter status codes to GitHub-aligned FileStatus */
@@ -73,6 +74,25 @@ export async function getDefaultBranchName(
 	} catch {
 		return null;
 	}
+}
+
+/**
+ * Resolve the base comparison for "this branch vs its upstream default"
+ * views. Honors the local default branch's configured upstream
+ * (e.g. `upstream/main`) before falling back to `origin/<name>`. Returns
+ * null when no default branch can be determined.
+ */
+export async function resolveBaseComparison(
+	git: SimpleGit,
+	explicitBranch?: string,
+): Promise<{ branchName: string; baseRef: string } | null> {
+	const branchName = explicitBranch ?? (await getDefaultBranchName(git));
+	if (!branchName) return null;
+	const upstream = await resolveUpstream(git, branchName);
+	const baseRef = upstream
+		? `${upstream.remote}/${upstream.remoteBranch}`
+		: `origin/${branchName}`;
+	return { branchName, baseRef };
 }
 
 export async function buildBranch(
