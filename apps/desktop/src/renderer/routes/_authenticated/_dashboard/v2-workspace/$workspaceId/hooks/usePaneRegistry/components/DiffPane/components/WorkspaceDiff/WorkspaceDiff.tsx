@@ -5,13 +5,11 @@ import { useQuery } from "@tanstack/react-query";
 import { memo, useMemo } from "react";
 import { useCopyToClipboard } from "renderer/hooks/useCopyToClipboard";
 import { electronTrpcClient } from "renderer/lib/trpc-client";
-import {
-	getDiffsTheme,
-	getDiffViewerStyle,
-} from "renderer/screens/main/components/WorkspaceView/utils/code-theme";
+import { getDiffsTheme } from "renderer/screens/main/components/WorkspaceView/utils/code-theme";
 import { useResolvedTheme } from "renderer/stores/theme";
 import type { DiffFileSource } from "../../../../../useChangeset";
 import { DiffFileHeader } from "../DiffFileHeader";
+import { buildDiffThemeVars } from "./utils/buildDiffThemeVars";
 
 interface WorkspaceDiffProps {
 	workspaceId: string;
@@ -59,32 +57,12 @@ export const WorkspaceDiff = memo(function WorkspaceDiff({
 			: typeof fontSettings?.editorFontSize === "string"
 				? Number.parseFloat(fontSettings.editorFontSize)
 				: Number.NaN;
-	const baseThemeVars = getDiffViewerStyle(activeTheme, {
+	const themeVars = buildDiffThemeVars(activeTheme, {
 		fontFamily: fontSettings?.editorFontFamily ?? undefined,
 		fontSize: Number.isFinite(parsedEditorFontSize)
 			? parsedEditorFontSize
 			: undefined,
 	});
-	// Match the file tree's git decoration colors (v2 WorkspaceFilesTreeItem)
-	// so addition/deletion/modified highlights read the same across the pane.
-	const gitDecorationColors =
-		activeTheme.type === "dark"
-			? {
-					addition: "var(--color-green-400)",
-					deletion: "var(--color-red-500)",
-					modified: "var(--color-yellow-400)",
-				}
-			: {
-					addition: "var(--color-green-700)",
-					deletion: "var(--color-red-700)",
-					modified: "var(--color-yellow-600)",
-				};
-	const themeVars = {
-		...baseThemeVars,
-		"--diffs-addition-color-override": gitDecorationColors.addition,
-		"--diffs-deletion-color-override": gitDecorationColors.deletion,
-		"--diffs-modified-color-override": gitDecorationColors.modified,
-	};
 
 	const diffInput = useMemo(() => {
 		if (source.kind === "against-base") {
