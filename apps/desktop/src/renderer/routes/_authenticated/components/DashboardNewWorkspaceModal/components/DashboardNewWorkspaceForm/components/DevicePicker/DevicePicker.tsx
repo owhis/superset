@@ -141,11 +141,11 @@ export function DevicePicker({
 											}
 										>
 											<HostIcon className="size-4" />
-											<div className="min-w-0 flex-1">
-												<div className="truncate">{host.name}</div>
-											</div>
+											<span className="min-w-0 truncate">{host.name}</span>
 											<OnlineDot online={host.isOnline} />
-											{isSelected && <HiCheck className="size-4" />}
+											{isSelected && (
+												<HiCheck className="ml-auto size-4 shrink-0" />
+											)}
 										</DropdownMenuItem>
 									);
 								})}
