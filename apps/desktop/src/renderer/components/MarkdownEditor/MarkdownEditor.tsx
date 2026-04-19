@@ -1,5 +1,5 @@
 import "highlight.js/styles/github-dark.css";
-import "./task-markdown.css";
+import "./markdown-editor.css";
 
 import { cn } from "@superset/ui/utils";
 import { Extension } from "@tiptap/core";
@@ -122,7 +122,7 @@ const KeyboardHandler = Extension.create({
 	},
 });
 
-interface TaskMarkdownRendererProps {
+interface MarkdownEditorProps {
 	content: string;
 	onSave?: (markdown: string) => void;
 	onChange?: (markdown: string) => void;
@@ -140,7 +140,7 @@ function getMarkdown(editor: Editor | null): string {
 	return storage?.markdown?.getMarkdown?.() ?? "";
 }
 
-export function TaskMarkdownRenderer({
+export function MarkdownEditor({
 	content,
 	onSave,
 	onChange,
@@ -149,7 +149,7 @@ export function TaskMarkdownRenderer({
 	className,
 	editorClassName,
 	onModEnter,
-}: TaskMarkdownRendererProps) {
+}: MarkdownEditorProps) {
 	const editor = useEditor({
 		autofocus: autoFocus ? "end" : false,
 		extensions: [

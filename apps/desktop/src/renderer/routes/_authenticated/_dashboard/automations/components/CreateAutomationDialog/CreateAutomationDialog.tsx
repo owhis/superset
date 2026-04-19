@@ -17,11 +17,11 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@superset/ui/select";
-import { Textarea } from "@superset/ui/textarea";
 import { useLiveQuery } from "@tanstack/react-db";
 import { useMutation } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { LuChevronDown, LuClock, LuCpu, LuInfo } from "react-icons/lu";
+import { MarkdownEditor } from "renderer/components/MarkdownEditor";
 import { apiTrpcClient } from "renderer/lib/api-trpc-client";
 import { DevicePicker } from "renderer/routes/_authenticated/components/DashboardNewWorkspaceModal/components/DashboardNewWorkspaceForm/components/DevicePicker";
 import { useWorkspaceHostOptions } from "renderer/routes/_authenticated/components/DashboardNewWorkspaceModal/components/DashboardNewWorkspaceForm/components/DevicePicker/hooks/useWorkspaceHostOptions/useWorkspaceHostOptions";
@@ -202,11 +202,12 @@ export function CreateAutomationDialog({
 				<DialogHeader className="flex-row items-start gap-2 p-4 pb-0 space-y-0">
 					<div className="flex-1">
 						<DialogTitle className="sr-only">New automation</DialogTitle>
-						<Input
+						<input
+							type="text"
 							placeholder="Automation title"
 							value={name}
 							onChange={(event) => setName(event.target.value)}
-							className="border-0 bg-transparent px-0 h-8 text-base font-medium shadow-none focus-visible:ring-0"
+							className="w-full bg-transparent border-none outline-none p-0 text-base font-medium placeholder:text-muted-foreground focus:outline-none"
 						/>
 					</div>
 					<Button variant="ghost" size="icon" disabled>
@@ -217,12 +218,13 @@ export function CreateAutomationDialog({
 					</Button>
 				</DialogHeader>
 
-				<div className="px-4 pt-2 h-[260px] flex flex-col">
-					<Textarea
+				<div className="px-4 pt-2 h-[260px] flex flex-col overflow-y-auto">
+					<MarkdownEditor
+						content={prompt}
+						onChange={setPrompt}
 						placeholder="Add prompt e.g. look for crashes in $sentry"
-						value={prompt}
-						onChange={(event) => setPrompt(event.target.value)}
-						className="flex-1 border-0 bg-transparent px-0 resize-none shadow-none focus-visible:ring-0"
+						className="flex-1"
+						editorClassName="min-h-[200px]"
 					/>
 
 					{createMutation.isError && (
