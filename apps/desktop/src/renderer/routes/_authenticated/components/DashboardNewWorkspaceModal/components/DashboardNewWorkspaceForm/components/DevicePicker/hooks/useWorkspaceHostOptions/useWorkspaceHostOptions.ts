@@ -15,6 +15,8 @@ export interface WorkspaceHostOption {
 
 interface UseWorkspaceHostOptionsResult {
 	currentDeviceName: string | null;
+	/** v2_hosts.id for the current device (the one running this desktop app). */
+	localHostId: string | null;
 	activeHostUrl: string | null;
 	otherHosts: WorkspaceHostOption[];
 }
@@ -70,6 +72,7 @@ export function useWorkspaceHostOptions(): UseWorkspaceHostOptionsResult {
 
 	return {
 		currentDeviceName: localHost?.name ?? null,
+		localHostId: localHost?.id ?? null,
 		activeHostUrl,
 		otherHosts,
 	};

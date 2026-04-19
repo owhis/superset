@@ -18,16 +18,17 @@ import {
 	SelectValue,
 } from "@superset/ui/select";
 import { Textarea } from "@superset/ui/textarea";
+import { useLiveQuery } from "@tanstack/react-db";
 import { useMutation } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
-import {
-	LuChevronDown,
-	LuClock,
-	LuCpu,
-	LuFolder,
-	LuInfo,
-} from "react-icons/lu";
+import { useEffect, useMemo, useState } from "react";
+import { LuChevronDown, LuClock, LuCpu, LuInfo } from "react-icons/lu";
 import { apiTrpcClient } from "renderer/lib/api-trpc-client";
+import { DevicePicker } from "renderer/routes/_authenticated/components/DashboardNewWorkspaceModal/components/DashboardNewWorkspaceForm/components/DevicePicker";
+import { useWorkspaceHostOptions } from "renderer/routes/_authenticated/components/DashboardNewWorkspaceModal/components/DashboardNewWorkspaceForm/components/DevicePicker/hooks/useWorkspaceHostOptions/useWorkspaceHostOptions";
+import type { WorkspaceHostTarget } from "renderer/routes/_authenticated/components/DashboardNewWorkspaceModal/components/DashboardNewWorkspaceForm/components/DevicePicker/types";
+import { ProjectPickerPill } from "renderer/routes/_authenticated/components/DashboardNewWorkspaceModal/components/DashboardNewWorkspaceForm/PromptGroup/components/ProjectPickerPill";
+import type { ProjectOption } from "renderer/routes/_authenticated/components/DashboardNewWorkspaceModal/components/DashboardNewWorkspaceForm/PromptGroup/types";
+import { useCollections } from "renderer/routes/_authenticated/providers/CollectionsProvider";
 
 export type AutomationCreatedPayload = { id: string; name: string };
 
@@ -75,6 +76,45 @@ const CUSTOM_KEY = "__custom__";
 const DEFAULT_TIMEZONE =
 	Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
 
+function useRecentProjects(): ProjectOption[] {
+	const collections = useCollections();
+
+	const { data: v2Projects } = useLiveQuery(
+		(q) =>
+			q
+				.from({ projects: collections.v2Projects })
+				.select(({ projects }) => ({ ...projects })),
+		[collections],
+	);
+
+	const { data: githubRepositories } = useLiveQuery(
+		(q) =>
+			q.from({ repos: collections.githubRepositories }).select(({ repos }) => ({
+				id: repos.id,
+				owner: repos.owner,
+				name: repos.name,
+			})),
+		[collections],
+	);
+
+	return useMemo(() => {
+		const repoById = new Map(
+			(githubRepositories ?? []).map((repo) => [repo.id, repo]),
+		);
+		return (v2Projects ?? []).map((project) => {
+			const repo = project.githubRepositoryId
+				? (repoById.get(project.githubRepositoryId) ?? null)
+				: null;
+			return {
+				id: project.id,
+				name: project.name,
+				githubOwner: repo?.owner ?? null,
+				githubRepoName: repo?.name ?? null,
+			};
+		});
+	}, [githubRepositories, v2Projects]);
+}
+
 export function CreateAutomationDialog({
 	open,
 	onOpenChange,
@@ -83,16 +123,28 @@ export function CreateAutomationDialog({
 	const defaultScheduleKey = SCHEDULE_PRESETS[0]?.key ?? CUSTOM_KEY;
 	const [name, setName] = useState("");
 	const [prompt, setPrompt] = useState("");
-	const [projectId, setProjectId] = useState("");
+	const [hostTarget, setHostTarget] = useState<WorkspaceHostTarget>({
+		kind: "local",
+	});
+	const [selectedProjectId, setSelectedProjectId] = useState<string | null>(
+		null,
+	);
 	const [agentType, setAgentType] = useState("claude");
 	const [scheduleKey, setScheduleKey] = useState(defaultScheduleKey);
 	const [customRrule, setCustomRrule] = useState("");
+
+	const { localHostId } = useWorkspaceHostOptions();
+	const recentProjects = useRecentProjects();
+	const selectedProject = recentProjects.find(
+		(project) => project.id === selectedProjectId,
+	);
 
 	useEffect(() => {
 		if (!open) {
 			setName("");
 			setPrompt("");
-			setProjectId("");
+			setHostTarget({ kind: "local" });
+			setSelectedProjectId(null);
 			setAgentType("claude");
 			setScheduleKey(defaultScheduleKey);
 			setCustomRrule("");
@@ -113,15 +165,18 @@ export function CreateAutomationDialog({
 		BUILTIN_AGENT_DEFINITIONS.find((a) => a.id === agentType)?.label ??
 		agentType;
 
+	const targetHostId =
+		hostTarget.kind === "host" ? hostTarget.hostId : localHostId;
+
 	const createMutation = useMutation({
 		mutationFn: () =>
 			apiTrpcClient.automation.create.mutate({
 				name,
 				prompt,
 				agentType,
-				targetHostId: null,
+				targetHostId: targetHostId ?? null,
 				workspaceMode: "new_per_run",
-				v2ProjectId: projectId || null,
+				v2ProjectId: selectedProjectId,
 				v2WorkspaceId: null,
 				rrule: selectedRrule,
 				timezone: DEFAULT_TIMEZONE,
@@ -133,7 +188,8 @@ export function CreateAutomationDialog({
 	const canSubmit =
 		name.trim().length > 0 &&
 		prompt.trim().length > 0 &&
-		projectId.trim().length > 0 &&
+		!!selectedProjectId &&
+		!!targetHostId &&
 		selectedRrule.length > 0 &&
 		!createMutation.isPending;
 
@@ -180,11 +236,14 @@ export function CreateAutomationDialog({
 
 				<DialogFooter className="flex-row items-center justify-between gap-2 border-t p-3 sm:justify-between">
 					<div className="flex items-center gap-2">
-						<ChipPopoverFolder projectId={projectId} onChange={setProjectId} />
-						<AgentPicker
-							value={agentType}
-							onChange={setAgentType}
-							label={selectedAgentLabel}
+						<DevicePicker
+							hostTarget={hostTarget}
+							onSelectHostTarget={setHostTarget}
+						/>
+						<ProjectPickerPill
+							selectedProject={selectedProject}
+							recentProjects={recentProjects}
+							onSelectProject={setSelectedProjectId}
 						/>
 						<SchedulePicker
 							scheduleKey={scheduleKey}
@@ -192,6 +251,11 @@ export function CreateAutomationDialog({
 							customRrule={customRrule}
 							onCustomRruleChange={setCustomRrule}
 							label={selectedScheduleLabel}
+						/>
+						<AgentPicker
+							value={agentType}
+							onChange={setAgentType}
+							label={selectedAgentLabel}
 						/>
 					</div>
 
@@ -210,41 +274,6 @@ export function CreateAutomationDialog({
 				</DialogFooter>
 			</DialogContent>
 		</Dialog>
-	);
-}
-
-function ChipPopoverFolder({
-	projectId,
-	onChange,
-}: {
-	projectId: string;
-	onChange: (value: string) => void;
-}) {
-	return (
-		<Popover>
-			<PopoverTrigger asChild>
-				<Button variant="secondary" size="sm" className="gap-2 font-normal">
-					<LuFolder className="size-4" />
-					{projectId ? `${projectId.slice(0, 8)}…` : "Select project"}
-					<LuChevronDown className="size-3 opacity-60" />
-				</Button>
-			</PopoverTrigger>
-			<PopoverContent className="w-80" align="start">
-				<div className="flex flex-col gap-2">
-					<p className="text-xs text-muted-foreground">
-						Paste the v2 project id (uuid). The dispatcher creates a fresh
-						workspace inside this project for every run.
-					</p>
-					<Input
-						autoFocus
-						placeholder="00000000-0000-0000-0000-000000000000"
-						className="font-mono text-xs"
-						value={projectId}
-						onChange={(event) => onChange(event.target.value)}
-					/>
-				</div>
-			</PopoverContent>
-		</Popover>
 	);
 }
 
