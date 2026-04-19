@@ -99,7 +99,9 @@ export function DevicePicker({
 				<Button variant="ghost" size="sm" className="h-7 gap-1 px-2 text-xs">
 					<span className="flex min-w-0 items-center gap-1.5">
 						{getSelectedIcon(hostTarget, otherHosts)}
-						<span className="max-w-[140px] truncate">{selectedLabel}</span>
+						<span className="block w-[140px] truncate text-left">
+							{selectedLabel}
+						</span>
 						{selectedRemoteOnline !== null && (
 							<OnlineDot online={selectedRemoteOnline} />
 						)}
