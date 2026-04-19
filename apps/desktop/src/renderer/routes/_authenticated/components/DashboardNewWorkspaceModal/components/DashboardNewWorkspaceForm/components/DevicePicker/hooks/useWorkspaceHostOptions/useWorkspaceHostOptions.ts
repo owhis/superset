@@ -11,6 +11,7 @@ export interface WorkspaceHostOption {
 	id: string;
 	name: string;
 	isCloud: boolean;
+	isOnline: boolean;
 }
 
 interface UseWorkspaceHostOptionsResult {
@@ -48,6 +49,7 @@ export function useWorkspaceHostOptions(): UseWorkspaceHostOptionsResult {
 					id: hosts.id,
 					machineId: hosts.machineId,
 					name: hosts.name,
+					isOnline: hosts.isOnline,
 				})),
 		[activeOrganizationId, collections, currentUserId],
 	);
@@ -65,6 +67,7 @@ export function useWorkspaceHostOptions(): UseWorkspaceHostOptionsResult {
 					id: host.id,
 					name: host.name,
 					isCloud: host.machineId == null,
+					isOnline: host.isOnline ?? false,
 				}))
 				.sort((a, b) => a.name.localeCompare(b.name)),
 		[accessibleHosts, machineId],

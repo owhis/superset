@@ -9,6 +9,7 @@ import {
 	DropdownMenuSubTrigger,
 	DropdownMenuTrigger,
 } from "@superset/ui/dropdown-menu";
+import { cn } from "@superset/ui/utils";
 import {
 	HiCheck,
 	HiChevronUpDown,
@@ -21,6 +22,18 @@ import {
 	type WorkspaceHostOption,
 } from "./hooks/useWorkspaceHostOptions";
 import type { WorkspaceHostTarget } from "./types";
+
+function OnlineDot({ online }: { online: boolean }) {
+	return (
+		<span
+			aria-label={online ? "online" : "offline"}
+			className={cn(
+				"inline-block size-1.5 shrink-0 rounded-full",
+				online ? "bg-emerald-500" : "bg-muted-foreground/60",
+			)}
+		/>
+	);
+}
 
 interface DevicePickerProps {
 	hostTarget: WorkspaceHostTarget;
@@ -72,6 +85,13 @@ export function DevicePicker({
 		currentDeviceName,
 		otherHosts,
 	);
+	// Only remote hosts have a meaningful online indicator — the app itself
+	// is the local host, so it's tautologically online.
+	const selectedRemoteOnline =
+		hostTarget.kind === "host"
+			? (otherHosts.find((host) => host.id === hostTarget.hostId)?.isOnline ??
+				false)
+			: null;
 
 	return (
 		<DropdownMenu>
@@ -80,6 +100,9 @@ export function DevicePicker({
 					<span className="flex min-w-0 items-center gap-1.5">
 						{getSelectedIcon(hostTarget, otherHosts)}
 						<span className="max-w-[140px] truncate">{selectedLabel}</span>
+						{selectedRemoteOnline !== null && (
+							<OnlineDot online={selectedRemoteOnline} />
+						)}
 					</span>
 					<HiChevronUpDown className="size-3 shrink-0" />
 				</Button>
@@ -120,6 +143,7 @@ export function DevicePicker({
 											<div className="min-w-0 flex-1">
 												<div className="truncate">{host.name}</div>
 											</div>
+											<OnlineDot online={host.isOnline} />
 											{isSelected && <HiCheck className="size-4" />}
 										</DropdownMenuItem>
 									);
