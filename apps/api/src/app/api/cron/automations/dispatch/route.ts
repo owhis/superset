@@ -13,8 +13,6 @@ import {
 import {
 	buildPromptCommandFromAgentConfig,
 	getCommandFromAgentConfig,
-	indexResolvedAgentConfigs,
-	resolveAgentConfigs,
 	type TerminalResolvedAgentConfig,
 } from "@superset/shared/agent-settings";
 import {
@@ -389,19 +387,16 @@ async function dispatchOne(
 		return;
 	}
 
-	// 5. Resolve agent preset (builtin presets only in v1 — no user overrides
-	// synced to cloud yet)
-	const agentConfigs = indexResolvedAgentConfigs(resolveAgentConfigs({}));
-	const agentConfig = agentConfigs.get(
-		automation.agentType as Parameters<typeof agentConfigs.get>[0],
-	);
+	// 5. Use the snapshotted agent config from create time (includes any user
+	// customizations that live only in their desktop settings).
+	const agentConfig = automation.agentConfig;
 	if (!agentConfig || !agentConfig.enabled) {
 		await dbWs
 			.update(automationRuns)
 			.set({
 				status: "dispatch_failed",
 				v2WorkspaceId: workspaceId,
-				error: `unknown or disabled agent preset: ${automation.agentType}`,
+				error: `agent preset is disabled: ${agentConfig?.id ?? "unknown"}`,
 			})
 			.where(eq(automationRuns.id, run.id));
 		await advanceNextRun(automation, now);

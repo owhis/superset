@@ -1,0 +1,199 @@
+/**
+ * Renders an RFC 5545 RRULE body into short English ("Weekdays at 9:00 AM").
+ * Returns "Custom" for anything outside the patterns we generate through
+ * our own UI/CLI — the raw RRULE is never user-facing outside the edit flow.
+ */
+
+const WEEKDAYS = ["MO", "TU", "WE", "TH", "FR"] as const;
+const WEEKENDS = ["SA", "SU"] as const;
+const DAY_ORDER = ["MO", "TU", "WE", "TH", "FR", "SA", "SU"] as const;
+const DAY_SHORT: Record<string, string> = {
+	MO: "Mon",
+	TU: "Tue",
+	WE: "Wed",
+	TH: "Thu",
+	FR: "Fri",
+	SA: "Sat",
+	SU: "Sun",
+};
+const DAY_LONG: Record<string, string> = {
+	MO: "Monday",
+	TU: "Tuesday",
+	WE: "Wednesday",
+	TH: "Thursday",
+	FR: "Friday",
+	SA: "Saturday",
+	SU: "Sunday",
+};
+
+type RruleParts = Record<string, string>;
+
+function parseRrule(rrule: string): RruleParts | null {
+	const parts: RruleParts = {};
+	for (const segment of rrule.split(";")) {
+		const trimmed = segment.trim();
+		if (!trimmed) continue;
+		const eq = trimmed.indexOf("=");
+		if (eq < 0) return null;
+		const key = trimmed.slice(0, eq).trim().toUpperCase();
+		const value = trimmed.slice(eq + 1).trim();
+		if (!key || !value) return null;
+		parts[key] = value;
+	}
+	return parts.FREQ ? parts : null;
+}
+
+function parseIntOrNull(value: string | undefined): number | null {
+	if (value === undefined) return null;
+	const n = Number.parseInt(value, 10);
+	return Number.isFinite(n) ? n : null;
+}
+
+function ordinal(n: number): string {
+	const absolute = Math.abs(n);
+	const lastTwo = absolute % 100;
+	if (lastTwo >= 11 && lastTwo <= 13) return `${n}th`;
+	switch (absolute % 10) {
+		case 1:
+			return `${n}st`;
+		case 2:
+			return `${n}nd`;
+		case 3:
+			return `${n}rd`;
+		default:
+			return `${n}th`;
+	}
+}
+
+function sortDays(days: string[]): string[] {
+	return [...days].sort(
+		(a, b) => DAY_ORDER.indexOf(a as never) - DAY_ORDER.indexOf(b as never),
+	);
+}
+
+function sameSet(a: readonly string[], b: readonly string[]): boolean {
+	if (a.length !== b.length) return false;
+	const sortedA = sortDays([...a]).join(",");
+	const sortedB = sortDays([...b]).join(",");
+	return sortedA === sortedB;
+}
+
+function formatTimeOfDay(
+	hour: number,
+	minute: number,
+	locale: string | undefined,
+): string {
+	// BYHOUR/BYMINUTE are wall-clock digits in the automation's own TZ, so we
+	// only need locale-appropriate hour:minute rendering (12h vs 24h).
+	const ref = new Date(Date.UTC(2000, 0, 3, hour, minute));
+	return new Intl.DateTimeFormat(locale, {
+		timeZone: "UTC",
+		hour: "numeric",
+		minute: "2-digit",
+	}).format(ref);
+}
+
+function formatMonth(month: number, locale?: string): string {
+	const ref = new Date(Date.UTC(2000, month - 1, 1));
+	return new Intl.DateTimeFormat(locale, {
+		timeZone: "UTC",
+		month: "long",
+	}).format(ref);
+}
+
+export interface DescribeScheduleOptions {
+	/** BCP-47 locale for time formatting. Defaults to runtime default. */
+	locale?: string;
+}
+
+/**
+ * Human-readable cadence like "Weekdays at 9:00 AM".
+ * Falls back to "Custom" when the rule falls outside our handled patterns.
+ */
+export function describeSchedule(
+	rrule: string,
+	options: DescribeScheduleOptions = {},
+): string {
+	const parts = parseRrule(rrule);
+	if (!parts) return "Custom";
+
+	const { locale } = options;
+	const freq = parts.FREQ;
+	const interval = parseIntOrNull(parts.INTERVAL) ?? 1;
+	const byHour = parseIntOrNull(parts.BYHOUR);
+	const byMinute = parseIntOrNull(parts.BYMINUTE) ?? 0;
+	const byDay = parts.BYDAY
+		? parts.BYDAY.split(",")
+				.map((d) => d.trim().toUpperCase())
+				.filter((d) => d in DAY_LONG)
+		: [];
+	const byMonth = parseIntOrNull(parts.BYMONTH);
+	const byMonthDay = parseIntOrNull(parts.BYMONTHDAY);
+
+	// Anything that references sub-patterns we don't generate → Custom.
+	if (parts.BYSETPOS || parts.BYYEARDAY || parts.BYWEEKNO) return "Custom";
+	if (parts.COUNT || parts.UNTIL) {
+		// Still describable, but prefer Custom so the bounded nature isn't hidden.
+		return "Custom";
+	}
+
+	const atTime =
+		byHour !== null ? ` at ${formatTimeOfDay(byHour, byMinute, locale)}` : "";
+
+	switch (freq) {
+		case "MINUTELY":
+			if (interval === 1) return "Every minute";
+			return `Every ${interval} minutes`;
+
+		case "HOURLY":
+			if (interval === 1) return "Hourly";
+			return `Every ${interval} hours`;
+
+		case "DAILY":
+			if (interval === 1) return `Daily${atTime}`;
+			return `Every ${interval} days${atTime}`;
+
+		case "WEEKLY": {
+			if (interval !== 1) {
+				// "Every 2 weeks on Monday" — still cleaner than raw rrule.
+				if (byDay.length === 1) {
+					return `Every ${interval} weeks on ${DAY_LONG[byDay[0] as keyof typeof DAY_LONG]}${atTime}`;
+				}
+				return "Custom";
+			}
+			if (byDay.length === 0) return `Weekly${atTime}`;
+			if (sameSet(byDay, WEEKDAYS)) return `Weekdays${atTime}`;
+			if (sameSet(byDay, WEEKENDS)) return `Weekends${atTime}`;
+			if (byDay.length === 1) {
+				return `${DAY_LONG[byDay[0] as keyof typeof DAY_LONG]}s${atTime}`;
+			}
+			const list = sortDays(byDay)
+				.map((d) => DAY_SHORT[d as keyof typeof DAY_SHORT])
+				.join(", ");
+			return `${list}${atTime}`;
+		}
+
+		case "MONTHLY": {
+			if (interval !== 1) return "Custom";
+			if (byMonthDay === -1) return `Last day of each month${atTime}`;
+			if (byMonthDay !== null && byMonthDay >= 1 && byMonthDay <= 31) {
+				return `Monthly on the ${ordinal(byMonthDay)}${atTime}`;
+			}
+			if (byDay.length === 1) {
+				return `Monthly on ${DAY_LONG[byDay[0] as keyof typeof DAY_LONG]}${atTime}`;
+			}
+			return `Monthly${atTime}`;
+		}
+
+		case "YEARLY": {
+			if (interval !== 1) return "Custom";
+			if (byMonth !== null && byMonthDay !== null) {
+				return `Annually on ${formatMonth(byMonth, locale)} ${byMonthDay}${atTime}`;
+			}
+			return `Annually${atTime}`;
+		}
+
+		default:
+			return "Custom";
+	}
+}

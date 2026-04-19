@@ -23,7 +23,7 @@ CREATE TABLE "automations" (
 	"owner_user_id" uuid NOT NULL,
 	"name" text NOT NULL,
 	"prompt" text NOT NULL,
-	"agent_type" text NOT NULL,
+	"agent_config" jsonb NOT NULL,
 	"target_host_id" uuid,
 	"workspace_mode" "automation_workspace_mode" DEFAULT 'new_per_run' NOT NULL,
 	"v2_project_id" uuid,

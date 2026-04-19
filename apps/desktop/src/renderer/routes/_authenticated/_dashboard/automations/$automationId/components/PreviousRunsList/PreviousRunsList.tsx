@@ -1,10 +1,8 @@
-import type { RouterOutputs } from "@superset/trpc";
+import type { SelectAutomationRun } from "@superset/db/schema";
 import { Badge } from "@superset/ui/badge";
 
-type AutomationRun = RouterOutputs["automation"]["get"]["recentRuns"][number];
-
 const STATUS_VARIANT: Record<
-	AutomationRun["status"],
+	SelectAutomationRun["status"],
 	"default" | "secondary" | "destructive" | "outline"
 > = {
 	dispatched: "default",
@@ -15,7 +13,7 @@ const STATUS_VARIANT: Record<
 };
 
 interface PreviousRunsListProps {
-	runs: AutomationRun[];
+	runs: SelectAutomationRun[];
 }
 
 export function PreviousRunsList({ runs }: PreviousRunsListProps) {

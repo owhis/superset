@@ -672,6 +672,7 @@
       "dependencies": {
         "@clack/prompts": "^0.10.0",
         "@superset/cli-framework": "workspace:*",
+        "@superset/shared": "workspace:*",
         "@superset/trpc": "workspace:*",
         "@trpc/client": "^11.7.1",
         "superjson": "^2.2.5",
@@ -699,6 +700,7 @@
       "version": "0.1.0",
       "dependencies": {
         "@neondatabase/serverless": "1.0.2",
+        "@superset/shared": "workspace:*",
         "@t3-oss/env-core": "^0.13.8",
         "dotenv": "^17.3.1",
         "drizzle-orm": "0.45.2",

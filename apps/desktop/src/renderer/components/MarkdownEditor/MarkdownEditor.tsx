@@ -33,12 +33,17 @@ import {
 } from "@tiptap/react";
 import { BubbleMenu } from "@tiptap/react/menus";
 import { common, createLowlight } from "lowlight";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { BubbleMenuToolbar } from "renderer/components/MarkdownRenderer/components/TipTapMarkdownRenderer/components/BubbleMenuToolbar";
 import { env } from "renderer/env.renderer";
 import { Markdown } from "tiptap-markdown";
 import { CodeBlockView } from "./components/CodeBlockView";
 import { EmojiSuggestion } from "./components/EmojiSuggestion";
+import {
+	FileMentionNode,
+	FileMentionSuggestion,
+	type FileMentionSearchFn,
+} from "./components/FileMention";
 import { SlashCommand } from "./components/SlashCommand";
 
 const lowlight = createLowlight(common);
@@ -132,6 +137,8 @@ interface MarkdownEditorProps {
 	className?: string;
 	editorClassName?: string;
 	onModEnter?: () => void;
+	/** If provided, enables @-mention file search for the editor. */
+	searchFiles?: FileMentionSearchFn;
 }
 
 function getMarkdown(editor: Editor | null): string {
@@ -150,7 +157,14 @@ export function MarkdownEditor({
 	className,
 	editorClassName,
 	onModEnter,
+	searchFiles,
 }: MarkdownEditorProps) {
+	// useEditor captures extensions on first render, so searchFiles gets frozen
+	// at its initial (likely stale, since projectId resolves in an effect) value.
+	// Thread through a ref so the extension reads the live callback each fire.
+	const searchFilesRef = useRef(searchFiles);
+	searchFilesRef.current = searchFiles;
+
 	const editor = useEditor({
 		autofocus: autoFocus ? "end" : false,
 		extensions: [
@@ -241,6 +255,11 @@ export function MarkdownEditor({
 			}),
 			SlashCommand,
 			EmojiSuggestion,
+			FileMentionNode,
+			FileMentionSuggestion.configure({
+				searchFiles: (query) =>
+					searchFilesRef.current?.(query) ?? Promise.resolve([]),
+			}),
 			KeyboardHandler,
 		],
 		content,
@@ -291,7 +310,10 @@ export function MarkdownEditor({
 					<BubbleMenuToolbar editor={editor} />
 				</BubbleMenu>
 			)}
-			<EditorContent editor={editor} className="w-full" />
+			<EditorContent
+				editor={editor}
+				className="w-full flex-1 min-h-0 flex flex-col [&>.ProseMirror]:flex-1 [&>.ProseMirror]:min-h-0"
+			/>
 		</div>
 	);
 }

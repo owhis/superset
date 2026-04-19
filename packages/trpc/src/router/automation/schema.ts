@@ -2,7 +2,20 @@ import {
 	automationSessionKindValues,
 	automationWorkspaceModeValues,
 } from "@superset/db/schema";
+import type { ResolvedAgentConfig } from "@superset/shared/agent-settings";
 import { z } from "zod";
+
+/**
+ * Minimal shape check for the snapshotted ResolvedAgentConfig. We trust the
+ * client to construct the full config (command, promptCommand, etc.) — this
+ * just ensures we have an id + kind so the dispatcher can route correctly.
+ */
+const agentConfigSchema = z
+	.object({
+		id: z.string().min(1),
+		kind: z.enum(["terminal", "chat"]),
+	})
+	.passthrough() as unknown as z.ZodType<ResolvedAgentConfig>;
 
 const iana = z.string().min(1).describe("IANA timezone name");
 const rruleBody = z
@@ -23,7 +36,7 @@ export const createAutomationSchema = z
 	.object({
 		name: z.string().min(1).max(200),
 		prompt: z.string().min(1).max(20_000),
-		agentType: z.string().min(1),
+		agentConfig: agentConfigSchema,
 		targetHostId: z.string().uuid().nullish(),
 		workspaceMode: workspaceModeSchema,
 		v2ProjectId: z.string().uuid().nullish(),
@@ -54,7 +67,7 @@ export const updateAutomationSchema = z.object({
 	id: z.string().uuid(),
 	name: z.string().min(1).max(200).optional(),
 	prompt: z.string().min(1).max(20_000).optional(),
-	agentType: z.string().min(1).optional(),
+	agentConfig: agentConfigSchema.optional(),
 	targetHostId: z.string().uuid().nullish(),
 	workspaceMode: workspaceModeSchema.optional(),
 	v2ProjectId: z.string().uuid().nullish(),

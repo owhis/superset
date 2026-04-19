@@ -1,9 +1,12 @@
 import { Extension } from "@tiptap/core";
+import { PluginKey } from "@tiptap/pm/state";
 import { type Editor, ReactRenderer } from "@tiptap/react";
 import Suggestion, {
 	type SuggestionKeyDownProps,
 	type SuggestionProps,
 } from "@tiptap/suggestion";
+
+const slashCommandSuggestionKey = new PluginKey("markdownEditorSlashCommand");
 import {
 	forwardRef,
 	useEffect,
@@ -229,6 +232,7 @@ export const SlashCommand = Extension.create({
 	addProseMirrorPlugins() {
 		return [
 			Suggestion({
+				pluginKey: slashCommandSuggestionKey,
 				editor: this.editor,
 				...this.options.suggestion,
 				allow: ({ editor: e }) => {
@@ -279,6 +283,8 @@ export const SlashCommand = Extension.create({
 						},
 						onKeyDown: (props: SuggestionKeyDownProps) => {
 							if (props.event.key === "Escape") {
+								props.event.preventDefault();
+								props.event.stopPropagation();
 								popup?.[0]?.hide();
 								return true;
 							}

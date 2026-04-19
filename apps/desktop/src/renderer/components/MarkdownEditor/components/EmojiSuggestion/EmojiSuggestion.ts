@@ -34,6 +34,17 @@ export const EmojiSuggestion = Emoji.configure({
 				.filter((item) => matchEmoji(item, query))
 				.slice(0, MAX_RESULTS);
 		},
+		// Override the default command, which appends an extra " " after the emoji.
+		command: ({ editor, range, props }) => {
+			editor
+				.chain()
+				.focus()
+				.insertContentAt(range, {
+					type: "emoji",
+					attrs: props,
+				})
+				.run();
+		},
 		render: () => {
 			let component: ReactRenderer<
 				EmojiSuggestionListRef,
@@ -73,6 +84,8 @@ export const EmojiSuggestion = Emoji.configure({
 				},
 				onKeyDown: (props: SuggestionKeyDownProps) => {
 					if (props.event.key === "Escape") {
+						props.event.preventDefault();
+						props.event.stopPropagation();
 						popup?.[0]?.hide();
 						return true;
 					}

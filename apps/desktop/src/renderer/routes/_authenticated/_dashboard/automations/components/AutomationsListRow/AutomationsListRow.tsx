@@ -1,11 +1,10 @@
-import type { RouterOutputs } from "@superset/trpc";
+import type { SelectAutomation } from "@superset/db/schema";
+import { describeSchedule } from "@superset/shared/schedule-text";
 import { Badge } from "@superset/ui/badge";
 import { cn } from "@superset/ui/utils";
 
-export type AutomationListItem = RouterOutputs["automation"]["list"][number];
-
 interface AutomationsListRowProps {
-	automation: AutomationListItem;
+	automation: SelectAutomation;
 	onClick: () => void;
 }
 
@@ -13,6 +12,7 @@ export function AutomationsListRow({
 	automation,
 	onClick,
 }: AutomationsListRowProps) {
+	const scheduleText = describeSchedule(automation.rrule);
 	return (
 		<button
 			type="button"
@@ -41,11 +41,9 @@ export function AutomationsListRow({
 				)}
 			</span>
 			<span className="text-sm text-muted-foreground">
-				{automation.agentType}
+				{automation.agentConfig.label}
 			</span>
-			<span className="text-sm text-muted-foreground">
-				{automation.scheduleText ?? automation.rrule}
-			</span>
+			<span className="text-sm text-muted-foreground">{scheduleText}</span>
 		</button>
 	);
 }

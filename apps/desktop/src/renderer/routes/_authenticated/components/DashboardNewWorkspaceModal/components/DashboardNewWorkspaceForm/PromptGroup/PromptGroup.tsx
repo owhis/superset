@@ -1,4 +1,3 @@
-import { getEnabledAgentConfigs } from "@superset/shared/agent-settings";
 import {
 	sanitizeUserBranchName,
 	slugifyForBranch,
@@ -25,8 +24,8 @@ import { AgentSelect } from "renderer/components/AgentSelect";
 import { LinkedIssuePill } from "renderer/components/Chat/ChatInterface/components/ChatInputFooter/components/LinkedIssuePill";
 import { IssueLinkCommand } from "renderer/components/Chat/ChatInterface/components/IssueLinkCommand";
 import { useAgentLaunchPreferences } from "renderer/hooks/useAgentLaunchPreferences";
+import { useEnabledAgents } from "renderer/hooks/useEnabledAgents";
 import { PLATFORM } from "renderer/hotkeys";
-import { electronTrpc } from "renderer/lib/electron-trpc";
 import { useNewWorkspaceModalOpen } from "renderer/stores/new-workspace-modal";
 import { useDashboardNewWorkspaceDraft } from "../../../DashboardNewWorkspaceDraftContext";
 import { DevicePicker } from "../components/DevicePicker";
@@ -76,11 +75,8 @@ export function PromptGroup({
 	} = draft;
 
 	// ── Agent presets ────────────────────────────────────────────────
-	const agentPresetsQuery = electronTrpc.settings.getAgentPresets.useQuery();
-	const enabledAgentPresets = useMemo(
-		() => getEnabledAgentConfigs(agentPresetsQuery.data ?? []),
-		[agentPresetsQuery.data],
-	);
+	const { agents: enabledAgentPresets, isFetched: agentsFetched } =
+		useEnabledAgents();
 	const selectableAgentIds = useMemo(
 		() => enabledAgentPresets.map((preset) => preset.id),
 		[enabledAgentPresets],
@@ -91,7 +87,7 @@ export function PromptGroup({
 			defaultAgent: "claude",
 			fallbackAgent: "none",
 			validAgents: ["none", ...selectableAgentIds],
-			agentsReady: agentPresetsQuery.isFetched,
+			agentsReady: agentsFetched,
 		});
 
 	// ── Link commands ────────────────────────────────────────────────

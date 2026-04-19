@@ -1,7 +1,13 @@
-import { Spinner } from "@superset/ui/spinner";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import type {
+	SelectAutomation,
+	SelectAutomationRun,
+} from "@superset/db/schema";
+import { eq } from "@tanstack/db";
+import { useLiveQuery } from "@tanstack/react-db";
+import { useMutation } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { apiTrpcClient } from "renderer/lib/api-trpc-client";
+import { useCollections } from "renderer/routes/_authenticated/providers/CollectionsProvider";
 import { AutomationDetailHeader } from "./components/AutomationDetailHeader";
 import { AutomationDetailSidebar } from "./components/AutomationDetailSidebar";
 
@@ -11,57 +17,58 @@ export const Route = createFileRoute(
 	component: AutomationDetailPage,
 });
 
+const RECENT_RUNS_LIMIT = 10;
+
 function AutomationDetailPage() {
 	const { automationId } = Route.useParams();
 	const navigate = useNavigate();
-	const queryClient = useQueryClient();
+	const collections = useCollections();
 
-	const query = useQuery({
-		queryKey: ["automations", "get", automationId],
-		queryFn: () => apiTrpcClient.automation.get.query({ id: automationId }),
-	});
+	const { data: automationRows } = useLiveQuery(
+		(q) =>
+			q
+				.from({ a: collections.automations })
+				.where(({ a }) => eq(a.id, automationId))
+				.select(({ a }) => ({ ...a })),
+		[collections.automations, automationId],
+	);
+	const automation = automationRows?.[0] as SelectAutomation | undefined;
 
-	const invalidate = () =>
-		queryClient.invalidateQueries({ queryKey: ["automations"] });
+	const { data: runRows = [] } = useLiveQuery(
+		(q) =>
+			q
+				.from({ r: collections.automationRuns })
+				.where(({ r }) => eq(r.automationId, automationId))
+				.orderBy(({ r }) => r.createdAt, "desc")
+				.limit(RECENT_RUNS_LIMIT)
+				.select(({ r }) => ({ ...r })),
+		[collections.automationRuns, automationId],
+	);
+	const recentRuns = runRows as SelectAutomationRun[];
 
 	const setEnabledMutation = useMutation({
 		mutationFn: (enabled: boolean) =>
 			apiTrpcClient.automation.setEnabled.mutate({ id: automationId, enabled }),
-		onSuccess: invalidate,
 	});
 
 	const runNowMutation = useMutation({
 		mutationFn: () =>
 			apiTrpcClient.automation.runNow.mutate({ id: automationId }),
-		onSuccess: invalidate,
 	});
 
 	const deleteMutation = useMutation({
 		mutationFn: () =>
 			apiTrpcClient.automation.delete.mutate({ id: automationId }),
-		onSuccess: () => {
-			invalidate();
-			navigate({ to: "/automations" });
-		},
+		onSuccess: () => navigate({ to: "/automations" }),
 	});
 
-	if (query.isPending) {
-		return (
-			<div className="flex h-full items-center justify-center">
-				<Spinner className="size-5" />
-			</div>
-		);
-	}
-
-	if (!query.data) {
+	if (!automation) {
 		return (
 			<div className="flex h-full items-center justify-center text-sm text-muted-foreground">
 				Automation not found.
 			</div>
 		);
 	}
-
-	const automation = query.data;
 
 	return (
 		<div className="flex h-full w-full flex-1 overflow-hidden">
@@ -94,7 +101,10 @@ function AutomationDetailPage() {
 				</div>
 			</div>
 
-			<AutomationDetailSidebar automation={automation} />
+			<AutomationDetailSidebar
+				automation={automation}
+				recentRuns={recentRuns}
+			/>
 		</div>
 	);
 }

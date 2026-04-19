@@ -1,18 +1,24 @@
-import type { RouterOutputs } from "@superset/trpc";
+import type {
+	SelectAutomation,
+	SelectAutomationRun,
+} from "@superset/db/schema";
+import { describeSchedule } from "@superset/shared/schedule-text";
 import { Badge } from "@superset/ui/badge";
 import { Separator } from "@superset/ui/separator";
 import type { ReactNode } from "react";
 import { PreviousRunsList } from "../PreviousRunsList";
 
-type AutomationDetail = RouterOutputs["automation"]["get"];
-
 interface AutomationDetailSidebarProps {
-	automation: AutomationDetail;
+	automation: SelectAutomation;
+	recentRuns: SelectAutomationRun[];
 }
 
 export function AutomationDetailSidebar({
 	automation,
+	recentRuns,
 }: AutomationDetailSidebarProps) {
+	const scheduleText = describeSchedule(automation.rrule);
+
 	return (
 		<aside className="w-72 shrink-0 border-l overflow-y-auto">
 			<div className="flex flex-col gap-6 p-6">
@@ -54,18 +60,15 @@ export function AutomationDetailSidebar({
 								: "Existing"
 						}
 					/>
-					<Row
-						label="Repeats"
-						value={automation.scheduleText ?? automation.rrule}
-					/>
-					<Row label="Agent" value={automation.agentType} />
+					<Row label="Repeats" value={scheduleText} />
+					<Row label="Agent" value={automation.agentConfig.label} />
 					<Row label="Timezone" value={automation.timezone} />
 				</Section>
 
 				<Separator />
 
 				<Section title="Previous runs">
-					<PreviousRunsList runs={automation.recentRuns} />
+					<PreviousRunsList runs={recentRuns} />
 				</Section>
 			</div>
 		</aside>

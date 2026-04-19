@@ -1,23 +1,20 @@
 import {
-	getEnabledAgentConfigs,
-	type ResolvedAgentConfig,
-} from "@superset/shared/agent-settings";
-import {
 	DropdownMenu,
 	DropdownMenuContent,
 	DropdownMenuItem,
+	DropdownMenuSeparator,
 	DropdownMenuTrigger,
 } from "@superset/ui/dropdown-menu";
 import { getPresetIcon } from "@superset/ui/icons/preset-icons";
-import { useMemo } from "react";
+import { useNavigate } from "@tanstack/react-router";
 import { HiCheck } from "react-icons/hi2";
-import { LuCpu } from "react-icons/lu";
+import { LuCpu, LuSettings } from "react-icons/lu";
 import {
 	useIsDarkTheme,
 	usePresetIcon,
 } from "renderer/assets/app-icons/preset-icons";
 import { PickerTrigger } from "renderer/components/PickerTrigger";
-import { electronTrpc } from "renderer/lib/electron-trpc";
+import { useEnabledAgents } from "renderer/hooks/useEnabledAgents";
 
 interface AgentPickerProps {
 	value: string;
@@ -26,13 +23,10 @@ interface AgentPickerProps {
 }
 
 export function AgentPicker({ value, onChange, className }: AgentPickerProps) {
-	const agentPresetsQuery = electronTrpc.settings.getAgentPresets.useQuery();
-	const enabledAgents: ResolvedAgentConfig[] = useMemo(
-		() => getEnabledAgentConfigs(agentPresetsQuery.data ?? []),
-		[agentPresetsQuery.data],
-	);
+	const navigate = useNavigate();
+	const { agents } = useEnabledAgents();
 	const isDark = useIsDarkTheme();
-	const selectedAgent = enabledAgents.find((agent) => agent.id === value);
+	const selectedAgent = agents.find((agent) => agent.id === value);
 	const selectedIcon = usePresetIcon(value);
 
 	return (
@@ -55,7 +49,7 @@ export function AgentPicker({ value, onChange, className }: AgentPickerProps) {
 				/>
 			</DropdownMenuTrigger>
 			<DropdownMenuContent align="start" className="w-56">
-				{enabledAgents.map((agent) => {
+				{agents.map((agent) => {
 					const icon = getPresetIcon(agent.id, isDark);
 					return (
 						<DropdownMenuItem
@@ -76,6 +70,11 @@ export function AgentPicker({ value, onChange, className }: AgentPickerProps) {
 						</DropdownMenuItem>
 					);
 				})}
+				<DropdownMenuSeparator />
+				<DropdownMenuItem onSelect={() => navigate({ to: "/settings/agents" })}>
+					<LuSettings className="size-4 shrink-0" />
+					<span className="flex-1">Configure agents…</span>
+				</DropdownMenuItem>
 			</DropdownMenuContent>
 		</DropdownMenu>
 	);
