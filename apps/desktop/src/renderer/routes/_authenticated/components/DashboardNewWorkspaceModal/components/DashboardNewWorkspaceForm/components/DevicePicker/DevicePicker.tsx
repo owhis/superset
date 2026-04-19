@@ -68,11 +68,8 @@ function getSelectedIcon(
 	}
 
 	const host = otherHosts.find((h) => h.id === hostTarget.hostId);
-	if (host?.isCloud) {
-		return <HiOutlineCloud className="size-4 shrink-0" />;
-	}
-
-	return <HiOutlineServer className="size-4 shrink-0" />;
+	const Icon = host?.isCloud ? HiOutlineCloud : HiOutlineComputerDesktop;
+	return <Icon className="size-4 shrink-0" />;
 }
 
 export function DevicePicker({
