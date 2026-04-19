@@ -1,5 +1,13 @@
 import { BUILTIN_AGENT_DEFINITIONS } from "@superset/shared/agent-catalog";
 import { Button } from "@superset/ui/button";
+import {
+	Dialog,
+	DialogClose,
+	DialogContent,
+	DialogFooter,
+	DialogHeader,
+	DialogTitle,
+} from "@superset/ui/dialog";
 import { Input } from "@superset/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@superset/ui/popover";
 import {
@@ -20,15 +28,6 @@ import {
 	LuInfo,
 } from "react-icons/lu";
 import { apiTrpcClient } from "renderer/lib/api-trpc-client";
-import {
-	FullScreenModal,
-	FullScreenModalBody,
-	FullScreenModalClose,
-	FullScreenModalContent,
-	FullScreenModalFooter,
-	FullScreenModalHeader,
-	FullScreenModalTitle,
-} from "../FullScreenModal";
 
 export type AutomationCreatedPayload = { id: string; name: string };
 
@@ -81,11 +80,11 @@ export function CreateAutomationDialog({
 	onOpenChange,
 	onCreated,
 }: CreateAutomationDialogProps) {
+	const defaultScheduleKey = SCHEDULE_PRESETS[0]?.key ?? CUSTOM_KEY;
 	const [name, setName] = useState("");
 	const [prompt, setPrompt] = useState("");
 	const [projectId, setProjectId] = useState("");
 	const [agentType, setAgentType] = useState("claude");
-	const defaultScheduleKey = SCHEDULE_PRESETS[0]?.key ?? CUSTOM_KEY;
 	const [scheduleKey, setScheduleKey] = useState(defaultScheduleKey);
 	const [customRrule, setCustomRrule] = useState("");
 
@@ -139,75 +138,78 @@ export function CreateAutomationDialog({
 		!createMutation.isPending;
 
 	return (
-		<FullScreenModal open={open} onOpenChange={onOpenChange}>
-			<FullScreenModalContent aria-describedby={undefined}>
-				<FullScreenModalHeader>
-					<FullScreenModalTitle className="sr-only">
-						New automation
-					</FullScreenModalTitle>
+		<Dialog open={open} onOpenChange={onOpenChange}>
+			<DialogContent
+				className="sm:max-w-[800px] p-0 gap-0 overflow-hidden"
+				aria-describedby={undefined}
+			>
+				<DialogHeader className="flex-row items-start gap-2 p-4 pb-0 space-y-0">
+					<div className="flex-1">
+						<DialogTitle className="sr-only">New automation</DialogTitle>
+						<Input
+							placeholder="Automation title"
+							value={name}
+							onChange={(event) => setName(event.target.value)}
+							className="border-0 bg-transparent px-0 h-8 text-base font-medium shadow-none focus-visible:ring-0"
+						/>
+					</div>
 					<Button variant="ghost" size="icon" disabled>
 						<LuInfo className="size-4" />
 					</Button>
 					<Button variant="outline" size="sm" className="rounded-full">
 						Use template
 					</Button>
-				</FullScreenModalHeader>
+				</DialogHeader>
 
-				<FullScreenModalBody>
-					<Input
-						placeholder="Automation title"
-						value={name}
-						onChange={(event) => setName(event.target.value)}
-						className="border-0 bg-transparent px-0 !text-2xl font-medium focus-visible:ring-0 focus-visible:border-0 md:!text-2xl"
-					/>
+				<div className="px-4 pt-2 h-[260px] flex flex-col">
 					<Textarea
 						placeholder="Add prompt e.g. look for crashes in $sentry"
 						value={prompt}
 						onChange={(event) => setPrompt(event.target.value)}
-						className="flex-1 min-h-[240px] border-0 bg-transparent px-0 resize-none focus-visible:ring-0"
+						className="flex-1 border-0 bg-transparent px-0 resize-none shadow-none focus-visible:ring-0"
 					/>
 
 					{createMutation.isError && (
-						<p className="text-destructive text-sm">
+						<p className="text-destructive text-sm mt-2">
 							{createMutation.error instanceof Error
 								? createMutation.error.message
 								: "Failed to create automation"}
 						</p>
 					)}
-				</FullScreenModalBody>
+				</div>
 
-				<FullScreenModalFooter>
-					<ChipPopoverFolder projectId={projectId} onChange={setProjectId} />
+				<DialogFooter className="flex-row items-center justify-between gap-2 border-t p-3 sm:justify-between">
+					<div className="flex items-center gap-2">
+						<ChipPopoverFolder projectId={projectId} onChange={setProjectId} />
+						<AgentPicker
+							value={agentType}
+							onChange={setAgentType}
+							label={selectedAgentLabel}
+						/>
+						<SchedulePicker
+							scheduleKey={scheduleKey}
+							onScheduleKeyChange={setScheduleKey}
+							customRrule={customRrule}
+							onCustomRruleChange={setCustomRrule}
+							label={selectedScheduleLabel}
+						/>
+					</div>
 
-					<AgentPicker
-						value={agentType}
-						onChange={setAgentType}
-						label={selectedAgentLabel}
-					/>
-
-					<SchedulePicker
-						scheduleKey={scheduleKey}
-						onScheduleKeyChange={setScheduleKey}
-						customRrule={customRrule}
-						onCustomRruleChange={setCustomRrule}
-						label={selectedScheduleLabel}
-					/>
-
-					<div className="flex-1" />
-
-					<FullScreenModalClose asChild>
-						<Button variant="ghost">Cancel</Button>
-					</FullScreenModalClose>
-					<Button
-						disabled={!canSubmit}
-						onClick={() => createMutation.mutate()}
-						className="rounded-full"
-					>
-						{createMutation.isPending ? "Creating…" : "Create"}
-					</Button>
-				</FullScreenModalFooter>
-			</FullScreenModalContent>
-		</FullScreenModal>
+					<div className="flex items-center gap-2">
+						<DialogClose asChild>
+							<Button variant="ghost">Cancel</Button>
+						</DialogClose>
+						<Button
+							disabled={!canSubmit}
+							onClick={() => createMutation.mutate()}
+							className="rounded-full"
+						>
+							{createMutation.isPending ? "Creating…" : "Create"}
+						</Button>
+					</div>
+				</DialogFooter>
+			</DialogContent>
+		</Dialog>
 	);
 }
 
@@ -257,7 +259,7 @@ function AgentPicker({
 }) {
 	return (
 		<Select value={value} onValueChange={onChange}>
-			<SelectTrigger className="h-8 gap-2 border-0 bg-secondary">
+			<SelectTrigger size="sm" className="gap-2 border-0 bg-secondary h-8">
 				<LuCpu className="size-4" />
 				<SelectValue placeholder="Agent">{label}</SelectValue>
 			</SelectTrigger>
