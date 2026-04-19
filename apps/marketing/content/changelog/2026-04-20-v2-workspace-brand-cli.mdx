@@ -8,11 +8,9 @@ A big update covering the last three weeks. The chat interface got a top-to-bott
 
 ## Chat UX overhaul <PRBadge url="https://github.com/superset-sh/superset/pull/3039" />
 
-The chat interface has been rebuilt from the prompt input down to every tool call row.
-
 ### Tiptap prompt input
 
-The plain textarea is gone. The prompt is now a ProseMirror-based rich text editor with inline chips for commands and file references.
+The prompt is now a ProseMirror-based rich text editor with inline chips for commands and file references.
 
 - **Slash command chips** — type `/` to open a command menu; the command becomes an inline chip anywhere in the message instead of submitting immediately. Chips with an `argumentHint` expose an inline editable input with auto-sizing and keyboard nav; `/model` shows a dropdown of available models.
 - **File mention chips** — type `@` to open a file-search popover anchored to the cursor. Picking a file inserts a chip that serializes to `@path` on send.
@@ -44,7 +42,7 @@ The plain textarea is gone. The prompt is now a ProseMirror-based rich text edit
 
 ![v2 workspace early access](/changelog/v2-early-access.png)
 
-v2 is a ground-up rebuild of the workspace aimed at cloud. We paid down the years of crufty code underneath v1, rewrote the terminal from scratch to fix the rendering glitches people kept hitting, and re-architected the app so it actually behaves like an IDE — a proper Tab → Split → Pane model, a real file tree with git decorations, a full editor, and a diff viewer that doesn't fall over on large changesets. It's opt-in for now; here's what's in the box:
+v2 is a ground-up rebuild of the workspace aimed at cloud. We tore out v1's accumulated cruft, rewrote the terminal from scratch to fix the rendering glitches, and re-architected the app like a real IDE — Tab → Split → Pane, a proper file tree with git decorations, a full editor, and a diff viewer that handles large changesets. Opt-in for now; here's what's in the box:
 
 ### Pane layout system <PRBadge url="https://github.com/superset-sh/superset/pull/3088" />
 
@@ -67,7 +65,7 @@ A GitHub-style multi-file diff pane with lazy loading, a persistent "Viewed" sta
 
 ![v2 file tree and editor](/changelog/v2-file-tree.png)
 
-A full-fledged editor pane in v2 workspaces — foundation, views, and a large stability pass so editing behaves like you'd expect in a native IDE. The file tree sidebar shows git decorations inline <PRBadge url="https://github.com/superset-sh/superset/pull/3320" />.
+A full editor pane — foundation, views, and a large stability pass. The file tree shows git decorations inline <PRBadge url="https://github.com/superset-sh/superset/pull/3320" />.
 
 ### Review tab <PRBadge url="https://github.com/superset-sh/superset/pull/3463" />
 
@@ -89,7 +87,7 @@ A Changes tab in the right sidebar showing ahead/behind status, commit count, an
 
 {/* TODO: Screenshot of the CLI in action */}
 
-A new `superset` CLI lets you manage Superset from your terminal, and now ships as a self-contained tarball <PRBadge url="https://github.com/superset-sh/superset/pull/3298" /> so you can run your own host-service on a remote server, CI box, or cloud VM without the desktop app.
+The `superset` CLI lets you manage Superset from your terminal, and ships as a self-contained tarball <PRBadge url="https://github.com/superset-sh/superset/pull/3298" /> so you can run the host-service on a remote server, CI box, or cloud VM without the desktop app.
 
 ```bash
 tar -xzf superset-darwin-arm64.tar.gz -C ~/superset
@@ -107,11 +105,11 @@ Binaries for macOS (arm64, x64) and Linux x64. `--json` output mode for scriptin
 
 ![Brand refresh — new logo and icon treatment](/changelog/brand-refresh.png)
 
-A new logo and icon treatment across the desktop app, DMG installer background, tray icon, and wordmark. In dev builds, each workspace now gets a color-coded corner fold on the dock icon so open workspaces are distinguishable at a glance.
+New logo and icon treatment across the desktop app, DMG installer background, tray icon, and wordmark. In dev builds, each workspace gets a color-coded corner fold on the dock icon so open workspaces are distinguishable at a glance.
 
 ## GitHub integration is free <PRBadge url="https://github.com/superset-sh/superset/pull/3152" />
 
-PR review, issue linking, and push-from-desktop are now available on every plan — no Pro subscription required.
+PR review, issue linking, and push-from-desktop are available on every plan — no Pro subscription required.
 
 ## Improvements
 
