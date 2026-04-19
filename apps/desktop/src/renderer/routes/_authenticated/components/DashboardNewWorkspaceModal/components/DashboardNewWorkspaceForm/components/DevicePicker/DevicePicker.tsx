@@ -96,12 +96,14 @@ export function DevicePicker({
 	return (
 		<DropdownMenu>
 			<DropdownMenuTrigger asChild>
-				<Button variant="ghost" size="sm" className="h-7 gap-1 px-2 text-xs">
-					<span className="flex min-w-0 items-center gap-1.5">
+				<Button
+					variant="ghost"
+					size="sm"
+					className="h-7 w-[140px] justify-between gap-1 px-2 text-xs"
+				>
+					<span className="flex min-w-0 flex-1 items-center gap-1.5">
 						{getSelectedIcon(hostTarget, otherHosts)}
-						<span className="block w-[140px] truncate text-left">
-							{selectedLabel}
-						</span>
+						<span className="truncate text-left">{selectedLabel}</span>
 						{selectedRemoteOnline !== null && (
 							<OnlineDot online={selectedRemoteOnline} />
 						)}
