@@ -38,6 +38,7 @@ import { BubbleMenuToolbar } from "renderer/components/MarkdownRenderer/componen
 import { env } from "renderer/env.renderer";
 import { Markdown } from "tiptap-markdown";
 import { CodeBlockView } from "./components/CodeBlockView";
+import { EmojiSuggestion } from "./components/EmojiSuggestion";
 import { SlashCommand } from "./components/SlashCommand";
 
 const lowlight = createLowlight(common);
@@ -239,6 +240,7 @@ export function MarkdownEditor({
 				transformCopiedText: true,
 			}),
 			SlashCommand,
+			EmojiSuggestion,
 			KeyboardHandler,
 		],
 		content,

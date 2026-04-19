@@ -1,4 +1,3 @@
-import { Button } from "@superset/ui/button";
 import {
 	DropdownMenu,
 	DropdownMenuContent,
@@ -12,11 +11,11 @@ import {
 import { cn } from "@superset/ui/utils";
 import {
 	HiCheck,
-	HiChevronUpDown,
 	HiOutlineCloud,
 	HiOutlineComputerDesktop,
 	HiOutlineServer,
 } from "react-icons/hi2";
+import { PickerTrigger } from "renderer/components/PickerTrigger";
 import {
 	useWorkspaceHostOptions,
 	type WorkspaceHostOption,
@@ -26,6 +25,7 @@ import type { WorkspaceHostTarget } from "./types";
 function OnlineDot({ online }: { online: boolean }) {
 	return (
 		<span
+			role="img"
 			aria-label={online ? "online" : "offline"}
 			className={cn(
 				"inline-block size-1.5 shrink-0 rounded-full",
@@ -38,6 +38,7 @@ function OnlineDot({ online }: { online: boolean }) {
 interface DevicePickerProps {
 	hostTarget: WorkspaceHostTarget;
 	onSelectHostTarget: (target: WorkspaceHostTarget) => void;
+	className?: string;
 }
 
 function getHostIcon(host: WorkspaceHostOption) {
@@ -75,6 +76,7 @@ function getSelectedIcon(
 export function DevicePicker({
 	hostTarget,
 	onSelectHostTarget,
+	className,
 }: DevicePickerProps) {
 	const { currentDeviceName, otherHosts } = useWorkspaceHostOptions();
 	const selectedLabel = getSelectedLabel(
@@ -93,20 +95,16 @@ export function DevicePicker({
 	return (
 		<DropdownMenu>
 			<DropdownMenuTrigger asChild>
-				<Button
-					variant="ghost"
-					size="sm"
-					className="h-7 w-[140px] justify-between gap-1 px-2 text-xs"
-				>
-					<span className="flex min-w-0 flex-1 items-center gap-1.5">
-						{getSelectedIcon(hostTarget, otherHosts)}
-						<span className="truncate text-left">{selectedLabel}</span>
-						{selectedRemoteOnline !== null && (
+				<PickerTrigger
+					className={className}
+					icon={getSelectedIcon(hostTarget, otherHosts)}
+					label={selectedLabel}
+					endAdornment={
+						selectedRemoteOnline !== null ? (
 							<OnlineDot online={selectedRemoteOnline} />
-						)}
-					</span>
-					<HiChevronUpDown className="size-3 shrink-0" />
-				</Button>
+						) : null
+					}
+				/>
 			</DropdownMenuTrigger>
 			<DropdownMenuContent align="end" className="w-72">
 				<DropdownMenuItem

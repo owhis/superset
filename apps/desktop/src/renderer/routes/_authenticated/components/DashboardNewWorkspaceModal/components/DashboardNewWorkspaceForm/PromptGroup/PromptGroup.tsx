@@ -393,6 +393,7 @@ export function PromptGroup({
 				</div>
 				<div className="flex items-center gap-1.5">
 					<DevicePicker
+						className="w-[160px]"
 						hostTarget={hostTarget}
 						onSelectHostTarget={(t) => updateDraft({ hostTarget: t })}
 					/>
