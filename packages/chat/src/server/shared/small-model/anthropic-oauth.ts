@@ -1,6 +1,12 @@
-import { existsSync, readFileSync, renameSync, writeFileSync } from "node:fs";
-import { homedir, platform, tmpdir } from "node:os";
-import { join } from "node:path";
+import {
+	existsSync,
+	mkdirSync,
+	readFileSync,
+	renameSync,
+	writeFileSync,
+} from "node:fs";
+import { homedir, platform } from "node:os";
+import { dirname, join } from "node:path";
 import { ANTHROPIC_AUTH_PROVIDER_ID } from "../auth-provider-ids";
 
 const ANTHROPIC_OAUTH_TOKEN_URL =
@@ -13,6 +19,7 @@ const ANTHROPIC_OAUTH_TOKEN_URL =
 const CLAUDE_CODE_OAUTH_CLIENT_ID = "9d1c250a-e61b-44d9-88ed-5944d1962f5e";
 
 const REFRESH_LEEWAY_MS = 30_000;
+const REFRESH_TIMEOUT_MS = 10_000;
 
 export const ANTHROPIC_OAUTH_HEADERS = {
 	"anthropic-beta": "claude-code-20250219,oauth-2025-04-20",
@@ -31,7 +38,7 @@ interface AuthJsonOAuthEntry {
 	expires: number;
 }
 
-type ReadResult =
+export type AuthDataReadResult =
 	| { kind: "ok"; data: Record<string, unknown> }
 	| { kind: "missing" }
 	| { kind: "parse-error" };
@@ -44,7 +51,13 @@ type ReadResult =
  */
 let cachedEntry: AuthJsonOAuthEntry | null = null;
 
-function getAuthJsonPath(): string {
+/**
+ * Resolves the mastracode auth.json path (same logic as mastracode's
+ * `getAppDataDir`). We read it directly to avoid importing mastracode,
+ * which eagerly loads @mastra/fastembed → onnxruntime-node (208 MB native
+ * binary) and breaks electron-vite bundling.
+ */
+export function getAuthJsonPath(): string {
 	const p = platform();
 	let base: string;
 	if (p === "darwin") {
@@ -57,7 +70,7 @@ function getAuthJsonPath(): string {
 	return join(base, "mastracode", "auth.json");
 }
 
-function readAuthJson(): ReadResult {
+export function readAuthJson(): AuthDataReadResult {
 	const path = getAuthJsonPath();
 	if (!existsSync(path)) return { kind: "missing" };
 	try {
@@ -91,8 +104,11 @@ export function isOAuthEntry(value: unknown): value is AuthJsonOAuthEntry {
  * minimise the window where a concurrent mastracode write to a different
  * provider slot could be lost. Aborts on parse errors (rather than starting
  * from `{}`) so we never wipe valid sibling slots when the file is mid-write
- * or transiently corrupt. Refresh is rare (~once per hour per process), so
- * proper cross-process file locking would be overkill here.
+ * or transiently corrupt.
+ *
+ * The temp file is written into the SAME directory as the target. `renameSync`
+ * across filesystems throws `EXDEV` on Linux where /tmp is commonly a `tmpfs`
+ * mount separate from $HOME, which would silently prevent token persistence.
  */
 function writeAnthropicEntry(entry: AuthJsonOAuthEntry): void {
 	const path = getAuthJsonPath();
@@ -104,11 +120,10 @@ function writeAnthropicEntry(entry: AuthJsonOAuthEntry): void {
 	}
 	const current = result.kind === "ok" ? result.data : {};
 	current[ANTHROPIC_AUTH_PROVIDER_ID] = entry;
+	const dir = dirname(path);
+	mkdirSync(dir, { recursive: true, mode: 0o700 });
+	const tmpPath = join(dir, `.auth.json.${process.pid}-${Date.now()}.tmp`);
 	const serialized = JSON.stringify(current, null, 2);
-	const tmpPath = join(
-		tmpdir(),
-		`mastracode-auth-${process.pid}-${Date.now()}.json`,
-	);
 	writeFileSync(tmpPath, serialized, { mode: 0o600 });
 	renameSync(tmpPath, path);
 }
@@ -116,6 +131,8 @@ function writeAnthropicEntry(entry: AuthJsonOAuthEntry): void {
 async function refreshAccessToken(
 	refreshToken: string,
 ): Promise<AuthJsonOAuthEntry | null> {
+	const controller = new AbortController();
+	const timeout = setTimeout(() => controller.abort(), REFRESH_TIMEOUT_MS);
 	let response: Response;
 	try {
 		response = await fetch(ANTHROPIC_OAUTH_TOKEN_URL, {
@@ -126,10 +143,13 @@ async function refreshAccessToken(
 				refresh_token: refreshToken,
 				client_id: CLAUDE_CODE_OAUTH_CLIENT_ID,
 			}),
+			signal: controller.signal,
 		});
 	} catch (error) {
 		console.warn("[anthropic-oauth] refresh request failed:", error);
 		return null;
+	} finally {
+		clearTimeout(timeout);
 	}
 
 	if (!response.ok) {
@@ -186,16 +206,27 @@ function isFresh(entry: AuthJsonOAuthEntry): boolean {
  * refreshing it via the Claude Code OAuth flow when expired. Returns `null`
  * if no OAuth entry exists, refresh fails, or the refresh token is rejected
  * (in which case the user must re-auth via Settings → Models).
+ *
+ * `authData` may be passed in by callers that have already read auth.json to
+ * avoid a second disk read; if omitted, this function reads it itself.
  */
-export async function getAnthropicOAuthCredential(): Promise<AnthropicOAuthCredential | null> {
+export async function getAnthropicOAuthCredential(
+	authData?: Record<string, unknown> | null,
+): Promise<AnthropicOAuthCredential | null> {
 	if (cachedEntry && isFresh(cachedEntry)) {
 		return { accessToken: cachedEntry.access };
 	}
 
-	const result = readAuthJson();
-	if (result.kind !== "ok") return null;
+	let resolvedAuthData: Record<string, unknown> | null;
+	if (authData !== undefined) {
+		resolvedAuthData = authData;
+	} else {
+		const result = readAuthJson();
+		resolvedAuthData = result.kind === "ok" ? result.data : null;
+	}
+	if (!resolvedAuthData) return null;
 
-	const entry = result.data[ANTHROPIC_AUTH_PROVIDER_ID];
+	const entry = resolvedAuthData[ANTHROPIC_AUTH_PROVIDER_ID];
 	if (!isOAuthEntry(entry)) return null;
 
 	if (isFresh(entry)) {

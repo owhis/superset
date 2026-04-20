@@ -19,6 +19,7 @@ const fsMock = {
 		() => {},
 	),
 	renameSync: mock<(from: string, to: string) => void>(() => {}),
+	mkdirSync: mock<(path: string, options?: unknown) => void>(() => {}),
 };
 
 mock.module("node:fs", () => fsMock);
@@ -102,6 +103,7 @@ describe("getAnthropicOAuthCredential", () => {
 		fsMock.readFileSync.mockReset();
 		fsMock.writeFileSync.mockReset();
 		fsMock.renameSync.mockReset();
+		fsMock.mkdirSync.mockReset();
 		__resetCacheForTests();
 	});
 
@@ -372,6 +374,75 @@ describe("getAnthropicOAuthCredential", () => {
 		expect(second?.accessToken).toBe("sk-ant-oat-fresh");
 		// Second call must NOT have hit the OAuth endpoint again.
 		expect(fetchMock).toHaveBeenCalledTimes(1);
+	});
+
+	it("writes the temp file in the target directory (not tmpdir)", async () => {
+		// EXDEV guard: renameSync requires same filesystem. Temp file must live
+		// next to auth.json, not under /tmp (which is tmpfs on many Linux hosts).
+		mockAuthJson({
+			anthropic: {
+				type: "oauth",
+				access: "sk-ant-oat-stale",
+				refresh: "rt-xxx",
+				expires: Date.now() - 60_000,
+			},
+		});
+		mockFetch(async () =>
+			Response.json({ access_token: "sk-ant-oat-fresh", expires_in: 3600 }),
+		);
+
+		await getAnthropicOAuthCredential();
+
+		const writeCall = fsMock.writeFileSync.mock.calls[0];
+		const renameCall = fsMock.renameSync.mock.calls[0];
+		expect(writeCall).toBeDefined();
+		expect(renameCall).toBeDefined();
+		const tmpPath = writeCall?.[0] as string;
+		const finalPath = renameCall?.[1] as string;
+
+		// temp and final path should share the same parent directory
+		const tmpParent = tmpPath.slice(0, tmpPath.lastIndexOf("/"));
+		const finalParent = finalPath.slice(0, finalPath.lastIndexOf("/"));
+		expect(tmpParent).toBe(finalParent);
+
+		// mastracode dir must be created (recursive) before writing
+		expect(fsMock.mkdirSync).toHaveBeenCalled();
+		const mkdirCall = fsMock.mkdirSync.mock.calls[0];
+		expect(mkdirCall?.[0]).toBe(finalParent);
+	});
+
+	it("returns null when refresh is aborted by timeout", async () => {
+		mockAuthJson({
+			anthropic: {
+				type: "oauth",
+				access: "sk-ant-oat-stale",
+				refresh: "rt-xxx",
+				expires: Date.now() - 60_000,
+			},
+		});
+		// Simulate AbortController-based timeout: fetch rejects with AbortError.
+		mockFetch(async (_input, init) => {
+			return await new Promise<Response>((_resolve, reject) => {
+				init?.signal?.addEventListener("abort", () => {
+					const err = new Error("aborted");
+					err.name = "AbortError";
+					reject(err);
+				});
+			});
+		});
+
+		// Use fake timers so the 10s timeout fires instantly.
+		const originalSetTimeout = globalThis.setTimeout;
+		globalThis.setTimeout = ((fn: () => void) => {
+			// Fire the timer synchronously (microtask) to trigger abort.
+			queueMicrotask(fn);
+			return 0 as unknown as ReturnType<typeof originalSetTimeout>;
+		}) as typeof globalThis.setTimeout;
+		try {
+			expect(await getAnthropicOAuthCredential()).toBeNull();
+		} finally {
+			globalThis.setTimeout = originalSetTimeout;
+		}
 	});
 });
 
