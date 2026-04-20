@@ -16,6 +16,7 @@ import {
 	useWorkspaceInitStore,
 } from "renderer/stores/workspace-init";
 import { DEFAULT_AUTO_APPLY_DEFAULT_PRESET } from "shared/constants";
+import { sequenceSetupThenAgent } from "./sequenceSetupThenAgent";
 
 /** Mounted at app root to survive dialog unmounts. */
 export function WorkspaceInitEffects() {
@@ -144,6 +145,7 @@ export function WorkspaceInitEffects() {
 			);
 			const hasPresets = shouldApplyPreset && presets.length > 0;
 			const { agentCommand, agentLaunchRequest } = setup;
+			const hasAgent = Boolean(agentLaunchRequest || agentCommand);
 
 			if (hasSetupScript && hasPresets) {
 				const { tabId: setupTabId, paneId: setupPaneId } = addTab(
@@ -151,10 +153,6 @@ export function WorkspaceInitEffects() {
 				);
 				setTabAutoTitle(setupTabId, "Workspace Setup");
 				openPresetsInActiveTab(setup.workspaceId, presets);
-
-				if (agentLaunchRequest || agentCommand) {
-					launchAgentViaOrchestrator(setup, setupPaneId);
-				}
 
 				createOrAttach.mutate(
 					{
@@ -165,10 +163,18 @@ export function WorkspaceInitEffects() {
 					},
 					{
 						onSuccess: () => {
-							void runSetupCommandsInPane(
-								setupPaneId,
-								setup.initialCommands ?? null,
-							)
+							void sequenceSetupThenAgent({
+								runSetupCommands: () =>
+									runSetupCommandsInPane(
+										setupPaneId,
+										setup.initialCommands ?? null,
+									),
+								launchAgent: () => {
+									if (hasAgent) {
+										launchAgentViaOrchestrator(setup, setupPaneId);
+									}
+								},
+							})
 								.catch((error) => {
 									console.error(
 										"[WorkspaceInitEffects] Failed to run setup commands:",
@@ -207,10 +213,6 @@ export function WorkspaceInitEffects() {
 				const { tabId, paneId } = addTab(setup.workspaceId);
 				setTabAutoTitle(tabId, "Workspace Setup");
 
-				if (agentLaunchRequest || agentCommand) {
-					launchAgentViaOrchestrator(setup, paneId);
-				}
-
 				createOrAttach.mutate(
 					{
 						paneId,
@@ -220,7 +222,15 @@ export function WorkspaceInitEffects() {
 					},
 					{
 						onSuccess: () => {
-							void runSetupCommandsInPane(paneId, setup.initialCommands ?? null)
+							void sequenceSetupThenAgent({
+								runSetupCommands: () =>
+									runSetupCommandsInPane(paneId, setup.initialCommands ?? null),
+								launchAgent: () => {
+									if (hasAgent) {
+										launchAgentViaOrchestrator(setup, paneId);
+									}
+								},
+							})
 								.catch((error) => {
 									console.error(
 										"[WorkspaceInitEffects] Failed to run setup commands:",
@@ -262,10 +272,18 @@ export function WorkspaceInitEffects() {
 											},
 											{
 												onSuccess: () => {
-													void runSetupCommandsInPane(
-														newPaneId,
-														setup.initialCommands ?? null,
-													).catch((runError) => {
+													void sequenceSetupThenAgent({
+														runSetupCommands: () =>
+															runSetupCommandsInPane(
+																newPaneId,
+																setup.initialCommands ?? null,
+															),
+														launchAgent: () => {
+															if (hasAgent) {
+																launchAgentViaOrchestrator(setup, newPaneId);
+															}
+														},
+													}).catch((runError) => {
 														console.error(
 															"[WorkspaceInitEffects] Failed to run setup commands:",
 															runError,
@@ -292,14 +310,14 @@ export function WorkspaceInitEffects() {
 
 			if (hasPresets) {
 				openPresetsInActiveTab(setup.workspaceId, presets);
-				if (agentLaunchRequest || agentCommand) {
+				if (hasAgent) {
 					launchAgentViaOrchestrator(setup);
 				}
 				onComplete();
 				return;
 			}
 
-			if (agentLaunchRequest || agentCommand) {
+			if (hasAgent) {
 				launchAgentViaOrchestrator(setup);
 				onComplete();
 				return;
