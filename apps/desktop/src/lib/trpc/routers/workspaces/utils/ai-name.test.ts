@@ -1,7 +1,7 @@
 import { afterAll, beforeEach, describe, expect, it, mock } from "bun:test";
 
 const getSmallModelMock = mock(
-	(() => null) as (...args: unknown[]) => unknown | null,
+	(async () => null) as (...args: unknown[]) => Promise<unknown | null>,
 );
 const generateTitleFromMessageMock = mock(
 	(async () => null) as (...args: unknown[]) => Promise<string | null>,
@@ -79,7 +79,7 @@ const {
 describe("generateWorkspaceNameFromPrompt", () => {
 	beforeEach(() => {
 		getSmallModelMock.mockClear();
-		getSmallModelMock.mockReturnValue(null);
+		getSmallModelMock.mockResolvedValue(null);
 		generateTitleFromMessageMock.mockClear();
 		generateTitleFromMessageMock.mockResolvedValue(null);
 		selectGetMock.mockReset();
@@ -102,7 +102,7 @@ describe("generateWorkspaceNameFromPrompt", () => {
 	});
 
 	it("returns the model-generated title when a model is available", async () => {
-		getSmallModelMock.mockReturnValueOnce({ id: "test-model" });
+		getSmallModelMock.mockResolvedValueOnce({ id: "test-model" });
 		generateTitleFromMessageMock.mockResolvedValueOnce("Checking In");
 
 		await expect(
@@ -122,7 +122,7 @@ describe("generateWorkspaceNameFromPrompt", () => {
 	});
 
 	it("preserves empty-string model results instead of forcing fallback", async () => {
-		getSmallModelMock.mockReturnValueOnce({ id: "test-model" });
+		getSmallModelMock.mockResolvedValueOnce({ id: "test-model" });
 		generateTitleFromMessageMock.mockResolvedValueOnce("");
 
 		await expect(
@@ -134,7 +134,7 @@ describe("generateWorkspaceNameFromPrompt", () => {
 	});
 
 	it("falls back when generation throws", async () => {
-		getSmallModelMock.mockReturnValueOnce({ id: "test-model" });
+		getSmallModelMock.mockResolvedValueOnce({ id: "test-model" });
 		generateTitleFromMessageMock.mockRejectedValueOnce(new Error("boom"));
 
 		await expect(
@@ -155,7 +155,7 @@ afterAll(() => {
 describe("attemptWorkspaceAutoRenameFromPrompt", () => {
 	beforeEach(() => {
 		getSmallModelMock.mockClear();
-		getSmallModelMock.mockReturnValue(null);
+		getSmallModelMock.mockResolvedValue(null);
 		generateTitleFromMessageMock.mockClear();
 		generateTitleFromMessageMock.mockResolvedValue(null);
 		selectGetMock.mockReset();
@@ -196,7 +196,7 @@ describe("attemptWorkspaceAutoRenameFromPrompt", () => {
 			isUnnamed: true,
 			deletingAt: null,
 		});
-		getSmallModelMock.mockReturnValueOnce({ id: "test-model" });
+		getSmallModelMock.mockResolvedValueOnce({ id: "test-model" });
 		generateTitleFromMessageMock.mockResolvedValueOnce("");
 
 		await expect(

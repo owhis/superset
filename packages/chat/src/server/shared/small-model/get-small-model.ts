@@ -3,6 +3,10 @@ import { homedir, platform } from "node:os";
 import { join } from "node:path";
 import { createAnthropic } from "@ai-sdk/anthropic";
 import { createOpenAI } from "@ai-sdk/openai";
+import {
+	ANTHROPIC_OAUTH_HEADERS,
+	getAnthropicOAuthCredential,
+} from "./anthropic-oauth";
 
 const ANTHROPIC_SMALL_MODEL_ID = "claude-haiku-4-5-20251001";
 const OPENAI_SMALL_MODEL_ID = "gpt-4o-mini";
@@ -62,40 +66,80 @@ function resolveApiKey(
 	envVar: string | undefined,
 	authData: AuthData | null,
 	providerId: string,
+	validate: (key: string) => boolean,
 ): string | null {
 	const env = envVar?.trim();
-	if (env) return env;
-	return getStoredApiKey(authData, providerId);
+	if (env && validate(env)) return env;
+	const stored = getStoredApiKey(authData, providerId);
+	if (stored && validate(stored)) return stored;
+	return null;
+}
+
+/** Real Anthropic API keys start with `sk-ant-api`. Filters out dev placeholders like "dummy". */
+function isAnthropicApiKey(key: string): boolean {
+	return key.startsWith("sk-ant-api");
+}
+
+/** Real OpenAI keys start with `sk-`. Filters out dev placeholders like "dummy". */
+function isOpenAIApiKey(key: string): boolean {
+	return key.startsWith("sk-");
 }
 
 /**
  * Returns an AI-SDK `LanguageModel` for small-model tasks (branch naming,
- * title generation). Tries Anthropic first, falls back to OpenAI. Returns
- * `null` if no credentials are available.
+ * title generation). Tries Anthropic (API key → OAuth) first, falls back
+ * to OpenAI. Returns `null` if no credentials are available.
  *
- * Reads credentials from env vars and mastracode's auth.json directly
- * (API keys only). OAuth-only users fall back to `null`.
+ * Anthropic resolution order:
+ *   1. ANTHROPIC_API_KEY env var
+ *   2. mastracode auth.json `apikey:anthropic` slot
+ *   3. mastracode auth.json `anthropic` OAuth slot (refreshed if expired)
+ *
+ * Refreshing OAuth tokens is done via direct HTTP against
+ * console.anthropic.com — we don't import mastracode here because it pulls
+ * in onnxruntime-node (208 MB native binary) and breaks electron-vite
+ * bundling.
  */
-export function getSmallModel(): unknown | null {
+export async function getSmallModel(): Promise<unknown | null> {
 	const authData = readAuthData();
 
 	const anthropicKey = resolveApiKey(
 		process.env.ANTHROPIC_API_KEY,
 		authData,
 		"anthropic",
+		isAnthropicApiKey,
 	);
 	if (anthropicKey) {
+		console.log("[get-small-model] using Anthropic API key");
 		return createAnthropic({ apiKey: anthropicKey })(ANTHROPIC_SMALL_MODEL_ID);
+	}
+
+	const anthropicOAuth = await getAnthropicOAuthCredential();
+	if (anthropicOAuth) {
+		console.log("[get-small-model] using Anthropic OAuth");
+		return createAnthropic({
+			authToken: anthropicOAuth.accessToken,
+			headers: { ...ANTHROPIC_OAUTH_HEADERS },
+		})(ANTHROPIC_SMALL_MODEL_ID);
 	}
 
 	const openaiKey = resolveApiKey(
 		process.env.OPENAI_API_KEY,
 		authData,
 		"openai",
+		isOpenAIApiKey,
 	);
 	if (openaiKey) {
+		console.log("[get-small-model] using OpenAI API key");
 		return createOpenAI({ apiKey: openaiKey }).chat(OPENAI_SMALL_MODEL_ID);
 	}
 
+	console.warn(
+		"[get-small-model] no credentials found — fallback will be used. " +
+			`authData=${authData ? "present" : "missing"}, ` +
+			`anthropicEnv=${process.env.ANTHROPIC_API_KEY ? "set" : "unset"}, ` +
+			`openaiEnv=${process.env.OPENAI_API_KEY ? "set" : "unset"}, ` +
+			`anthropicEntryKeys=${authData?.anthropic ? Object.keys(authData.anthropic as Record<string, unknown>).join(",") : "none"}`,
+	);
 	return null;
 }

@@ -58,7 +58,7 @@ export async function generateBranchNameFromPrompt(
 	existingBranches: string[],
 	branchPrefix?: string,
 ): Promise<string | null> {
-	const model = getSmallModel();
+	const model = await getSmallModel();
 	if (!model) return null;
 
 	let generated: string | null;
