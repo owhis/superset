@@ -41,8 +41,8 @@ import { CodeBlockView } from "./components/CodeBlockView";
 import { EmojiSuggestion } from "./components/EmojiSuggestion";
 import {
 	FileMentionNode,
-	FileMentionSuggestion,
 	type FileMentionSearchFn,
+	FileMentionSuggestion,
 } from "./components/FileMention";
 import { SlashCommand } from "./components/SlashCommand";
 

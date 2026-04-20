@@ -7,10 +7,10 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from "@superset/ui/dialog";
+import { toast } from "@superset/ui/sonner";
 import { useMutation } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { LuX } from "react-icons/lu";
-import { hideAll as hideAllTippy } from "tippy.js";
 import { EmojiTextInput } from "renderer/components/EmojiTextInput";
 import { MarkdownEditor } from "renderer/components/MarkdownEditor";
 import { useEnabledAgents } from "renderer/hooks/useEnabledAgents";
@@ -18,15 +18,13 @@ import { apiTrpcClient } from "renderer/lib/api-trpc-client";
 import { DevicePicker } from "renderer/routes/_authenticated/components/DashboardNewWorkspaceModal/components/DashboardNewWorkspaceForm/components/DevicePicker";
 import { useWorkspaceHostOptions } from "renderer/routes/_authenticated/components/DashboardNewWorkspaceModal/components/DashboardNewWorkspaceForm/components/DevicePicker/hooks/useWorkspaceHostOptions/useWorkspaceHostOptions";
 import type { WorkspaceHostTarget } from "renderer/routes/_authenticated/components/DashboardNewWorkspaceModal/components/DashboardNewWorkspaceForm/components/DevicePicker/types";
+import { hideAll as hideAllTippy } from "tippy.js";
 import type { AutomationTemplate } from "../../templates";
 import { AgentPicker } from "./components/AgentPicker";
 import { ProjectPicker } from "./components/ProjectPicker";
-import {
-	CUSTOM_SCHEDULE_KEY,
-	SCHEDULE_PRESETS,
-	SchedulePicker,
-} from "./components/SchedulePicker";
+import { SchedulePicker } from "./components/SchedulePicker";
 import { TemplateGalleryPanel } from "./components/TemplateGalleryPanel";
+import { WorkspacePicker } from "./components/WorkspacePicker";
 import { useProjectFileSearch } from "./hooks/useProjectFileSearch";
 import { useRecentProjects } from "./hooks/useRecentProjects";
 
@@ -42,17 +40,7 @@ interface CreateAutomationDialogProps {
 const DEFAULT_TIMEZONE =
 	Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
 
-function resolveScheduleKeyForRrule(rrule: string | undefined): {
-	scheduleKey: string;
-	customRrule: string;
-} {
-	if (!rrule) {
-		return { scheduleKey: SCHEDULE_PRESETS[0]?.key ?? CUSTOM_SCHEDULE_KEY, customRrule: "" };
-	}
-	const preset = SCHEDULE_PRESETS.find((p) => p.rrule === rrule);
-	if (preset) return { scheduleKey: preset.key, customRrule: "" };
-	return { scheduleKey: CUSTOM_SCHEDULE_KEY, customRrule: rrule };
-}
+const DEFAULT_RRULE = "FREQ=DAILY;BYHOUR=9;BYMINUTE=0";
 
 export function CreateAutomationDialog({
 	open,
@@ -60,7 +48,6 @@ export function CreateAutomationDialog({
 	onCreated,
 	initialTemplate,
 }: CreateAutomationDialogProps) {
-	const defaultScheduleKey = SCHEDULE_PRESETS[0]?.key ?? CUSTOM_SCHEDULE_KEY;
 	const [view, setView] = useState<"compose" | "gallery">("compose");
 	const [name, setName] = useState("");
 	const [prompt, setPrompt] = useState("");
@@ -71,8 +58,8 @@ export function CreateAutomationDialog({
 		null,
 	);
 	const [agentType, setAgentType] = useState("claude");
-	const [scheduleKey, setScheduleKey] = useState(defaultScheduleKey);
-	const [customRrule, setCustomRrule] = useState("");
+	const [rrule, setRrule] = useState(DEFAULT_RRULE);
+	const [v2WorkspaceId, setV2WorkspaceId] = useState<string | null>(null);
 
 	const { localHostId } = useWorkspaceHostOptions();
 	const recentProjects = useRecentProjects();
@@ -96,21 +83,19 @@ export function CreateAutomationDialog({
 		if (first) setSelectedProjectId(first.id);
 	}, [open, selectedProjectId, recentProjects]);
 
-	const applyTemplate = (template: AutomationTemplate) => {
+	const applyTemplate = useCallback((template: AutomationTemplate) => {
 		setName(template.name);
 		setPrompt(template.prompt);
 		if (template.agentType) setAgentType(template.agentType);
-		const resolved = resolveScheduleKeyForRrule(template.rrule);
-		setScheduleKey(resolved.scheduleKey);
-		setCustomRrule(resolved.customRrule);
-	};
+		if (template.rrule) setRrule(template.rrule);
+	}, []);
 
 	// Pre-fill when opened with an initialTemplate (from the empty-state gallery).
 	useEffect(() => {
 		if (!open) return;
 		if (!initialTemplate) return;
 		applyTemplate(initialTemplate);
-	}, [open, initialTemplate]);
+	}, [open, initialTemplate, applyTemplate]);
 
 	useEffect(() => {
 		if (!open) {
@@ -120,42 +105,41 @@ export function CreateAutomationDialog({
 			setHostTarget({ kind: "local" });
 			setSelectedProjectId(null);
 			setAgentType("claude");
-			setScheduleKey(defaultScheduleKey);
-			setCustomRrule("");
+			setRrule(DEFAULT_RRULE);
+			setV2WorkspaceId(null);
 		}
-	}, [open, defaultScheduleKey]);
-
-	const isCustom = scheduleKey === CUSTOM_SCHEDULE_KEY;
-	const selectedPreset = SCHEDULE_PRESETS.find((p) => p.key === scheduleKey);
-	const selectedRrule = isCustom
-		? customRrule.trim()
-		: (selectedPreset?.rrule ?? "");
-	const selectedScheduleLabel = isCustom
-		? customRrule
-			? "Custom"
-			: "Choose schedule"
-		: (selectedPreset?.label ?? "Choose schedule");
+	}, [open]);
 
 	const targetHostId =
 		hostTarget.kind === "host" ? hostTarget.hostId : localHostId;
 
+	// Reset the workspace selection whenever host or project changes — the
+	// currently-selected workspace almost certainly doesn't belong to the new
+	// combination.
+	useEffect(() => {
+		setV2WorkspaceId(null);
+	}, []);
+
 	const createMutation = useMutation({
 		mutationFn: () => {
 			if (!selectedAgentConfig) throw new Error("No agent selected");
+			if (!selectedProjectId) throw new Error("No project selected");
 			return apiTrpcClient.automation.create.mutate({
 				name,
 				prompt,
 				agentConfig: selectedAgentConfig,
 				targetHostId: targetHostId ?? null,
-				workspaceMode: "new_per_run",
 				v2ProjectId: selectedProjectId,
-				v2WorkspaceId: null,
-				rrule: selectedRrule,
+				v2WorkspaceId,
+				rrule: rrule.trim(),
 				timezone: DEFAULT_TIMEZONE,
 				mcpScope: [],
 			});
 		},
-		onSuccess: (result) => onCreated({ id: result.id, name: result.name }),
+		onSuccess: (result) => {
+			toast.success(`Automation "${result.name}" created`);
+			onCreated({ id: result.id, name: result.name });
+		},
 		onError: (error) => {
 			console.error("[CreateAutomation] create failed:", error);
 		},
@@ -168,9 +152,7 @@ export function CreateAutomationDialog({
 		// Raw Postgres errors are multi-line SQL dumps — keep the first line only.
 		const firstLine = error.message.split("\n")[0]?.trim();
 		if (!firstLine) return "Failed to create automation";
-		return firstLine.length > 160
-			? `${firstLine.slice(0, 160)}…`
-			: firstLine;
+		return firstLine.length > 160 ? `${firstLine.slice(0, 160)}…` : firstLine;
 	})();
 
 	const canSubmit =
@@ -179,7 +161,7 @@ export function CreateAutomationDialog({
 		!!selectedProjectId &&
 		!!targetHostId &&
 		!!selectedAgentConfig &&
-		selectedRrule.length > 0 &&
+		rrule.trim().length > 0 &&
 		!createMutation.isPending;
 
 	const handleTemplatePicked = (template: AutomationTemplate) => {
@@ -190,7 +172,7 @@ export function CreateAutomationDialog({
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>
 			<DialogContent
-				className="sm:max-w-[800px] p-0 gap-0 overflow-hidden"
+				className="sm:max-w-[960px] p-0 gap-0 overflow-hidden"
 				aria-describedby={undefined}
 				showCloseButton={false}
 				onPointerDownOutside={(event) => event.preventDefault()}
@@ -267,16 +249,20 @@ export function CreateAutomationDialog({
 										recentProjects={recentProjects}
 										onSelectProject={setSelectedProjectId}
 									/>
+									<WorkspacePicker
+										className="w-[160px]"
+										hostId={targetHostId ?? null}
+										projectId={selectedProjectId}
+										value={v2WorkspaceId}
+										onChange={setV2WorkspaceId}
+									/>
 									<SchedulePicker
 										className="w-[164px]"
-										scheduleKey={scheduleKey}
-										onScheduleKeyChange={setScheduleKey}
-										customRrule={customRrule}
-										onCustomRruleChange={setCustomRrule}
-										label={selectedScheduleLabel}
+										rrule={rrule}
+										onRruleChange={setRrule}
 									/>
 									<AgentPicker
-										className="w-[130px]"
+										className="w-[100px]"
 										value={agentType}
 										onChange={setAgentType}
 									/>

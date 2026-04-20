@@ -88,9 +88,9 @@
 			"types": "./src/shell-ready-scanner.ts",
 			"default": "./src/shell-ready-scanner.ts"
 		},
-		"./schedule-text": {
-			"types": "./src/schedule-text.ts",
-			"default": "./src/schedule-text.ts"
+		"./rrule": {
+			"types": "./src/rrule.ts",
+			"default": "./src/rrule.ts"
 		}
 	},
 	"scripts": {

@@ -141,7 +141,8 @@ export const AUTOMATION_TEMPLATE_CATEGORIES: AutomationTemplateCategory[] = [
 			{
 				id: "skill-deepening",
 				emoji: "🌳",
-				description: "From recent PRs and reviews, suggest next skills to deepen.",
+				description:
+					"From recent PRs and reviews, suggest next skills to deepen.",
 				name: "Skill growth suggestions",
 				prompt:
 					"Based on my recent PRs and code review comments, suggest 3–5 skills I should deepen next quarter. Be concrete and link evidence.",

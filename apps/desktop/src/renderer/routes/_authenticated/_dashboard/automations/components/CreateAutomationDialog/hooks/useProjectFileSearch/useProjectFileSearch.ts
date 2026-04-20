@@ -1,9 +1,9 @@
 import { useCallback } from "react";
+import type { FileMentionSearchFn } from "renderer/components/MarkdownEditor/components/FileMention";
 import { env } from "renderer/env.renderer";
 import { getHostServiceClientByUrl } from "renderer/lib/host-service-client";
-import type { FileMentionSearchFn } from "renderer/components/MarkdownEditor/components/FileMention";
-import { useLocalHostService } from "renderer/routes/_authenticated/providers/LocalHostServiceProvider";
 import type { WorkspaceHostTarget } from "renderer/routes/_authenticated/components/DashboardNewWorkspaceModal/components/DashboardNewWorkspaceForm/components/DevicePicker/types";
+import { useLocalHostService } from "renderer/routes/_authenticated/providers/LocalHostServiceProvider";
 
 const SEARCH_LIMIT = 15;
 

@@ -1,7 +1,8 @@
 /**
- * Renders an RFC 5545 RRULE body into short English ("Weekdays at 9:00 AM").
- * Returns "Custom" for anything outside the patterns we generate through
- * our own UI/CLI — the raw RRULE is never user-facing outside the edit flow.
+ * RRULE helpers: serialize schedule-picker state into RFC 5545, detect which
+ * preset an existing RRULE matches, and format rules as short English.
+ * "Custom" is returned for anything outside the handful of patterns the UI
+ * generates — raw RRULE syntax is never user-facing outside the edit flow.
  */
 
 const WEEKDAYS = ["MO", "TU", "WE", "TH", "FR"] as const;
@@ -99,6 +100,82 @@ function formatMonth(month: number, locale?: string): string {
 		timeZone: "UTC",
 		month: "long",
 	}).format(ref);
+}
+
+export type Weekday = "MO" | "TU" | "WE" | "TH" | "FR" | "SA" | "SU";
+
+/**
+ * Strict preset match — only the five shapes the SchedulePicker can author.
+ * Anything else (intervals, MONTHLY/YEARLY, multi-day BYDAY outside
+ * weekdays/weekends, etc.) collapses to `{ kind: "custom" }` so the picker
+ * falls back to raw-RRULE editing.
+ */
+export type PresetMatch =
+	| { kind: "hourly" }
+	| { kind: "daily"; hour: number; minute: number }
+	| { kind: "weekdays"; hour: number; minute: number }
+	| { kind: "weekly"; day: Weekday; hour: number; minute: number }
+	| { kind: "custom"; rrule: string };
+
+export function matchPreset(rrule: string): PresetMatch {
+	const parts = parseRrule(rrule);
+	if (!parts) return { kind: "custom", rrule };
+
+	if (parts.BYSETPOS || parts.BYYEARDAY || parts.BYWEEKNO) {
+		return { kind: "custom", rrule };
+	}
+	if (parts.COUNT || parts.UNTIL) return { kind: "custom", rrule };
+
+	const interval = parseIntOrNull(parts.INTERVAL) ?? 1;
+	if (interval !== 1) return { kind: "custom", rrule };
+
+	const freq = parts.FREQ;
+	const byHour = parseIntOrNull(parts.BYHOUR);
+	const byMinute = parseIntOrNull(parts.BYMINUTE) ?? 0;
+	const byDay = parts.BYDAY
+		? parts.BYDAY.split(",")
+				.map((d) => d.trim().toUpperCase())
+				.filter((d) => d in DAY_LONG)
+		: [];
+
+	if (freq === "HOURLY" && byHour === null && byDay.length === 0) {
+		return { kind: "hourly" };
+	}
+
+	if (freq === "DAILY" && byHour !== null && byDay.length === 0) {
+		return { kind: "daily", hour: byHour, minute: byMinute };
+	}
+
+	if (freq === "WEEKLY" && byHour !== null) {
+		if (sameSet(byDay, WEEKDAYS)) {
+			return { kind: "weekdays", hour: byHour, minute: byMinute };
+		}
+		if (byDay.length === 1) {
+			return {
+				kind: "weekly",
+				day: byDay[0] as Weekday,
+				hour: byHour,
+				minute: byMinute,
+			};
+		}
+	}
+
+	return { kind: "custom", rrule };
+}
+
+export function buildRrule(match: PresetMatch): string {
+	switch (match.kind) {
+		case "hourly":
+			return "FREQ=HOURLY";
+		case "daily":
+			return `FREQ=DAILY;BYHOUR=${match.hour};BYMINUTE=${match.minute}`;
+		case "weekdays":
+			return `FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR;BYHOUR=${match.hour};BYMINUTE=${match.minute}`;
+		case "weekly":
+			return `FREQ=WEEKLY;BYDAY=${match.day};BYHOUR=${match.hour};BYMINUTE=${match.minute}`;
+		case "custom":
+			return match.rrule;
+	}
 }
 
 export interface DescribeScheduleOptions {

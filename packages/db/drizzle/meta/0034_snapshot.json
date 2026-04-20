@@ -1,5 +1,5 @@
 {
-  "id": "f5530070-3974-41ac-ad7a-1c4b6258af46",
+  "id": "b5a288e3-7a6b-4548-98c0-9f43041b2ed3",
   "prevId": "23f7159b-4d98-4245-9fd6-87789de09467",
   "version": "7",
   "dialect": "postgresql",
@@ -1606,6 +1606,12 @@
           "primaryKey": false,
           "notNull": true
         },
+        "title": {
+          "name": "title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
         "scheduled_for": {
           "name": "scheduled_for",
           "type": "timestamp with time zone",
@@ -1786,19 +1792,6 @@
           "onDelete": "set null",
           "onUpdate": "no action"
         },
-        "automation_runs_v2_workspace_id_v2_workspaces_id_fk": {
-          "name": "automation_runs_v2_workspace_id_v2_workspaces_id_fk",
-          "tableFrom": "automation_runs",
-          "tableTo": "v2_workspaces",
-          "columnsFrom": [
-            "v2_workspace_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
-        },
         "automation_runs_chat_session_id_chat_sessions_id_fk": {
           "name": "automation_runs_chat_session_id_chat_sessions_id_fk",
           "tableFrom": "automation_runs",
@@ -1866,19 +1859,11 @@
           "primaryKey": false,
           "notNull": false
         },
-        "workspace_mode": {
-          "name": "workspace_mode",
-          "type": "automation_workspace_mode",
-          "typeSchema": "public",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'new_per_run'"
-        },
         "v2_project_id": {
           "name": "v2_project_id",
           "type": "uuid",
           "primaryKey": false,
-          "notNull": false
+          "notNull": true
         },
         "v2_workspace_id": {
           "name": "v2_workspace_id",
@@ -1923,12 +1908,6 @@
           "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": true
-        },
-        "last_run_at": {
-          "name": "last_run_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
         },
         "created_at": {
           "name": "created_at",
@@ -2052,30 +2031,12 @@
           ],
           "onDelete": "cascade",
           "onUpdate": "no action"
-        },
-        "automations_v2_workspace_id_v2_workspaces_id_fk": {
-          "name": "automations_v2_workspace_id_v2_workspaces_id_fk",
-          "tableFrom": "automations",
-          "tableTo": "v2_workspaces",
-          "columnsFrom": [
-            "v2_workspace_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
-      "checkConstraints": {
-        "automations_workspace_mode_invariant": {
-          "name": "automations_workspace_mode_invariant",
-          "value": "(\n\t\t\t\t(\"automations\".\"workspace_mode\" = 'new_per_run' AND \"automations\".\"v2_project_id\" IS NOT NULL) OR\n\t\t\t\t(\"automations\".\"workspace_mode\" = 'existing' AND \"automations\".\"v2_workspace_id\" IS NOT NULL)\n\t\t\t)"
-        }
-      },
+      "checkConstraints": {},
       "isRLSEnabled": false
     },
     "public.github_installations": {
@@ -5681,14 +5642,6 @@
       "values": [
         "chat",
         "terminal"
-      ]
-    },
-    "public.automation_workspace_mode": {
-      "name": "automation_workspace_mode",
-      "schema": "public",
-      "values": [
-        "new_per_run",
-        "existing"
       ]
     },
     "public.command_status": {

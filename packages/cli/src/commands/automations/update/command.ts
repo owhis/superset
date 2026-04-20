@@ -3,8 +3,8 @@ import { boolean, positional, string } from "@superset/cli-framework";
 import {
 	type AgentDefinitionId,
 	indexResolvedAgentConfigs,
-	resolveAgentConfigs,
 	type ResolvedAgentConfig,
+	resolveAgentConfigs,
 } from "@superset/shared/agent-settings";
 import { command } from "../../../lib/command";
 
@@ -46,7 +46,9 @@ export default command({
 		rrule: string().desc("New RRule body (RFC 5545)"),
 		timezone: string().desc("New IANA timezone"),
 		dtstart: string().desc("New ISO 8601 start anchor"),
-		agent: string().desc("New agent preset id (resolved from shipped defaults)"),
+		agent: string().desc(
+			"New agent preset id (resolved from shipped defaults)",
+		),
 		agentConfigFile: string().desc(
 			"Path to a JSON file with a full ResolvedAgentConfig (overrides --agent)",
 		),

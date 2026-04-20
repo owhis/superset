@@ -6,8 +6,13 @@ import { eq } from "@tanstack/db";
 import { useLiveQuery } from "@tanstack/react-db";
 import { useMutation } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useState } from "react";
+import { EmojiTextInput } from "renderer/components/EmojiTextInput";
+import { MarkdownEditor } from "renderer/components/MarkdownEditor";
 import { apiTrpcClient } from "renderer/lib/api-trpc-client";
+import type { WorkspaceHostTarget } from "renderer/routes/_authenticated/components/DashboardNewWorkspaceModal/components/DashboardNewWorkspaceForm/components/DevicePicker/types";
 import { useCollections } from "renderer/routes/_authenticated/providers/CollectionsProvider";
+import { useProjectFileSearch } from "../components/CreateAutomationDialog/hooks/useProjectFileSearch";
 import { AutomationDetailHeader } from "./components/AutomationDetailHeader";
 import { AutomationDetailSidebar } from "./components/AutomationDetailSidebar";
 
@@ -64,7 +69,7 @@ function AutomationDetailPage() {
 
 	if (!automation) {
 		return (
-			<div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+			<div className="flex h-full w-full items-center justify-center text-sm text-muted-foreground">
 				Automation not found.
 			</div>
 		);
@@ -90,20 +95,61 @@ function AutomationDetailPage() {
 					onRunNow={() => runNowMutation.mutate()}
 					toggleDisabled={setEnabledMutation.isPending}
 					deleteDisabled={deleteMutation.isPending}
-					runNowDisabled={runNowMutation.isPending || !automation.enabled}
+					runNowDisabled={runNowMutation.isPending}
 				/>
 
-				<div className="flex-1 overflow-y-auto px-8 py-6">
-					<h1 className="mb-6 text-2xl font-semibold">{automation.name}</h1>
-					<pre className="font-sans text-sm leading-relaxed whitespace-pre-wrap">
-						{automation.prompt}
-					</pre>
-				</div>
+				<AutomationBody key={automation.id} automation={automation} />
 			</div>
 
 			<AutomationDetailSidebar
 				automation={automation}
 				recentRuns={recentRuns}
+			/>
+		</div>
+	);
+}
+
+function AutomationBody({ automation }: { automation: SelectAutomation }) {
+	const [name, setName] = useState(automation.name);
+	const [prompt, setPrompt] = useState(automation.prompt);
+
+	const updateMutation = useMutation({
+		mutationFn: (patch: { name?: string; prompt?: string }) =>
+			apiTrpcClient.automation.update.mutate({ id: automation.id, ...patch }),
+	});
+
+	const hostTarget: WorkspaceHostTarget = automation.targetHostId
+		? { kind: "host", hostId: automation.targetHostId }
+		: { kind: "local" };
+	const searchFiles = useProjectFileSearch({
+		hostTarget,
+		projectId: automation.v2ProjectId,
+	});
+
+	return (
+		<div className="flex-1 overflow-y-auto px-8 py-6">
+			<EmojiTextInput
+				value={name}
+				onChange={setName}
+				onBlur={(next) => {
+					const trimmed = next.trim();
+					if (trimmed && trimmed !== automation.name) {
+						updateMutation.mutate({ name: trimmed });
+					}
+				}}
+				placeholder="Automation title"
+				className="mb-6 text-2xl font-semibold"
+			/>
+			<MarkdownEditor
+				content={prompt}
+				onChange={setPrompt}
+				onSave={(next) => {
+					if (next !== automation.prompt) {
+						updateMutation.mutate({ prompt: next });
+					}
+				}}
+				placeholder="Add prompt e.g. look for crashes in $sentry"
+				searchFiles={searchFiles}
 			/>
 		</div>
 	);

@@ -68,17 +68,6 @@ export const workspaceTypeValues = ["local", "cloud"] as const;
 export const workspaceTypeEnum = z.enum(workspaceTypeValues);
 export type WorkspaceType = z.infer<typeof workspaceTypeEnum>;
 
-export const automationWorkspaceModeValues = [
-	"new_per_run",
-	"existing",
-] as const;
-export const automationWorkspaceModeEnum = z.enum(
-	automationWorkspaceModeValues,
-);
-export type AutomationWorkspaceMode = z.infer<
-	typeof automationWorkspaceModeEnum
->;
-
 export const automationRunStatusValues = [
 	"pending",
 	"dispatching",

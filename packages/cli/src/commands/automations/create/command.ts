@@ -3,8 +3,8 @@ import { string } from "@superset/cli-framework";
 import {
 	type AgentDefinitionId,
 	indexResolvedAgentConfigs,
-	resolveAgentConfigs,
 	type ResolvedAgentConfig,
+	resolveAgentConfigs,
 } from "@superset/shared/agent-settings";
 import { command } from "../../../lib/command";
 
@@ -74,16 +74,10 @@ export default command({
 			throw new Error("Provide --prompt <text> or --prompt-file <path>");
 		}
 
-		if (!options.project && !options.workspace) {
-			throw new Error(
-				"Provide --project (for new-workspace-per-run) or --workspace (to reuse an existing workspace)",
-			);
+		if (!options.project) {
+			throw new Error("Provide --project (required)");
 		}
 
-		const workspaceMode = options.workspace ? "existing" : "new_per_run";
-
-		// Prefer explicit --agent-config-file; otherwise resolve the preset id
-		// against shipped defaults. Either way, we snapshot a full config.
 		const agentConfig = options.agentConfigFile
 			? loadAgentConfigFromFile(options.agentConfigFile)
 			: resolveDefaultAgentConfig(options.agent);
@@ -93,8 +87,7 @@ export default command({
 			prompt,
 			agentConfig,
 			targetHostId: options.device ?? null,
-			workspaceMode,
-			v2ProjectId: options.project ?? null,
+			v2ProjectId: options.project,
 			v2WorkspaceId: options.workspace ?? null,
 			rrule: options.rrule,
 			dtstart: options.dtstart ? new Date(options.dtstart) : undefined,

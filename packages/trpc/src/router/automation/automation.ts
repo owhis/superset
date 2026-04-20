@@ -9,8 +9,10 @@ import {
 import { TRPCError, type TRPCRouterRecord } from "@trpc/server";
 import { and, desc, eq } from "drizzle-orm";
 import { z } from "zod";
+import { env } from "../../env";
 import { paidPlanProcedure } from "../../trpc";
 import { requireActiveOrgMembership } from "../utils/active-org";
+import { dispatchAutomation } from "./dispatch";
 import { describeRrule, nextOccurrences, parseRrule } from "./rrule";
 import {
 	createAutomationSchema,
@@ -154,7 +156,7 @@ export const automationRouter = {
 					input.targetHostId,
 				);
 			}
-			if (input.workspaceMode === "existing" && input.v2WorkspaceId) {
+			if (input.v2WorkspaceId) {
 				await verifyWorkspaceInOrg(organizationId, input.v2WorkspaceId);
 			}
 
@@ -174,8 +176,7 @@ export const automationRouter = {
 					prompt: input.prompt,
 					agentConfig: input.agentConfig,
 					targetHostId: input.targetHostId ?? null,
-					workspaceMode: input.workspaceMode,
-					v2ProjectId: input.v2ProjectId ?? null,
+					v2ProjectId: input.v2ProjectId,
 					v2WorkspaceId: input.v2WorkspaceId ?? null,
 					rrule: input.rrule,
 					dtstart,
@@ -235,11 +236,7 @@ export const automationRouter = {
 						input.targetHostId === undefined
 							? existing.targetHostId
 							: input.targetHostId,
-					workspaceMode: input.workspaceMode ?? existing.workspaceMode,
-					v2ProjectId:
-						input.v2ProjectId === undefined
-							? existing.v2ProjectId
-							: input.v2ProjectId,
+					v2ProjectId: input.v2ProjectId ?? existing.v2ProjectId,
 					v2WorkspaceId:
 						input.v2WorkspaceId === undefined
 							? existing.v2WorkspaceId
@@ -300,12 +297,6 @@ export const automationRouter = {
 			return { ...updated, scheduleText: safeDescribeRrule(updated) };
 		}),
 
-	/**
-	 * Fire an automation immediately — bumps next_run_at to now() so the next
-	 * dispatcher tick (≤1 min) picks it up. Doesn't insert a run row itself;
-	 * the dispatcher owns that write to keep the idempotency key on
-	 * (automation_id, scheduled_for) consistent.
-	 */
 	runNow: paidPlanProcedure
 		.input(z.object({ id: z.string().uuid() }))
 		.mutation(async ({ ctx, input }) => {
@@ -316,28 +307,32 @@ export const automationRouter = {
 				input.id,
 			);
 
-			if (!automation.enabled) {
+			const outcome = await dispatchAutomation({
+				automation,
+				scheduledFor: new Date(),
+				relayUrl: env.RELAY_URL,
+			});
+
+			if (outcome.status === "conflict") {
 				throw new TRPCError({
-					code: "BAD_REQUEST",
-					message: "Automation is paused. Resume it before triggering a run.",
+					code: "CONFLICT",
+					message: "A run for this automation is already in progress.",
+				});
+			}
+			if (outcome.status === "dispatch_failed") {
+				throw new TRPCError({
+					code: "INTERNAL_SERVER_ERROR",
+					message: outcome.error,
+				});
+			}
+			if (outcome.status === "skipped_offline") {
+				throw new TRPCError({
+					code: "PRECONDITION_FAILED",
+					message: outcome.error,
 				});
 			}
 
-			const now = new Date();
-			// Nudge one second into the past so the dispatcher's lte(next_run_at, now)
-			// window catches it on the very next tick.
-			const nextRunAt = new Date(now.getTime() - 1_000);
-
-			const [updated] = await dbWs
-				.update(automations)
-				.set({ nextRunAt })
-				.where(eq(automations.id, automation.id))
-				.returning();
-
-			return {
-				automationId: automation.id,
-				nextRunAt: updated?.nextRunAt ?? nextRunAt,
-			};
+			return { automationId: automation.id, runId: outcome.runId };
 		}),
 
 	/** Run history for a given automation (paginated). */

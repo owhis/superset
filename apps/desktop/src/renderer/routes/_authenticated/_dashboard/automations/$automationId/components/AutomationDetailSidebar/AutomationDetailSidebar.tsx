@@ -2,10 +2,21 @@ import type {
 	SelectAutomation,
 	SelectAutomationRun,
 } from "@superset/db/schema";
-import { describeSchedule } from "@superset/shared/schedule-text";
-import { Badge } from "@superset/ui/badge";
-import { Separator } from "@superset/ui/separator";
+import { cn } from "@superset/ui/utils";
+import { useMutation } from "@tanstack/react-query";
+import { format } from "date-fns";
 import type { ReactNode } from "react";
+import { useEnabledAgents } from "renderer/hooks/useEnabledAgents";
+import { apiTrpcClient } from "renderer/lib/api-trpc-client";
+import { DevicePicker } from "renderer/routes/_authenticated/components/DashboardNewWorkspaceModal/components/DashboardNewWorkspaceForm/components/DevicePicker";
+import { useWorkspaceHostOptions } from "renderer/routes/_authenticated/components/DashboardNewWorkspaceModal/components/DashboardNewWorkspaceForm/components/DevicePicker/hooks/useWorkspaceHostOptions/useWorkspaceHostOptions";
+import type { WorkspaceHostTarget } from "renderer/routes/_authenticated/components/DashboardNewWorkspaceModal/components/DashboardNewWorkspaceForm/components/DevicePicker/types";
+import { AgentPicker } from "../../../components/CreateAutomationDialog/components/AgentPicker";
+import { ProjectPicker } from "../../../components/CreateAutomationDialog/components/ProjectPicker";
+import { SchedulePicker } from "../../../components/CreateAutomationDialog/components/SchedulePicker";
+import { TimezonePicker } from "../../../components/CreateAutomationDialog/components/TimezonePicker";
+import { WorkspacePicker } from "../../../components/CreateAutomationDialog/components/WorkspacePicker";
+import { useRecentProjects } from "../../../components/CreateAutomationDialog/hooks/useRecentProjects";
 import { PreviousRunsList } from "../PreviousRunsList";
 
 interface AutomationDetailSidebarProps {
@@ -17,59 +28,152 @@ export function AutomationDetailSidebar({
 	automation,
 	recentRuns,
 }: AutomationDetailSidebarProps) {
-	const scheduleText = describeSchedule(automation.rrule);
+	const { agents: enabledAgents } = useEnabledAgents();
+	const recentProjects = useRecentProjects();
+	const { localHostId } = useWorkspaceHostOptions();
+	const selectedProject = recentProjects.find(
+		(p) => p.id === automation.v2ProjectId,
+	);
+
+	const hostTarget: WorkspaceHostTarget =
+		automation.targetHostId && automation.targetHostId !== localHostId
+			? { kind: "host", hostId: automation.targetHostId }
+			: { kind: "local" };
+
+	const updateMutation = useMutation({
+		mutationFn: (
+			patch: Partial<
+				Parameters<typeof apiTrpcClient.automation.update.mutate>[0]
+			>,
+		) =>
+			apiTrpcClient.automation.update.mutate({ id: automation.id, ...patch }),
+	});
+
+	const lastRunAt = recentRuns
+		.map((run) => run.scheduledFor)
+		.map((d) => (d ? new Date(d) : null))
+		.filter((d): d is Date => d !== null)
+		.sort((a, b) => b.getTime() - a.getTime())[0];
 
 	return (
-		<aside className="w-72 shrink-0 border-l overflow-y-auto">
-			<div className="flex flex-col gap-6 p-6">
+		<aside className="flex w-[368px] shrink-0 flex-col border-l overflow-hidden">
+			<div className="flex flex-col gap-8 p-6 pb-2 shrink-0">
 				<Section title="Status">
 					<Row
 						label="Status"
 						value={
-							<Badge variant={automation.enabled ? "default" : "secondary"}>
-								● {automation.enabled ? "Active" : "Paused"}
-							</Badge>
+							<span className="inline-flex items-center gap-2">
+								<span
+									className={cn(
+										"inline-block size-2 shrink-0 rounded-full",
+										automation.enabled
+											? "bg-emerald-500"
+											: "border border-muted-foreground/60",
+									)}
+								/>
+								{automation.enabled ? "Active" : "Paused"}
+							</span>
 						}
 					/>
 					<Row
 						label="Next run"
 						value={
 							automation.enabled && automation.nextRunAt
-								? new Date(automation.nextRunAt).toLocaleString()
+								? format(new Date(automation.nextRunAt), "MMM d, h:mm a")
 								: "—"
 						}
 					/>
 					<Row
 						label="Last ran"
-						value={
-							automation.lastRunAt
-								? new Date(automation.lastRunAt).toLocaleString()
-								: "—"
-						}
+						value={lastRunAt ? format(lastRunAt, "MMM d, h:mm a") : "—"}
 					/>
 				</Section>
-
-				<Separator />
 
 				<Section title="Details">
 					<Row
-						label="Workspace"
+						label="Device"
 						value={
-							automation.workspaceMode === "new_per_run"
-								? "New workspace"
-								: "Existing"
+							<DevicePicker
+								className="-mr-4"
+								hostTarget={hostTarget}
+								onSelectHostTarget={(target) => {
+									const nextHostId =
+										target.kind === "host"
+											? target.hostId
+											: (localHostId ?? null);
+									updateMutation.mutate({ targetHostId: nextHostId });
+								}}
+							/>
 						}
 					/>
-					<Row label="Repeats" value={scheduleText} />
-					<Row label="Agent" value={automation.agentConfig.label} />
-					<Row label="Timezone" value={automation.timezone} />
+					<Row
+						label="Project"
+						value={
+							<ProjectPicker
+								className="-mr-4"
+								selectedProject={selectedProject}
+								recentProjects={recentProjects}
+								onSelectProject={(v2ProjectId) =>
+									updateMutation.mutate({ v2ProjectId })
+								}
+							/>
+						}
+					/>
+					<Row
+						label="Workspace"
+						value={
+							<WorkspacePicker
+								className="-mr-4"
+								hostId={automation.targetHostId ?? null}
+								projectId={automation.v2ProjectId}
+								value={automation.v2WorkspaceId}
+								onChange={(v2WorkspaceId) =>
+									updateMutation.mutate({ v2WorkspaceId })
+								}
+							/>
+						}
+					/>
+					<Row
+						label="Repeats"
+						value={
+							<SchedulePicker
+								className="-mr-4"
+								rrule={automation.rrule}
+								onRruleChange={(rrule) => updateMutation.mutate({ rrule })}
+							/>
+						}
+					/>
+					<Row
+						label="Agent"
+						value={
+							<AgentPicker
+								className="-mr-4"
+								value={automation.agentConfig.id}
+								onChange={(id) => {
+									const config = enabledAgents.find((a) => a.id === id);
+									if (config) updateMutation.mutate({ agentConfig: config });
+								}}
+							/>
+						}
+					/>
+					<Row
+						label="Timezone"
+						value={
+							<TimezonePicker
+								className="-mr-4"
+								value={automation.timezone}
+								onChange={(timezone) => updateMutation.mutate({ timezone })}
+							/>
+						}
+					/>
 				</Section>
+			</div>
 
-				<Separator />
-
-				<Section title="Previous runs">
+			<div className="mt-8 flex min-h-0 flex-1 flex-col gap-2 pl-6 pr-3 pb-6">
+				<SectionTitle>Previous runs</SectionTitle>
+				<div className="min-h-0 flex-1 overflow-y-auto">
 					<PreviousRunsList runs={recentRuns} />
-				</Section>
+				</div>
 			</div>
 		</aside>
 	);
@@ -77,20 +181,26 @@ export function AutomationDetailSidebar({
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
 	return (
-		<section className="flex flex-col gap-2">
-			<h4 className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-				{title}
-			</h4>
-			{children}
+		<section className="flex flex-col gap-3">
+			<SectionTitle>{title}</SectionTitle>
+			<div className="flex flex-col">{children}</div>
 		</section>
+	);
+}
+
+function SectionTitle({ children }: { children: ReactNode }) {
+	return (
+		<span className="font-sans text-xs font-medium uppercase tracking-wider text-muted-foreground">
+			{children}
+		</span>
 	);
 }
 
 function Row({ label, value }: { label: string; value: ReactNode }) {
 	return (
-		<div className="flex items-center justify-between gap-4 text-sm">
+		<div className="flex min-h-8 items-center justify-between gap-4 text-sm">
 			<span className="text-muted-foreground">{label}</span>
-			<span className="truncate text-right">{value}</span>
+			<div className="flex min-w-0 justify-end">{value}</div>
 		</div>
 	);
 }

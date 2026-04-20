@@ -7,6 +7,7 @@ import Suggestion, {
 } from "@tiptap/suggestion";
 
 const slashCommandSuggestionKey = new PluginKey("markdownEditorSlashCommand");
+
 import {
 	forwardRef,
 	useEffect,

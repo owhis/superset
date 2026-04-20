@@ -1,3 +1,4 @@
+import { TZDate } from "@date-fns/tz";
 import { RRule } from "rrule";
 
 export interface ParsedRecurrence {
@@ -5,6 +6,42 @@ export interface ParsedRecurrence {
 	dtstart: Date;
 	timezone: string;
 	nextRunAt: Date;
+}
+
+/**
+ * rrule.js internals treat `TZID` occurrences as "wall-clock in the zone,
+ * represented as UTC digits" — the Date objects you get in/out of `rule.after`
+ * etc. are NOT real UTC instants. Converting in both directions around every
+ * rrule call keeps real UTC everywhere else.
+ */
+export function rruleDateToUtc(rruleDate: Date, timezone: string): Date {
+	// rruleDate.getUTCFoo() digits = wall-clock in `timezone`.
+	// Construct a TZDate with those digits in the zone → real UTC.
+	return new TZDate(
+		rruleDate.getUTCFullYear(),
+		rruleDate.getUTCMonth(),
+		rruleDate.getUTCDate(),
+		rruleDate.getUTCHours(),
+		rruleDate.getUTCMinutes(),
+		rruleDate.getUTCSeconds(),
+		timezone,
+	);
+}
+
+export function utcToRruleDate(realUtc: Date, timezone: string): Date {
+	// realUtc is a true instant; project its wall-clock in `timezone` back
+	// into a Date whose UTC digits match that wall-clock (rrule input space).
+	const tz = new TZDate(realUtc.getTime(), timezone);
+	return new Date(
+		Date.UTC(
+			tz.getFullYear(),
+			tz.getMonth(),
+			tz.getDate(),
+			tz.getHours(),
+			tz.getMinutes(),
+			tz.getSeconds(),
+		),
+	);
 }
 
 /**
@@ -48,7 +85,8 @@ export function parseRrule(args: {
 	const rule = RRule.fromString(
 		buildRuleString(args.rrule, args.dtstart, args.timezone),
 	);
-	const next = rule.after(args.after ?? new Date(), false);
+	const after = utcToRruleDate(args.after ?? new Date(), args.timezone);
+	const next = rule.after(after, false);
 	if (!next) {
 		throw new Error("Recurrence has no future occurrences");
 	}
@@ -56,7 +94,7 @@ export function parseRrule(args: {
 		rrule: args.rrule,
 		dtstart: args.dtstart,
 		timezone: args.timezone,
-		nextRunAt: next,
+		nextRunAt: rruleDateToUtc(next, args.timezone),
 	};
 }
 
@@ -84,13 +122,12 @@ export function nextOccurrences(args: {
 		buildRuleString(args.rrule, args.dtstart, args.timezone),
 	);
 	const results: Date[] = [];
-	let cursor = args.after ?? new Date();
+	let cursor = utcToRruleDate(args.after ?? new Date(), args.timezone);
 	for (let i = 0; i < args.count; i++) {
 		const next = rule.after(cursor, false);
 		if (!next) break;
-		results.push(next);
+		results.push(rruleDateToUtc(next, args.timezone));
 		cursor = next;
 	}
 	return results;
 }
-

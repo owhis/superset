@@ -7,6 +7,7 @@ import {
 	BreadcrumbSeparator,
 } from "@superset/ui/breadcrumb";
 import { Button } from "@superset/ui/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@superset/ui/tooltip";
 import { LuPause, LuPlay, LuTrash2 } from "react-icons/lu";
 
 interface AutomationDetailHeaderProps {
@@ -49,27 +50,38 @@ export function AutomationDetailHeader({
 			</Breadcrumb>
 
 			<div className="flex items-center gap-2">
-				<Button
-					variant="ghost"
-					size="sm"
-					onClick={onToggleEnabled}
-					disabled={toggleDisabled}
-				>
-					{enabled ? (
-						<LuPause className="size-4" />
-					) : (
-						<LuPlay className="size-4" />
-					)}
-					{enabled ? "Pause" : "Resume"}
-				</Button>
-				<Button
-					variant="ghost"
-					size="icon"
-					onClick={onDelete}
-					disabled={deleteDisabled}
-				>
-					<LuTrash2 className="size-4" />
-				</Button>
+				<Tooltip>
+					<TooltipTrigger asChild>
+						<Button
+							variant="ghost"
+							size="icon"
+							onClick={onToggleEnabled}
+							disabled={toggleDisabled}
+							aria-label={enabled ? "Pause" : "Resume"}
+						>
+							{enabled ? (
+								<LuPause className="size-4" />
+							) : (
+								<LuPlay className="size-4" />
+							)}
+						</Button>
+					</TooltipTrigger>
+					<TooltipContent>{enabled ? "Pause" : "Resume"}</TooltipContent>
+				</Tooltip>
+				<Tooltip>
+					<TooltipTrigger asChild>
+						<Button
+							variant="ghost"
+							size="icon"
+							onClick={onDelete}
+							disabled={deleteDisabled}
+							aria-label="Delete"
+						>
+							<LuTrash2 className="size-4" />
+						</Button>
+					</TooltipTrigger>
+					<TooltipContent>Delete</TooltipContent>
+				</Tooltip>
 				<Button size="sm" onClick={onRunNow} disabled={runNowDisabled}>
 					<LuPlay className="size-4" />
 					Run now

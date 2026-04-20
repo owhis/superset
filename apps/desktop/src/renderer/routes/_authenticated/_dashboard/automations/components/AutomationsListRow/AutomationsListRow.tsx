@@ -1,5 +1,5 @@
 import type { SelectAutomation } from "@superset/db/schema";
-import { describeSchedule } from "@superset/shared/schedule-text";
+import { describeSchedule } from "@superset/shared/rrule";
 import { Badge } from "@superset/ui/badge";
 import { cn } from "@superset/ui/utils";
 

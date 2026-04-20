@@ -44,11 +44,14 @@ interface EmojiTextInputProps {
 	placeholder?: string;
 	className?: string;
 	onEnter?: () => void;
+	onBlur?: (value: string) => void;
 }
 
-function getPlainText(editor: {
-	state: { doc: { textContent: string } };
-} | null): string {
+function getPlainText(
+	editor: {
+		state: { doc: { textContent: string } };
+	} | null,
+): string {
 	return editor?.state.doc.textContent ?? "";
 }
 
@@ -58,6 +61,7 @@ export function EmojiTextInput({
 	placeholder,
 	className,
 	onEnter,
+	onBlur,
 }: EmojiTextInputProps) {
 	const editor = useEditor({
 		immediatelyRender: false,
@@ -85,6 +89,9 @@ export function EmojiTextInput({
 		},
 		onUpdate: ({ editor: e }) => {
 			onChange(getPlainText(e));
+		},
+		onBlur: ({ editor: e }) => {
+			onBlur?.(getPlainText(e));
 		},
 	});
 

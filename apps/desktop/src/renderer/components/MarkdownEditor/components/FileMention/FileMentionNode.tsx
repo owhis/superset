@@ -76,8 +76,7 @@ export const FileMentionNode = Node.create({
 			broken: {
 				default: false,
 				parseHTML: (el) => el.getAttribute("data-broken") === "true",
-				renderHTML: (attrs) =>
-					attrs.broken ? { "data-broken": "true" } : {},
+				renderHTML: (attrs) => (attrs.broken ? { "data-broken": "true" } : {}),
 			},
 		};
 	},

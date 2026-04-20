@@ -1,8 +1,6 @@
 import type { ResolvedAgentConfig } from "@superset/shared/agent-settings";
-import { sql } from "drizzle-orm";
 import {
 	boolean,
-	check,
 	index,
 	jsonb,
 	pgEnum,
@@ -16,14 +14,8 @@ import { organizations, users } from "./auth";
 import {
 	automationRunStatusValues,
 	automationSessionKindValues,
-	automationWorkspaceModeValues,
 } from "./enums";
-import { chatSessions, v2Hosts, v2Projects, v2Workspaces } from "./schema";
-
-export const automationWorkspaceMode = pgEnum(
-	"automation_workspace_mode",
-	automationWorkspaceModeValues,
-);
+import { chatSessions, v2Hosts, v2Projects } from "./schema";
 
 export const automationRunStatus = pgEnum(
 	"automation_run_status",
@@ -69,19 +61,10 @@ export const automations = pgTable(
 			onDelete: "set null",
 		}),
 
-		/**
-		 * Workspace mode: "new_per_run" allocates a fresh workspace inside
-		 * v2_project_id at each fire; "existing" reuses v2_workspace_id.
-		 */
-		workspaceMode: automationWorkspaceMode("workspace_mode")
+		v2ProjectId: uuid("v2_project_id")
 			.notNull()
-			.default("new_per_run"),
-		v2ProjectId: uuid("v2_project_id").references(() => v2Projects.id, {
-			onDelete: "cascade",
-		}),
-		v2WorkspaceId: uuid("v2_workspace_id").references(() => v2Workspaces.id, {
-			onDelete: "cascade",
-		}),
+			.references(() => v2Projects.id, { onDelete: "cascade" }),
+		v2WorkspaceId: uuid("v2_workspace_id"),
 
 		/** RFC 5545 RRULE body (without DTSTART header — stored separately). */
 		rrule: text().notNull(),
@@ -95,7 +78,6 @@ export const automations = pgTable(
 
 		/** Materialized next occurrence. Dispatcher hot path never re-parses rrule. */
 		nextRunAt: timestamp("next_run_at", { withTimezone: true }).notNull(),
-		lastRunAt: timestamp("last_run_at", { withTimezone: true }),
 
 		createdAt: timestamp("created_at", { withTimezone: true })
 			.notNull()
@@ -109,14 +91,6 @@ export const automations = pgTable(
 		index("automations_dispatcher_idx").on(t.enabled, t.nextRunAt),
 		index("automations_owner_idx").on(t.ownerUserId),
 		index("automations_organization_idx").on(t.organizationId),
-		// Enforce workspace-mode invariants at the DB level.
-		check(
-			"automations_workspace_mode_invariant",
-			sql`(
-				(${t.workspaceMode} = 'new_per_run' AND ${t.v2ProjectId} IS NOT NULL) OR
-				(${t.workspaceMode} = 'existing' AND ${t.v2WorkspaceId} IS NOT NULL)
-			)`,
-		),
 	],
 );
 
@@ -138,15 +112,17 @@ export const automationRuns = pgTable(
 			.notNull()
 			.references(() => organizations.id, { onDelete: "cascade" }),
 
+		/** Snapshot of automations.name at dispatch time — preserves what the run
+		 *  was called even if the automation is renamed later. */
+		title: text().notNull(),
+
 		/** Minute-bucketed scheduled fire time. */
 		scheduledFor: timestamp("scheduled_for", { withTimezone: true }).notNull(),
 
 		hostId: uuid("host_id").references(() => v2Hosts.id, {
 			onDelete: "set null",
 		}),
-		v2WorkspaceId: uuid("v2_workspace_id").references(() => v2Workspaces.id, {
-			onDelete: "set null",
-		}),
+		v2WorkspaceId: uuid("v2_workspace_id"),
 
 		/** null until the run reaches "dispatched". */
 		sessionKind: automationSessionKind("session_kind"),
