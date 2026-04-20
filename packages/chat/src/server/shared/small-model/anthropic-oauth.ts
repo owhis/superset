@@ -1,13 +1,35 @@
-import {
-	existsSync,
-	mkdirSync,
-	readFileSync,
-	renameSync,
-	writeFileSync,
-} from "node:fs";
-import { homedir, platform } from "node:os";
-import { dirname, join } from "node:path";
 import { ANTHROPIC_AUTH_PROVIDER_ID } from "../auth-provider-ids";
+import {
+	type AuthDataReadResult,
+	readAuthJson as defaultReadAuthJson,
+	writeAuthJson as defaultWriteAuthJson,
+} from "./auth-storage-io";
+
+/**
+ * IO seam for tests. Production code uses the defaults. Tests pass their
+ * own implementations to avoid mocking node:fs (process-global, leaky) or
+ * the auth-storage-io module (also process-global via mock.module).
+ */
+export interface AuthStorageIO {
+	readAuthJson: () => AuthDataReadResult;
+	writeAuthJson: (next: Record<string, unknown>) => void;
+}
+
+const defaultIO: AuthStorageIO = {
+	readAuthJson: () => defaultReadAuthJson(),
+	writeAuthJson: (next) => defaultWriteAuthJson(next),
+};
+
+let activeIO: AuthStorageIO = defaultIO;
+
+/** Test-only — replace the io seam. Pair with `__resetIOForTests`. */
+export function __setIOForTests(io: AuthStorageIO): void {
+	activeIO = io;
+}
+
+export function __resetIOForTests(): void {
+	activeIO = defaultIO;
+}
 
 const ANTHROPIC_OAUTH_TOKEN_URL =
 	"https://console.anthropic.com/v1/oauth/token";
@@ -38,11 +60,6 @@ interface AuthJsonOAuthEntry {
 	expires: number;
 }
 
-export type AuthDataReadResult =
-	| { kind: "ok"; data: Record<string, unknown> }
-	| { kind: "missing" }
-	| { kind: "parse-error" };
-
 /**
  * In-memory cache of the last-refreshed entry, used when the on-disk write
  * fails (read-only home dir, full disk, …). Without this, every small-model
@@ -50,39 +67,6 @@ export type AuthDataReadResult =
  * hammering Anthropic's OAuth endpoint.
  */
 let cachedEntry: AuthJsonOAuthEntry | null = null;
-
-/**
- * Resolves the mastracode auth.json path (same logic as mastracode's
- * `getAppDataDir`). We read it directly to avoid importing mastracode,
- * which eagerly loads @mastra/fastembed → onnxruntime-node (208 MB native
- * binary) and breaks electron-vite bundling.
- */
-export function getAuthJsonPath(): string {
-	const p = platform();
-	let base: string;
-	if (p === "darwin") {
-		base = join(homedir(), "Library", "Application Support");
-	} else if (p === "win32") {
-		base = process.env.APPDATA ?? join(homedir(), "AppData", "Roaming");
-	} else {
-		base = process.env.XDG_DATA_HOME ?? join(homedir(), ".local", "share");
-	}
-	return join(base, "mastracode", "auth.json");
-}
-
-export function readAuthJson(): AuthDataReadResult {
-	const path = getAuthJsonPath();
-	if (!existsSync(path)) return { kind: "missing" };
-	try {
-		const data = JSON.parse(readFileSync(path, "utf-8")) as Record<
-			string,
-			unknown
-		>;
-		return { kind: "ok", data };
-	} catch {
-		return { kind: "parse-error" };
-	}
-}
 
 export function isOAuthEntry(value: unknown): value is AuthJsonOAuthEntry {
 	return (
@@ -105,27 +89,17 @@ export function isOAuthEntry(value: unknown): value is AuthJsonOAuthEntry {
  * provider slot could be lost. Aborts on parse errors (rather than starting
  * from `{}`) so we never wipe valid sibling slots when the file is mid-write
  * or transiently corrupt.
- *
- * The temp file is written into the SAME directory as the target. `renameSync`
- * across filesystems throws `EXDEV` on Linux where /tmp is commonly a `tmpfs`
- * mount separate from $HOME, which would silently prevent token persistence.
  */
-function writeAnthropicEntry(entry: AuthJsonOAuthEntry): void {
-	const path = getAuthJsonPath();
-	const result = readAuthJson();
+function persistAnthropicEntry(entry: AuthJsonOAuthEntry): void {
+	const result = activeIO.readAuthJson();
 	if (result.kind === "parse-error") {
 		throw new Error(
 			"refusing to overwrite auth.json: existing content is unparseable",
 		);
 	}
-	const current = result.kind === "ok" ? result.data : {};
-	current[ANTHROPIC_AUTH_PROVIDER_ID] = entry;
-	const dir = dirname(path);
-	mkdirSync(dir, { recursive: true, mode: 0o700 });
-	const tmpPath = join(dir, `.auth.json.${process.pid}-${Date.now()}.tmp`);
-	const serialized = JSON.stringify(current, null, 2);
-	writeFileSync(tmpPath, serialized, { mode: 0o600 });
-	renameSync(tmpPath, path);
+	const next = result.kind === "ok" ? result.data : {};
+	next[ANTHROPIC_AUTH_PROVIDER_ID] = entry;
+	activeIO.writeAuthJson(next);
 }
 
 async function refreshAccessToken(
@@ -221,7 +195,7 @@ export async function getAnthropicOAuthCredential(
 	if (authData !== undefined) {
 		resolvedAuthData = authData;
 	} else {
-		const result = readAuthJson();
+		const result = activeIO.readAuthJson();
 		resolvedAuthData = result.kind === "ok" ? result.data : null;
 	}
 	if (!resolvedAuthData) return null;
@@ -239,7 +213,7 @@ export async function getAnthropicOAuthCredential(
 
 	cachedEntry = refreshed;
 	try {
-		writeAnthropicEntry(refreshed);
+		persistAnthropicEntry(refreshed);
 	} catch (error) {
 		console.warn("[anthropic-oauth] failed to persist refreshed token:", error);
 	}

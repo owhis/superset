@@ -7,8 +7,8 @@ import {
 import {
 	ANTHROPIC_OAUTH_HEADERS,
 	getAnthropicOAuthCredential,
-	readAuthJson,
 } from "./anthropic-oauth";
+import { readAuthJson } from "./auth-storage-io";
 
 const ANTHROPIC_SMALL_MODEL_ID = "claude-haiku-4-5-20251001";
 const OPENAI_SMALL_MODEL_ID = "gpt-4o-mini";

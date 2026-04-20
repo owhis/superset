@@ -1,38 +1,25 @@
+import { afterEach, beforeEach, describe, expect, it, mock } from "bun:test";
 import {
-	afterAll,
-	afterEach,
-	beforeEach,
-	describe,
-	expect,
-	it,
-	mock,
-} from "bun:test";
+	__resetCacheForTests,
+	__resetIOForTests,
+	__setIOForTests,
+	getAnthropicOAuthCredential,
+	isOAuthEntry,
+} from "./anthropic-oauth";
+import type { AuthDataReadResult } from "./auth-storage-io";
 
-// `mock.module("node:fs")` is process-global in bun:test. This file is the
-// only test that exercises file I/O in this directory, so leakage isn't an
-// issue today; if a sibling test starts importing `getAnthropicOAuthCredential`
-// (or anything that transitively reads node:fs) it will inherit this mock.
-const fsMock = {
-	existsSync: mock<(path: string) => boolean>(() => false),
-	readFileSync: mock<(path: string, encoding: string) => string>(() => ""),
-	writeFileSync: mock<(path: string, data: string, options?: unknown) => void>(
-		() => {},
-	),
-	renameSync: mock<(from: string, to: string) => void>(() => {}),
-	mkdirSync: mock<(path: string, options?: unknown) => void>(() => {}),
+const ioMock = {
+	readAuthJson: mock<() => AuthDataReadResult>(() => ({ kind: "missing" })),
+	writeAuthJson: mock<(next: Record<string, unknown>) => void>(() => {}),
 };
-
-mock.module("node:fs", () => fsMock);
-
-const { __resetCacheForTests, getAnthropicOAuthCredential, isOAuthEntry } =
-	await import("./anthropic-oauth");
 
 const originalFetch = globalThis.fetch;
 
 function mockAuthJson(contents: Record<string, unknown> | null): void {
-	fsMock.existsSync.mockReturnValue(contents !== null);
-	if (contents !== null) {
-		fsMock.readFileSync.mockReturnValue(JSON.stringify(contents));
+	if (contents === null) {
+		ioMock.readAuthJson.mockReturnValue({ kind: "missing" });
+	} else {
+		ioMock.readAuthJson.mockReturnValue({ kind: "ok", data: contents });
 	}
 }
 
@@ -99,16 +86,16 @@ describe("isOAuthEntry", () => {
 
 describe("getAnthropicOAuthCredential", () => {
 	beforeEach(() => {
-		fsMock.existsSync.mockReset();
-		fsMock.readFileSync.mockReset();
-		fsMock.writeFileSync.mockReset();
-		fsMock.renameSync.mockReset();
-		fsMock.mkdirSync.mockReset();
+		ioMock.readAuthJson.mockReset();
+		ioMock.readAuthJson.mockReturnValue({ kind: "missing" });
+		ioMock.writeAuthJson.mockReset();
+		__setIOForTests(ioMock);
 		__resetCacheForTests();
 	});
 
 	afterEach(() => {
 		globalThis.fetch = originalFetch;
+		__resetIOForTests();
 	});
 
 	it("returns null when auth.json does not exist", async () => {
@@ -140,8 +127,7 @@ describe("getAnthropicOAuthCredential", () => {
 		const result = await getAnthropicOAuthCredential();
 
 		expect(result).toEqual({ accessToken: "sk-ant-oat-valid" });
-		// No refresh call should have happened.
-		expect(fsMock.writeFileSync).not.toHaveBeenCalled();
+		expect(ioMock.writeAuthJson).not.toHaveBeenCalled();
 	});
 
 	it("refreshes an expired token and persists the new entry", async () => {
@@ -164,17 +150,14 @@ describe("getAnthropicOAuthCredential", () => {
 		const result = await getAnthropicOAuthCredential();
 
 		expect(result).toEqual({ accessToken: "sk-ant-oat-fresh" });
-		expect(fsMock.writeFileSync).toHaveBeenCalledTimes(1);
-		expect(fsMock.renameSync).toHaveBeenCalledTimes(1);
+		expect(ioMock.writeAuthJson).toHaveBeenCalledTimes(1);
 
-		// Persisted JSON should carry the refreshed access + refresh + future expiry.
-		const written = fsMock.writeFileSync.mock.calls[0]?.[1] as string;
-		const parsed = JSON.parse(written) as {
+		const written = ioMock.writeAuthJson.mock.calls[0]?.[0] as {
 			anthropic: { access: string; refresh: string; expires: number };
 		};
-		expect(parsed.anthropic.access).toBe("sk-ant-oat-fresh");
-		expect(parsed.anthropic.refresh).toBe("rt-new");
-		expect(parsed.anthropic.expires).toBeGreaterThan(Date.now());
+		expect(written.anthropic.access).toBe("sk-ant-oat-fresh");
+		expect(written.anthropic.refresh).toBe("rt-new");
+		expect(written.anthropic.expires).toBeGreaterThan(Date.now());
 	});
 
 	it("falls back to the original refresh token when the response omits one", async () => {
@@ -195,11 +178,10 @@ describe("getAnthropicOAuthCredential", () => {
 
 		await getAnthropicOAuthCredential();
 
-		const written = fsMock.writeFileSync.mock.calls[0]?.[1] as string;
-		const parsed = JSON.parse(written) as {
+		const written = ioMock.writeAuthJson.mock.calls[0]?.[0] as {
 			anthropic: { refresh: string };
 		};
-		expect(parsed.anthropic.refresh).toBe("rt-keep");
+		expect(written.anthropic.refresh).toBe("rt-keep");
 	});
 
 	it("returns null when refresh returns a 4xx", async () => {
@@ -220,7 +202,7 @@ describe("getAnthropicOAuthCredential", () => {
 		);
 
 		expect(await getAnthropicOAuthCredential()).toBeNull();
-		expect(fsMock.writeFileSync).not.toHaveBeenCalled();
+		expect(ioMock.writeAuthJson).not.toHaveBeenCalled();
 	});
 
 	it("returns null when refresh response is missing access_token", async () => {
@@ -278,30 +260,24 @@ describe("getAnthropicOAuthCredential", () => {
 
 		await getAnthropicOAuthCredential();
 
-		const written = fsMock.writeFileSync.mock.calls[0]?.[1] as string;
-		const parsed = JSON.parse(written) as {
+		const written = ioMock.writeAuthJson.mock.calls[0]?.[0] as {
 			anthropic: { access: string };
 			"openai-codex": { access: string };
 		};
-		expect(parsed.anthropic.access).toBe("sk-ant-oat-fresh");
-		expect(parsed["openai-codex"].access).toBe("openai-token");
+		expect(written.anthropic.access).toBe("sk-ant-oat-fresh");
+		expect(written["openai-codex"].access).toBe("openai-token");
 	});
 
-	it("aborts persistence (and refresh write) when auth.json is unparseable", async () => {
-		// File exists but contains invalid JSON. Without the parse-error guard
-		// this would silently overwrite the file with just { anthropic: ... },
-		// destroying every other provider slot.
-		fsMock.existsSync.mockReturnValue(true);
-		fsMock.readFileSync.mockReturnValue("{not valid json");
+	it("aborts persistence when auth.json is unparseable", async () => {
+		ioMock.readAuthJson.mockReturnValue({ kind: "parse-error" });
 		mockFetch(async () =>
 			Response.json({ access_token: "sk-ant-oat-fresh", expires_in: 3600 }),
 		);
 
 		const result = await getAnthropicOAuthCredential();
 
-		// Read returns parse-error → no entry to refresh from → null.
 		expect(result).toBeNull();
-		expect(fsMock.writeFileSync).not.toHaveBeenCalled();
+		expect(ioMock.writeAuthJson).not.toHaveBeenCalled();
 	});
 
 	it("defaults expires_in to 3600s when the response omits it", async () => {
@@ -319,17 +295,16 @@ describe("getAnthropicOAuthCredential", () => {
 		await getAnthropicOAuthCredential();
 		const after = Date.now();
 
-		const written = fsMock.writeFileSync.mock.calls[0]?.[1] as string;
-		const parsed = JSON.parse(written) as { anthropic: { expires: number } };
-		// Expiry should land roughly one hour from now.
-		expect(parsed.anthropic.expires).toBeGreaterThanOrEqual(
+		const written = ioMock.writeAuthJson.mock.calls[0]?.[0] as {
+			anthropic: { expires: number };
+		};
+		expect(written.anthropic.expires).toBeGreaterThanOrEqual(
 			before + 3600 * 1000,
 		);
-		expect(parsed.anthropic.expires).toBeLessThanOrEqual(after + 3600 * 1000);
+		expect(written.anthropic.expires).toBeLessThanOrEqual(after + 3600 * 1000);
 	});
 
 	it("refreshes a token within the leeway window", async () => {
-		// Token expires in 10s — inside the 30s leeway, so we still refresh.
 		mockAuthJson({
 			anthropic: {
 				type: "oauth",
@@ -358,8 +333,7 @@ describe("getAnthropicOAuthCredential", () => {
 				expires: Date.now() - 60_000,
 			},
 		});
-		// First call: refresh succeeds, write throws.
-		fsMock.writeFileSync.mockImplementationOnce(() => {
+		ioMock.writeAuthJson.mockImplementationOnce(() => {
 			throw new Error("EROFS: read-only file system");
 		});
 		const fetchMock = mock(async () =>
@@ -372,43 +346,7 @@ describe("getAnthropicOAuthCredential", () => {
 
 		expect(first?.accessToken).toBe("sk-ant-oat-fresh");
 		expect(second?.accessToken).toBe("sk-ant-oat-fresh");
-		// Second call must NOT have hit the OAuth endpoint again.
 		expect(fetchMock).toHaveBeenCalledTimes(1);
-	});
-
-	it("writes the temp file in the target directory (not tmpdir)", async () => {
-		// EXDEV guard: renameSync requires same filesystem. Temp file must live
-		// next to auth.json, not under /tmp (which is tmpfs on many Linux hosts).
-		mockAuthJson({
-			anthropic: {
-				type: "oauth",
-				access: "sk-ant-oat-stale",
-				refresh: "rt-xxx",
-				expires: Date.now() - 60_000,
-			},
-		});
-		mockFetch(async () =>
-			Response.json({ access_token: "sk-ant-oat-fresh", expires_in: 3600 }),
-		);
-
-		await getAnthropicOAuthCredential();
-
-		const writeCall = fsMock.writeFileSync.mock.calls[0];
-		const renameCall = fsMock.renameSync.mock.calls[0];
-		expect(writeCall).toBeDefined();
-		expect(renameCall).toBeDefined();
-		const tmpPath = writeCall?.[0] as string;
-		const finalPath = renameCall?.[1] as string;
-
-		// temp and final path should share the same parent directory
-		const tmpParent = tmpPath.slice(0, tmpPath.lastIndexOf("/"));
-		const finalParent = finalPath.slice(0, finalPath.lastIndexOf("/"));
-		expect(tmpParent).toBe(finalParent);
-
-		// mastracode dir must be created (recursive) before writing
-		expect(fsMock.mkdirSync).toHaveBeenCalled();
-		const mkdirCall = fsMock.mkdirSync.mock.calls[0];
-		expect(mkdirCall?.[0]).toBe(finalParent);
 	});
 
 	it("returns null when refresh is aborted by timeout", async () => {
@@ -420,7 +358,6 @@ describe("getAnthropicOAuthCredential", () => {
 				expires: Date.now() - 60_000,
 			},
 		});
-		// Simulate AbortController-based timeout: fetch rejects with AbortError.
 		mockFetch(async (_input, init) => {
 			return await new Promise<Response>((_resolve, reject) => {
 				init?.signal?.addEventListener("abort", () => {
@@ -431,10 +368,8 @@ describe("getAnthropicOAuthCredential", () => {
 			});
 		});
 
-		// Use fake timers so the 10s timeout fires instantly.
 		const originalSetTimeout = globalThis.setTimeout;
 		globalThis.setTimeout = ((fn: () => void) => {
-			// Fire the timer synchronously (microtask) to trigger abort.
 			queueMicrotask(fn);
 			return 0 as unknown as ReturnType<typeof originalSetTimeout>;
 		}) as typeof globalThis.setTimeout;
@@ -444,8 +379,4 @@ describe("getAnthropicOAuthCredential", () => {
 			globalThis.setTimeout = originalSetTimeout;
 		}
 	});
-});
-
-afterAll(() => {
-	mock.restore();
 });
