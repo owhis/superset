@@ -66,7 +66,7 @@ export async function POST(request: Request): Promise<Response> {
 		}),
 	);
 
-	await Promise.allSettled(
+	const advanceResults = await Promise.allSettled(
 		due.map((automation) => {
 			const next = nextOccurrenceAfter({
 				rrule: automation.rrule,
@@ -81,5 +81,23 @@ export async function POST(request: Request): Promise<Response> {
 		}),
 	);
 
-	return Response.json({ enqueued: due.length });
+	// next_run_at advance failures are recoverable (next tick re-enqueues and
+	// QStash dedup absorbs the duplicate), but a persistent failure would
+	// hide itself without this log.
+	const advanceFailures = advanceResults.flatMap((result, index) => {
+		if (result.status !== "rejected") return [];
+		const automation = due[index];
+		return [{ automationId: automation?.id, reason: result.reason }];
+	});
+	if (advanceFailures.length > 0) {
+		console.error(
+			"[automations/evaluate] advanceNextRun failures",
+			advanceFailures,
+		);
+	}
+
+	return Response.json({
+		enqueued: due.length,
+		advanceFailed: advanceFailures.length,
+	});
 }

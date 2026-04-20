@@ -43,15 +43,29 @@ export async function POST(request: Request): Promise<Response> {
 		return Response.json({ error: "Invalid signature" }, { status: 401 });
 	}
 
-	const parsed = failurePayloadSchema.safeParse(JSON.parse(body));
+	let rawBody: unknown;
+	try {
+		rawBody = JSON.parse(body);
+	} catch (err) {
+		console.error("[automations/run-failed] invalid JSON", err);
+		return Response.json({ error: "Invalid JSON" }, { status: 400 });
+	}
+
+	const parsed = failurePayloadSchema.safeParse(rawBody);
 	if (!parsed.success) {
 		console.error("[automations/run-failed] invalid payload", parsed.error);
 		return Response.json({ error: "Invalid payload" }, { status: 400 });
 	}
 
-	const decoded = JSON.parse(
-		Buffer.from(parsed.data.sourceBody, "base64").toString("utf-8"),
-	);
+	let decoded: unknown;
+	try {
+		decoded = JSON.parse(
+			Buffer.from(parsed.data.sourceBody, "base64").toString("utf-8"),
+		);
+	} catch (err) {
+		console.error("[automations/run-failed] invalid sourceBody JSON", err);
+		return Response.json({ error: "Invalid sourceBody JSON" }, { status: 400 });
+	}
 	const source = sourceBodySchema.safeParse(decoded);
 	if (!source.success) {
 		console.error("[automations/run-failed] invalid sourceBody", source.error);
