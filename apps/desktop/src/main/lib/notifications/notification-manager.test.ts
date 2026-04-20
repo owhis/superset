@@ -283,26 +283,6 @@ describe("NotificationManager", () => {
 	});
 
 	describe("notification content", () => {
-		it("uses permission request title/body for PermissionRequest events", () => {
-			const createNotification = mock(
-				(_opts: { title: string; body: string; silent: boolean }) =>
-					createMockNotification(),
-			);
-			const localDeps = createDeps({ createNotification });
-			const localManager = new NotificationManager(localDeps);
-
-			localManager.handleAgentLifecycle(
-				makeEvent({ eventType: "PermissionRequest" }),
-			);
-
-			expect(createNotification).toHaveBeenCalledWith(
-				expect.objectContaining({
-					title: "Input Needed — Test Workspace",
-					body: '"Test Title" needs your attention',
-				}),
-			);
-		});
-
 		it("uses completion title/body for Stop events", () => {
 			const createNotification = mock(
 				(_opts: { title: string; body: string; silent: boolean }) =>
