@@ -13,7 +13,6 @@
 	"dependencies": {
 		"@anthropic-ai/sdk": "^0.78.0",
 		"@better-auth/oauth-provider": "1.6.5",
-		"@date-fns/tz": "^1.4.1",
 		"@durable-streams/client": "^0.2.3",
 		"@electric-sql/client": "1.5.15",
 		"@linear/sdk": "^68.1.0",

@@ -3,14 +3,13 @@ import { command } from "../../../lib/command";
 
 export default command({
 	description: "Delete an automation",
-	options: {
-		id: positional().required().desc("Automation id"),
-	},
-	run: async ({ ctx, options }) => {
-		await ctx.api.automation.delete.mutate({ id: options.id });
+	args: [positional("id").required().desc("Automation id")],
+	run: async ({ ctx, args }) => {
+		const id = args.id as string;
+		await ctx.api.automation.delete.mutate({ id });
 		return {
 			data: { ok: true },
-			message: `Deleted automation ${options.id}`,
+			message: `Deleted automation ${id}`,
 		};
 	},
 });

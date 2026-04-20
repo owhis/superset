@@ -6,6 +6,11 @@ import {
 	v2UsersHosts,
 	v2Workspaces,
 } from "@superset/db/schema";
+import {
+	describeSchedule,
+	nextOccurrences,
+	parseRrule,
+} from "@superset/shared/rrule";
 import { TRPCError, type TRPCRouterRecord } from "@trpc/server";
 import { and, desc, eq } from "drizzle-orm";
 import { z } from "zod";
@@ -13,7 +18,6 @@ import { env } from "../../env";
 import { paidPlanProcedure } from "../../trpc";
 import { requireActiveOrgMembership } from "../utils/active-org";
 import { dispatchAutomation } from "./dispatch";
-import { describeRrule, nextOccurrences, parseRrule } from "./rrule";
 import {
 	createAutomationSchema,
 	listRunsSchema,
@@ -368,11 +372,7 @@ export const automationRouter = {
 				rrule: input.rrule,
 				dtstart,
 				timezone: input.timezone,
-				scheduleText: describeRrule({
-					rrule: input.rrule,
-					dtstart,
-					timezone: input.timezone,
-				}),
+				scheduleText: describeSchedule(input.rrule),
 				nextRunAt,
 				nextRuns: nextOccurrences({
 					rrule: input.rrule,
@@ -394,20 +394,10 @@ function bucketToMinute(date: Date): Date {
 	return copy;
 }
 
-interface RecurrenceSource {
-	rrule: string;
-	dtstart: Date;
-	timezone: string;
-}
-
-function safeDescribeRrule(row: RecurrenceSource | null | undefined): string {
+function safeDescribeRrule(row: { rrule: string } | null | undefined): string {
 	if (!row) return "";
 	try {
-		return describeRrule({
-			rrule: row.rrule,
-			dtstart: row.dtstart,
-			timezone: row.timezone,
-		});
+		return describeSchedule(row.rrule);
 	} catch {
 		return row.rrule;
 	}

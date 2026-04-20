@@ -1,14 +1,10 @@
 import {
 	isActiveSubscriptionStatus,
-	isPaidPlan,
 	type PlanTier,
 } from "@superset/shared/billing";
 import { useLiveQuery } from "@tanstack/react-db";
 import { authClient } from "renderer/lib/auth-client";
 import { useCollections } from "renderer/routes/_authenticated/providers/CollectionsProvider";
-
-/** @deprecated use PlanTier from @superset/shared/billing */
-export type UserPlan = PlanTier;
 
 interface ResolveCurrentPlanArgs {
 	subscriptionPlan?: string | null;
@@ -60,9 +56,4 @@ export function useCurrentPlan(): PlanTier {
 		sessionPlan: session?.session?.plan,
 		subscriptionsLoaded: subscriptionsData !== undefined,
 	});
-}
-
-/** Convenience hook: true when the active subscription is on a paid tier. */
-export function useIsPaidPlan(): boolean {
-	return isPaidPlan(useCurrentPlan());
 }

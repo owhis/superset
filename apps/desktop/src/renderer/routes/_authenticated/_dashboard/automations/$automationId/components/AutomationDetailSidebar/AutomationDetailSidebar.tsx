@@ -5,19 +5,21 @@ import type {
 import { cn } from "@superset/ui/utils";
 import { useMutation } from "@tanstack/react-query";
 import { format } from "date-fns";
-import type { ReactNode } from "react";
 import { useEnabledAgents } from "renderer/hooks/useEnabledAgents";
 import { apiTrpcClient } from "renderer/lib/api-trpc-client";
 import { DevicePicker } from "renderer/routes/_authenticated/components/DashboardNewWorkspaceModal/components/DashboardNewWorkspaceForm/components/DevicePicker";
 import { useWorkspaceHostOptions } from "renderer/routes/_authenticated/components/DashboardNewWorkspaceModal/components/DashboardNewWorkspaceForm/components/DevicePicker/hooks/useWorkspaceHostOptions/useWorkspaceHostOptions";
 import type { WorkspaceHostTarget } from "renderer/routes/_authenticated/components/DashboardNewWorkspaceModal/components/DashboardNewWorkspaceForm/components/DevicePicker/types";
-import { AgentPicker } from "../../../components/CreateAutomationDialog/components/AgentPicker";
-import { ProjectPicker } from "../../../components/CreateAutomationDialog/components/ProjectPicker";
-import { SchedulePicker } from "../../../components/CreateAutomationDialog/components/SchedulePicker";
-import { TimezonePicker } from "../../../components/CreateAutomationDialog/components/TimezonePicker";
-import { WorkspacePicker } from "../../../components/CreateAutomationDialog/components/WorkspacePicker";
-import { useRecentProjects } from "../../../components/CreateAutomationDialog/hooks/useRecentProjects";
+import { AgentPicker } from "../../../components/AgentPicker";
+import { ProjectPicker } from "../../../components/ProjectPicker";
+import { SchedulePicker } from "../../../components/SchedulePicker";
+import { TimezonePicker } from "../../../components/TimezonePicker";
+import { WorkspacePicker } from "../../../components/WorkspacePicker";
+import { useRecentProjects } from "../../../hooks/useRecentProjects";
 import { PreviousRunsList } from "../PreviousRunsList";
+import { Row } from "./components/Row";
+import { Section } from "./components/Section";
+import { SectionTitle } from "./components/SectionTitle";
 
 interface AutomationDetailSidebarProps {
 	automation: SelectAutomation;
@@ -176,31 +178,5 @@ export function AutomationDetailSidebar({
 				</div>
 			</div>
 		</aside>
-	);
-}
-
-function Section({ title, children }: { title: string; children: ReactNode }) {
-	return (
-		<section className="flex flex-col gap-3">
-			<SectionTitle>{title}</SectionTitle>
-			<div className="flex flex-col">{children}</div>
-		</section>
-	);
-}
-
-function SectionTitle({ children }: { children: ReactNode }) {
-	return (
-		<span className="font-sans text-xs font-medium uppercase tracking-wider text-muted-foreground">
-			{children}
-		</span>
-	);
-}
-
-function Row({ label, value }: { label: string; value: ReactNode }) {
-	return (
-		<div className="flex min-h-8 items-center justify-between gap-4 text-sm">
-			<span className="text-muted-foreground">{label}</span>
-			<div className="flex min-w-0 justify-end">{value}</div>
-		</div>
 	);
 }

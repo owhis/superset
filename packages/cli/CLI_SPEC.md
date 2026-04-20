@@ -1180,35 +1180,40 @@ ID          NAME                AGENT     SCHEDULE                  ENABLED  NEX
   "data": [{
     "id": "...",
     "name": "Weekly release notes",
-    "agentType": "claude",
+    "agentConfig": { "id": "claude", "kind": "terminal", "label": "Claude", ... },
     "rrule": "FREQ=WEEKLY;BYDAY=FR;BYHOUR=9;BYMINUTE=0",
     "scheduleText": "every Friday at 9:00 AM",
     "timezone": "America/Los_Angeles",
     "targetHostId": "...",
-    "workspaceMode": "new_per_run",
     "v2ProjectId": "...",
     "v2WorkspaceId": null,
     "enabled": true,
-    "lastRunAt": "2026-04-10T09:00:00Z",
     "nextRunAt": "2026-04-24T09:00:00-07:00"
   }]
 }
 ```
+
+`agentConfig` is the full snapshot of the agent preset (id, command, kind, model, etc.)
+taken at create time. `v2WorkspaceId` is `null` when the automation creates a fresh
+workspace per run; otherwise it points at the reused workspace.
 
 ### `superset automations create`
 ```
 Input:
   --name <name>                required
   --rrule <rrule>              required, RFC 5545 RRULE body
-  --project <projectId>        required unless --workspace provided
-    (new workspace is created per run inside this project)
-  --workspace <workspaceId>    reuse this existing workspace every run
+  --project <projectId>        required
+  --workspace <workspaceId>    optional — reuse this existing workspace every
+                               run. When unset, a fresh workspace is created
+                               per run inside --project.
   --prompt <text> |            one of --prompt / --prompt-file required
     --prompt-file <path>
   --device <hostId>            default: owner's online host
   --timezone <IANA>            default: host TZ, else UTC
   --dtstart <iso8601>          default: now (anchors interval rules)
   --agent <preset-id>          default: "claude"
+  --agent-config-file <path>   optional — path to a JSON ResolvedAgentConfig
+                               snapshot to use verbatim (bypasses --agent)
 ```
 
 **Human output:**
@@ -1244,5 +1249,6 @@ dispatch_failed     2026-03-27T09:00:00Z  —                     —         re
 ```
 
 ### `superset automations run <id>`
-Inserts a run with `scheduled_for = now()`; the next dispatcher tick
-picks it up. Returns the run id immediately.
+Dispatches the automation synchronously (doesn't wait for the next cron tick)
+and returns the run id. Works even on paused automations. The automation's
+regular `next_run_at` is unaffected.

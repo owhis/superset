@@ -1,9 +1,8 @@
-import { TZDate } from "@date-fns/tz";
 import { dbWs } from "@superset/db/client";
 import { automations, type SelectAutomation } from "@superset/db/schema";
+import { nextOccurrenceAfter } from "@superset/shared/rrule";
 import { dispatchAutomation } from "@superset/trpc/automation-dispatch";
 import { and, eq, gt, inArray, lte } from "drizzle-orm";
-import { RRule } from "rrule";
 import { env } from "@/env";
 
 export const maxDuration = 60;
@@ -23,62 +22,13 @@ function bucketToMinute(date: Date): Date {
 	return copy;
 }
 
-function formatRRuleLocalDtstart(dtstart: Date, timezone: string): string {
-	const formatter = new Intl.DateTimeFormat("en-CA", {
-		timeZone: timezone,
-		year: "numeric",
-		month: "2-digit",
-		day: "2-digit",
-		hour: "2-digit",
-		minute: "2-digit",
-		second: "2-digit",
-		hour12: false,
-	});
-	const parts = Object.fromEntries(
-		formatter.formatToParts(dtstart).map((p) => [p.type, p.value]),
-	);
-	return `${parts.year}${parts.month}${parts.day}T${parts.hour}${parts.minute}${parts.second}`;
-}
-
-function advanceRrule(automation: SelectAutomation): Date | null {
-	const rule = RRule.fromString(
-		`DTSTART;TZID=${automation.timezone}:${formatRRuleLocalDtstart(
-			automation.dtstart,
-			automation.timezone,
-		)}\nRRULE:${automation.rrule}`,
-	);
-	// rrule.after() compares against its own wall-clock-as-UTC space, so the
-	// real-UTC nextRunAt needs projecting into that space first. Same trick
-	// in reverse on the way out.
-	const afterTz = new TZDate(
-		automation.nextRunAt.getTime(),
-		automation.timezone,
-	);
-	const afterForRrule = new Date(
-		Date.UTC(
-			afterTz.getFullYear(),
-			afterTz.getMonth(),
-			afterTz.getDate(),
-			afterTz.getHours(),
-			afterTz.getMinutes(),
-			afterTz.getSeconds(),
-		),
-	);
-	const next = rule.after(afterForRrule, false);
-	if (!next) return null;
-	return new TZDate(
-		next.getUTCFullYear(),
-		next.getUTCMonth(),
-		next.getUTCDate(),
-		next.getUTCHours(),
-		next.getUTCMinutes(),
-		next.getUTCSeconds(),
-		automation.timezone,
-	);
-}
-
 async function advanceNextRun(automation: SelectAutomation): Promise<void> {
-	const next = advanceRrule(automation);
+	const next = nextOccurrenceAfter({
+		rrule: automation.rrule,
+		dtstart: automation.dtstart,
+		timezone: automation.timezone,
+		after: automation.nextRunAt,
+	});
 	if (next) {
 		await dbWs
 			.update(automations)

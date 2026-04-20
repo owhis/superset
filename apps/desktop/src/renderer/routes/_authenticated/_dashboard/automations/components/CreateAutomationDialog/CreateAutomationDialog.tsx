@@ -19,14 +19,14 @@ import { DevicePicker } from "renderer/routes/_authenticated/components/Dashboar
 import { useWorkspaceHostOptions } from "renderer/routes/_authenticated/components/DashboardNewWorkspaceModal/components/DashboardNewWorkspaceForm/components/DevicePicker/hooks/useWorkspaceHostOptions/useWorkspaceHostOptions";
 import type { WorkspaceHostTarget } from "renderer/routes/_authenticated/components/DashboardNewWorkspaceModal/components/DashboardNewWorkspaceForm/components/DevicePicker/types";
 import { hideAll as hideAllTippy } from "tippy.js";
+import { useProjectFileSearch } from "../../hooks/useProjectFileSearch";
+import { useRecentProjects } from "../../hooks/useRecentProjects";
 import type { AutomationTemplate } from "../../templates";
-import { AgentPicker } from "./components/AgentPicker";
-import { ProjectPicker } from "./components/ProjectPicker";
-import { SchedulePicker } from "./components/SchedulePicker";
+import { AgentPicker } from "../AgentPicker";
+import { ProjectPicker } from "../ProjectPicker";
+import { SchedulePicker } from "../SchedulePicker";
+import { WorkspacePicker } from "../WorkspacePicker";
 import { TemplateGalleryPanel } from "./components/TemplateGalleryPanel";
-import { WorkspacePicker } from "./components/WorkspacePicker";
-import { useProjectFileSearch } from "./hooks/useProjectFileSearch";
-import { useRecentProjects } from "./hooks/useRecentProjects";
 
 export type AutomationCreatedPayload = { id: string; name: string };
 
@@ -112,13 +112,6 @@ export function CreateAutomationDialog({
 
 	const targetHostId =
 		hostTarget.kind === "host" ? hostTarget.hostId : localHostId;
-
-	// Reset the workspace selection whenever host or project changes — the
-	// currently-selected workspace almost certainly doesn't belong to the new
-	// combination.
-	useEffect(() => {
-		setV2WorkspaceId(null);
-	}, []);
 
 	const createMutation = useMutation({
 		mutationFn: () => {
@@ -241,13 +234,19 @@ export function CreateAutomationDialog({
 									<DevicePicker
 										className="w-[160px]"
 										hostTarget={hostTarget}
-										onSelectHostTarget={setHostTarget}
+										onSelectHostTarget={(next) => {
+											setHostTarget(next);
+											setV2WorkspaceId(null);
+										}}
 									/>
 									<ProjectPicker
 										className="w-[120px]"
 										selectedProject={selectedProject}
 										recentProjects={recentProjects}
-										onSelectProject={setSelectedProjectId}
+										onSelectProject={(id) => {
+											setSelectedProjectId(id);
+											setV2WorkspaceId(null);
+										}}
 									/>
 									<WorkspacePicker
 										className="w-[160px]"

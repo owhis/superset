@@ -41,7 +41,6 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { HiOutlineComputerDesktop } from "react-icons/hi2";
 import {
-	LuCpu,
 	LuEllipsis,
 	LuGitBranch,
 	LuPencil,
@@ -50,14 +49,15 @@ import {
 	LuSparkles,
 	LuTrash2,
 } from "react-icons/lu";
-import { usePresetIcon } from "renderer/assets/app-icons/preset-icons";
 import { apiTrpcClient } from "renderer/lib/api-trpc-client";
 import { authClient } from "renderer/lib/auth-client";
 import { ProjectThumbnail } from "renderer/routes/_authenticated/components/ProjectThumbnail";
 import { useCollections } from "renderer/routes/_authenticated/providers/CollectionsProvider";
+import { AgentCell } from "./components/AgentCell";
 import { AutomationsEmptyState } from "./components/AutomationsEmptyState";
+import { CellWithIcon } from "./components/CellWithIcon";
 import { CreateAutomationDialog } from "./components/CreateAutomationDialog";
-import { useRecentProjects } from "./components/CreateAutomationDialog/hooks/useRecentProjects";
+import { useRecentProjects } from "./hooks/useRecentProjects";
 import type { AutomationTemplate } from "./templates";
 
 export const Route = createFileRoute("/_authenticated/_dashboard/automations/")(
@@ -481,34 +481,5 @@ function AutomationsPage() {
 				</AlertDialogContent>
 			</AlertDialog>
 		</div>
-	);
-}
-
-function CellWithIcon({
-	icon,
-	label,
-}: {
-	icon: React.ReactNode;
-	label: string;
-}) {
-	return (
-		<span className="inline-flex items-center gap-1.5">
-			{icon}
-			<span className="truncate">{label}</span>
-		</span>
-	);
-}
-
-function AgentCell({ agentId, label }: { agentId: string; label: string }) {
-	const icon = usePresetIcon(agentId);
-	return (
-		<span className="inline-flex items-center gap-1.5">
-			{icon ? (
-				<img src={icon} alt="" className="size-3.5 shrink-0 object-contain" />
-			) : (
-				<LuCpu className="size-3.5 shrink-0" />
-			)}
-			<span className="truncate">{label}</span>
-		</span>
 	);
 }

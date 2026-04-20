@@ -38,8 +38,8 @@ function resolveDefaultAgentConfig(agentId: string): ResolvedAgentConfig {
 
 export default command({
 	description: "Update an automation",
+	args: [positional("id").required().desc("Automation id")],
 	options: {
-		id: positional().required().desc("Automation id"),
 		name: string().desc("New name"),
 		prompt: string().desc("New prompt"),
 		promptFile: string().desc("Path to a file with the new prompt"),
@@ -55,7 +55,8 @@ export default command({
 		device: string().desc("New target host id"),
 		enabled: boolean().desc("Enable or pause the automation"),
 	},
-	run: async ({ ctx, options }) => {
+	run: async ({ ctx, args, options }) => {
+		const id = args.id as string;
 		const promptFromFile = options.promptFile
 			? readFileSync(options.promptFile, "utf-8").trim()
 			: undefined;
@@ -63,7 +64,7 @@ export default command({
 
 		if (options.enabled !== undefined) {
 			await ctx.api.automation.setEnabled.mutate({
-				id: options.id,
+				id,
 				enabled: options.enabled,
 			});
 		}
@@ -75,7 +76,7 @@ export default command({
 				: undefined;
 
 		const result = await ctx.api.automation.update.mutate({
-			id: options.id,
+			id,
 			name: options.name,
 			prompt,
 			rrule: options.rrule,

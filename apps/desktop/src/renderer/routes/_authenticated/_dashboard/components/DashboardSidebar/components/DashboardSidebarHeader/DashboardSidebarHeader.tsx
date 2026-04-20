@@ -1,3 +1,4 @@
+import { isPaidPlan } from "@superset/shared/billing";
 import { FEATURE_FLAGS } from "@superset/shared/constants";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@superset/ui/tooltip";
 import { cn } from "@superset/ui/utils";
@@ -6,7 +7,7 @@ import { useFeatureFlagEnabled } from "posthog-js/react";
 import { HiOutlineClipboardDocumentList } from "react-icons/hi2";
 import { LuClock, LuFolderPlus, LuLayers, LuPlus } from "react-icons/lu";
 import { GATED_FEATURES, usePaywall } from "renderer/components/Paywall";
-import { useIsPaidPlan } from "renderer/hooks/useCurrentPlan";
+import { useCurrentPlan } from "renderer/hooks/useCurrentPlan";
 import { useHotkeyDisplay } from "renderer/hotkeys";
 import { OrganizationDropdown } from "renderer/routes/_authenticated/_dashboard/components/TopBar/components/OrganizationDropdown";
 import { useTasksFilterStore } from "renderer/routes/_authenticated/_dashboard/tasks/stores/tasks-filter-state";
@@ -32,8 +33,8 @@ export function DashboardSidebarHeader({
 	const automationsFlagEnabled = useFeatureFlagEnabled(
 		FEATURE_FLAGS.AUTOMATIONS_ACCESS,
 	);
-	const isPaid = useIsPaidPlan();
-	const showAutomations = automationsFlagEnabled && isPaid;
+	const plan = useCurrentPlan();
+	const showAutomations = automationsFlagEnabled && isPaidPlan(plan);
 
 	const {
 		tab: lastTab,

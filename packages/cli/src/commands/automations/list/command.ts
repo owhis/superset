@@ -11,7 +11,7 @@ export default command({
 			(data as Record<string, unknown>[]).map((row) => ({
 				id: row.id,
 				name: row.name,
-				agent: row.agentType,
+				agent: (row.agentConfig as { id?: string } | null)?.id,
 				schedule: row.scheduleText ?? row.rrule,
 				enabled: row.enabled ? "yes" : "no",
 				nextRun: row.nextRunAt ?? "—",

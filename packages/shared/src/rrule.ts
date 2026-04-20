@@ -1,9 +1,19 @@
 /**
- * RRULE helpers: serialize schedule-picker state into RFC 5545, detect which
- * preset an existing RRULE matches, and format rules as short English.
- * "Custom" is returned for anything outside the handful of patterns the UI
- * generates — raw RRULE syntax is never user-facing outside the edit flow.
+ * RRULE helpers:
+ *   - serialize schedule-picker state into RFC 5545 and detect which preset
+ *     an existing RRULE matches (string-only, no rrule.js dep)
+ *   - format rules as short English (`describeSchedule`)
+ *   - compute real-UTC occurrences with correct DST behavior
+ *     (`parseRrule` / `nextOccurrenceAfter` / `nextOccurrences`)
+ *
+ * rrule.js's `TZID` support returns Date objects whose UTC digits encode the
+ * *local wall-clock* in the rule's zone — not real UTC instants. Every call
+ * is wrapped by `utcToRruleDate` on the way in and `rruleDateToUtc` on the
+ * way out so callers outside this module never see the wall-clock-as-UTC.
  */
+
+import { TZDate } from "@date-fns/tz";
+import { RRule } from "rrule";
 
 const WEEKDAYS = ["MO", "TU", "WE", "TH", "FR"] as const;
 const WEEKENDS = ["SA", "SU"] as const;
@@ -29,7 +39,7 @@ const DAY_LONG: Record<string, string> = {
 
 type RruleParts = Record<string, string>;
 
-function parseRrule(rrule: string): RruleParts | null {
+function parseRruleParts(rrule: string): RruleParts | null {
 	const parts: RruleParts = {};
 	for (const segment of rrule.split(";")) {
 		const trimmed = segment.trim();
@@ -118,7 +128,7 @@ export type PresetMatch =
 	| { kind: "custom"; rrule: string };
 
 export function matchPreset(rrule: string): PresetMatch {
-	const parts = parseRrule(rrule);
+	const parts = parseRruleParts(rrule);
 	if (!parts) return { kind: "custom", rrule };
 
 	if (parts.BYSETPOS || parts.BYYEARDAY || parts.BYWEEKNO) {
@@ -191,7 +201,7 @@ export function describeSchedule(
 	rrule: string,
 	options: DescribeScheduleOptions = {},
 ): string {
-	const parts = parseRrule(rrule);
+	const parts = parseRruleParts(rrule);
 	if (!parts) return "Custom";
 
 	const { locale } = options;
@@ -273,4 +283,133 @@ export function describeSchedule(
 		default:
 			return "Custom";
 	}
+}
+
+// ---- rrule.js-backed occurrence math ---------------------------------------
+
+export interface ParsedRecurrence {
+	rrule: string;
+	dtstart: Date;
+	timezone: string;
+	nextRunAt: Date;
+}
+
+/** Wall-clock-as-UTC → real UTC in the given zone. */
+export function rruleDateToUtc(rruleDate: Date, timezone: string): Date {
+	return new TZDate(
+		rruleDate.getUTCFullYear(),
+		rruleDate.getUTCMonth(),
+		rruleDate.getUTCDate(),
+		rruleDate.getUTCHours(),
+		rruleDate.getUTCMinutes(),
+		rruleDate.getUTCSeconds(),
+		timezone,
+	);
+}
+
+/** Real UTC → wall-clock-as-UTC in the given zone (rrule.js input space). */
+export function utcToRruleDate(realUtc: Date, timezone: string): Date {
+	const tz = new TZDate(realUtc.getTime(), timezone);
+	return new Date(
+		Date.UTC(
+			tz.getFullYear(),
+			tz.getMonth(),
+			tz.getDate(),
+			tz.getHours(),
+			tz.getMinutes(),
+			tz.getSeconds(),
+		),
+	);
+}
+
+/**
+ * Serialize a Date into the local wall-clock string format RRule requires
+ * (`YYYYMMDDTHHMMSS`), given an IANA timezone.
+ */
+function formatRRuleLocalDtstart(dtstart: Date, timezone: string): string {
+	const formatter = new Intl.DateTimeFormat("en-CA", {
+		timeZone: timezone,
+		year: "numeric",
+		month: "2-digit",
+		day: "2-digit",
+		hour: "2-digit",
+		minute: "2-digit",
+		second: "2-digit",
+		hour12: false,
+	});
+	const parts = Object.fromEntries(
+		formatter.formatToParts(dtstart).map((p) => [p.type, p.value]),
+	);
+	return `${parts.year}${parts.month}${parts.day}T${parts.hour}${parts.minute}${parts.second}`;
+}
+
+function buildRuleString(
+	rrule: string,
+	dtstart: Date,
+	timezone: string,
+): string {
+	return `DTSTART;TZID=${timezone}:${formatRRuleLocalDtstart(dtstart, timezone)}\nRRULE:${rrule}`;
+}
+
+/**
+ * The next real-UTC occurrence strictly after `after`, or null when the
+ * recurrence is exhausted (UNTIL/COUNT).
+ */
+export function nextOccurrenceAfter(args: {
+	rrule: string;
+	dtstart: Date;
+	timezone: string;
+	after: Date;
+}): Date | null {
+	const rule = RRule.fromString(
+		buildRuleString(args.rrule, args.dtstart, args.timezone),
+	);
+	const next = rule.after(utcToRruleDate(args.after, args.timezone), false);
+	return next ? rruleDateToUtc(next, args.timezone) : null;
+}
+
+/** Parses + validates an RRule body, returning the next occurrence. */
+export function parseRrule(args: {
+	rrule: string;
+	dtstart: Date;
+	timezone: string;
+	after?: Date;
+}): ParsedRecurrence {
+	const next = nextOccurrenceAfter({
+		rrule: args.rrule,
+		dtstart: args.dtstart,
+		timezone: args.timezone,
+		after: args.after ?? new Date(),
+	});
+	if (!next) throw new Error("Recurrence has no future occurrences");
+	return {
+		rrule: args.rrule,
+		dtstart: args.dtstart,
+		timezone: args.timezone,
+		nextRunAt: next,
+	};
+}
+
+/** Next N upcoming occurrences, for the create-modal preview. */
+export function nextOccurrences(args: {
+	rrule: string;
+	dtstart: Date;
+	timezone: string;
+	count: number;
+	after?: Date;
+}): Date[] {
+	const results: Date[] = [];
+	let cursor = args.after ?? new Date();
+	for (let i = 0; i < args.count; i++) {
+		const next = nextOccurrenceAfter({
+			rrule: args.rrule,
+			dtstart: args.dtstart,
+			timezone: args.timezone,
+			after: cursor,
+		});
+		if (!next) break;
+		results.push(next);
+		cursor = next;
+	}
+	return results;
 }
