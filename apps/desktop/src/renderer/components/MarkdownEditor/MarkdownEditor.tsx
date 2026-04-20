@@ -25,6 +25,8 @@ import TaskItem from "@tiptap/extension-task-item";
 import TaskList from "@tiptap/extension-task-list";
 import { Text } from "@tiptap/extension-text";
 import { Underline } from "@tiptap/extension-underline";
+import type { MarkdownSerializerState } from "@tiptap/pm/markdown";
+import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 import {
 	type Editor,
 	EditorContent,
@@ -102,6 +104,39 @@ const StyledHeading = Heading.extend({
 		const level = node.attrs.level as number;
 		const classes = HEADING_CLASSES[level] || HEADING_CLASSES[1];
 		return [`h${level}`, { ...HTMLAttributes, class: classes }, 0];
+	},
+});
+
+// tiptap-markdown@0.9.0's task-item serializer writes `[ ] ` without the
+// leading `- ` and relies on the parent task-list's renderList to prepend the
+// marker via its firstDelim. When re-parsed, the bare `[ ] ` is not recognized
+// as a task item, so we serialize the marker on the item itself and make the
+// list a pass-through to avoid doubling the `- `. See #3588.
+const MarkdownTaskItem = TaskItem.extend({
+	addStorage() {
+		return {
+			...this.parent?.(),
+			markdown: {
+				serialize(state: MarkdownSerializerState, node: ProseMirrorNode) {
+					const check = node.attrs.checked ? "[x]" : "[ ]";
+					state.write(`- ${check} `);
+					state.renderContent(node);
+				},
+			},
+		};
+	},
+});
+
+const MarkdownTaskList = TaskList.extend({
+	addStorage() {
+		return {
+			...this.parent?.(),
+			markdown: {
+				serialize(state: MarkdownSerializerState, node: ProseMirrorNode) {
+					state.renderContent(node);
+				},
+			},
+		};
 	},
 });
 
@@ -213,10 +248,10 @@ export function MarkdownEditor({
 			ListItem.configure({
 				HTMLAttributes: {},
 			}),
-			TaskList.configure({
+			MarkdownTaskList.configure({
 				HTMLAttributes: { class: "mt-0 mb-3 pl-0 list-none" },
 			}),
-			TaskItem.configure({
+			MarkdownTaskItem.configure({
 				HTMLAttributes: { class: "flex items-start gap-2 mb-1" },
 				nested: true,
 			}),
