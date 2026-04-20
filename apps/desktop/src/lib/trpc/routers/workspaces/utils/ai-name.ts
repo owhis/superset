@@ -29,8 +29,6 @@ export type WorkspaceAutoRenameResult =
 const FALLBACK_WARNING =
 	"A prompt-based title was used because model naming was unavailable.";
 
-const WORKSPACE_TITLE_MAX_LENGTH = 20;
-
 export async function generateWorkspaceNameFromPrompt(prompt: string): Promise<{
 	name: string | null;
 	usedPromptFallback: boolean;
@@ -49,9 +47,7 @@ export async function generateWorkspaceNameFromPrompt(prompt: string): Promise<{
 				tracingContext: { surface: "workspace-auto-name" },
 			});
 			if (generated !== null && generated !== undefined) {
-				// LLMs miscount characters — enforce the limit server-side as well.
-				const truncated = generated.slice(0, WORKSPACE_TITLE_MAX_LENGTH);
-				return { name: truncated, usedPromptFallback: false };
+				return { name: generated, usedPromptFallback: false };
 			}
 		} catch (error) {
 			console.error("[workspace-ai-name] title generation failed", error);

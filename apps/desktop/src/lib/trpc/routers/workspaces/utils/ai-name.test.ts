@@ -122,20 +122,6 @@ describe("generateWorkspaceNameFromPrompt", () => {
 		});
 	});
 
-	it("truncates over-long model output to 20 characters", async () => {
-		getSmallModelMock.mockResolvedValueOnce({ id: "test-model" });
-		generateTitleFromMessageMock.mockResolvedValueOnce(
-			"This title is way too long for a sidebar entry",
-		);
-
-		await expect(
-			generateWorkspaceNameFromPrompt("name this workspace"),
-		).resolves.toEqual({
-			name: "This title is way to",
-			usedPromptFallback: false,
-		});
-	});
-
 	it("preserves empty-string model results instead of forcing fallback", async () => {
 		getSmallModelMock.mockResolvedValueOnce({ id: "test-model" });
 		generateTitleFromMessageMock.mockResolvedValueOnce("");

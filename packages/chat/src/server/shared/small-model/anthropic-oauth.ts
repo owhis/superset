@@ -1,6 +1,7 @@
 import { existsSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { homedir, platform, tmpdir } from "node:os";
 import { join } from "node:path";
+import { ANTHROPIC_AUTH_PROVIDER_ID } from "../auth-provider-ids";
 
 const ANTHROPIC_OAUTH_TOKEN_URL =
 	"https://console.anthropic.com/v1/oauth/token";
@@ -23,12 +24,25 @@ export interface AnthropicOAuthCredential {
 	accessToken: string;
 }
 
-export interface AuthJsonOAuthEntry {
+interface AuthJsonOAuthEntry {
 	type: "oauth";
 	access: string;
 	refresh: string;
 	expires: number;
 }
+
+type ReadResult =
+	| { kind: "ok"; data: Record<string, unknown> }
+	| { kind: "missing" }
+	| { kind: "parse-error" };
+
+/**
+ * In-memory cache of the last-refreshed entry, used when the on-disk write
+ * fails (read-only home dir, full disk, …). Without this, every small-model
+ * call would re-refresh an expired token because the disk copy stays stale,
+ * hammering Anthropic's OAuth endpoint.
+ */
+let cachedEntry: AuthJsonOAuthEntry | null = null;
 
 function getAuthJsonPath(): string {
 	const p = platform();
@@ -43,13 +57,17 @@ function getAuthJsonPath(): string {
 	return join(base, "mastracode", "auth.json");
 }
 
-function readAuthJson(): Record<string, unknown> | null {
+function readAuthJson(): ReadResult {
 	const path = getAuthJsonPath();
-	if (!existsSync(path)) return null;
+	if (!existsSync(path)) return { kind: "missing" };
 	try {
-		return JSON.parse(readFileSync(path, "utf-8")) as Record<string, unknown>;
+		const data = JSON.parse(readFileSync(path, "utf-8")) as Record<
+			string,
+			unknown
+		>;
+		return { kind: "ok", data };
 	} catch {
-		return null;
+		return { kind: "parse-error" };
 	}
 }
 
@@ -69,18 +87,23 @@ export function isOAuthEntry(value: unknown): value is AuthJsonOAuthEntry {
 }
 
 /**
- * Persist the refreshed entry by reading the current file just before the
- * write, replacing the `anthropic` slot, and atomically renaming a temp file
- * into place. Reading immediately before write minimises (but does not
- * eliminate) the window where a concurrent mastracode write to a *different*
- * provider slot could be lost. Acceptable trade-off: refresh is rare, and
- * adding cross-process file locking here would pull in a dependency for a
- * once-per-hour code path. If this becomes an issue, switch to proper-lockfile.
+ * Persist the refreshed entry. Reads auth.json immediately before writing to
+ * minimise the window where a concurrent mastracode write to a different
+ * provider slot could be lost. Aborts on parse errors (rather than starting
+ * from `{}`) so we never wipe valid sibling slots when the file is mid-write
+ * or transiently corrupt. Refresh is rare (~once per hour per process), so
+ * proper cross-process file locking would be overkill here.
  */
 function writeAnthropicEntry(entry: AuthJsonOAuthEntry): void {
 	const path = getAuthJsonPath();
-	const current = readAuthJson() ?? {};
-	current.anthropic = entry;
+	const result = readAuthJson();
+	if (result.kind === "parse-error") {
+		throw new Error(
+			"refusing to overwrite auth.json: existing content is unparseable",
+		);
+	}
+	const current = result.kind === "ok" ? result.data : {};
+	current[ANTHROPIC_AUTH_PROVIDER_ID] = entry;
 	const serialized = JSON.stringify(current, null, 2);
 	const tmpPath = join(
 		tmpdir(),
@@ -154,6 +177,10 @@ async function refreshAccessToken(
 	};
 }
 
+function isFresh(entry: AuthJsonOAuthEntry): boolean {
+	return entry.expires - REFRESH_LEEWAY_MS > Date.now();
+}
+
 /**
  * Resolves an Anthropic OAuth access token from mastracode's auth.json,
  * refreshing it via the Claude Code OAuth flow when expired. Returns `null`
@@ -161,19 +188,25 @@ async function refreshAccessToken(
  * (in which case the user must re-auth via Settings → Models).
  */
 export async function getAnthropicOAuthCredential(): Promise<AnthropicOAuthCredential | null> {
-	const authData = readAuthJson();
-	if (!authData) return null;
+	if (cachedEntry && isFresh(cachedEntry)) {
+		return { accessToken: cachedEntry.access };
+	}
 
-	const entry = authData.anthropic;
+	const result = readAuthJson();
+	if (result.kind !== "ok") return null;
+
+	const entry = result.data[ANTHROPIC_AUTH_PROVIDER_ID];
 	if (!isOAuthEntry(entry)) return null;
 
-	if (entry.expires - REFRESH_LEEWAY_MS > Date.now()) {
+	if (isFresh(entry)) {
+		cachedEntry = entry;
 		return { accessToken: entry.access };
 	}
 
 	const refreshed = await refreshAccessToken(entry.refresh);
 	if (!refreshed) return null;
 
+	cachedEntry = refreshed;
 	try {
 		writeAnthropicEntry(refreshed);
 	} catch (error) {
@@ -181,4 +214,9 @@ export async function getAnthropicOAuthCredential(): Promise<AnthropicOAuthCrede
 	}
 
 	return { accessToken: refreshed.access };
+}
+
+/** Test-only — clear the in-memory refresh cache between cases. */
+export function __resetCacheForTests(): void {
+	cachedEntry = null;
 }

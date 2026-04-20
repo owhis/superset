@@ -4,17 +4,16 @@ import { join } from "node:path";
 import { createAnthropic } from "@ai-sdk/anthropic";
 import { createOpenAI } from "@ai-sdk/openai";
 import {
+	ANTHROPIC_AUTH_PROVIDER_ID,
+	OPENAI_AUTH_PROVIDER_IDS,
+} from "../auth-provider-ids";
+import {
 	ANTHROPIC_OAUTH_HEADERS,
 	getAnthropicOAuthCredential,
 } from "./anthropic-oauth";
 
 const ANTHROPIC_SMALL_MODEL_ID = "claude-haiku-4-5-20251001";
 const OPENAI_SMALL_MODEL_ID = "gpt-4o-mini";
-
-// Mastracode stores the OpenAI Codex provider under "openai-codex", not "openai".
-// See packages/chat/src/server/desktop/auth/provider-ids.ts.
-const OPENAI_PROVIDER_ID = "openai-codex";
-const ANTHROPIC_PROVIDER_ID = "anthropic";
 
 const MIN_API_KEY_LENGTH = 30;
 
@@ -69,16 +68,18 @@ function getStoredApiKey(
 	return null;
 }
 
-function resolveApiKey(
+function resolveApiKeyForProvider(
 	envVar: string | undefined,
 	authData: AuthData | null,
-	providerId: string,
+	providerIds: readonly string[],
 	validate: (key: string) => boolean,
 ): string | null {
 	const env = envVar?.trim();
 	if (env && validate(env)) return env;
-	const stored = getStoredApiKey(authData, providerId);
-	if (stored && validate(stored)) return stored;
+	for (const providerId of providerIds) {
+		const stored = getStoredApiKey(authData, providerId);
+		if (stored && validate(stored)) return stored;
+	}
 	return null;
 }
 
@@ -109,7 +110,7 @@ export function isOpenAIApiKey(key: string): boolean {
  *   2. mastracode auth.json `apikey:anthropic` slot
  *   3. mastracode auth.json `anthropic` OAuth slot (refreshed if expired)
  *   4. OPENAI_API_KEY env var
- *   5. mastracode auth.json `apikey:openai-codex` slot
+ *   5. mastracode auth.json `apikey:openai-codex` / `apikey:openai` slots
  *
  * API keys are validated by prefix + minimum length so dev placeholders
  * (e.g. `ANTHROPIC_API_KEY=dummy` from a sample .env) fall through to the
@@ -122,10 +123,10 @@ export function isOpenAIApiKey(key: string): boolean {
 export async function getSmallModel(): Promise<unknown> {
 	const authData = readAuthData();
 
-	const anthropicKey = resolveApiKey(
+	const anthropicKey = resolveApiKeyForProvider(
 		process.env.ANTHROPIC_API_KEY,
 		authData,
-		ANTHROPIC_PROVIDER_ID,
+		[ANTHROPIC_AUTH_PROVIDER_ID],
 		isAnthropicApiKey,
 	);
 	if (anthropicKey) {
@@ -140,10 +141,10 @@ export async function getSmallModel(): Promise<unknown> {
 		})(ANTHROPIC_SMALL_MODEL_ID);
 	}
 
-	const openaiKey = resolveApiKey(
+	const openaiKey = resolveApiKeyForProvider(
 		process.env.OPENAI_API_KEY,
 		authData,
-		OPENAI_PROVIDER_ID,
+		OPENAI_AUTH_PROVIDER_IDS,
 		isOpenAIApiKey,
 	);
 	if (openaiKey) {
