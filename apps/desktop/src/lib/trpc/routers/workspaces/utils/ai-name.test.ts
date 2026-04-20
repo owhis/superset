@@ -116,8 +116,23 @@ describe("generateWorkspaceNameFromPrompt", () => {
 			agentModel: { id: "test-model" },
 			agentId: "workspace-namer",
 			agentName: "Workspace Namer",
-			instructions: "You generate concise workspace titles.",
+			instructions:
+				"You generate concise workspace titles. 20 characters or less. Return ONLY the title, nothing else.",
 			tracingContext: { surface: "workspace-auto-name" },
+		});
+	});
+
+	it("truncates over-long model output to 20 characters", async () => {
+		getSmallModelMock.mockResolvedValueOnce({ id: "test-model" });
+		generateTitleFromMessageMock.mockResolvedValueOnce(
+			"This title is way too long for a sidebar entry",
+		);
+
+		await expect(
+			generateWorkspaceNameFromPrompt("name this workspace"),
+		).resolves.toEqual({
+			name: "This title is way to",
+			usedPromptFallback: false,
 		});
 	});
 

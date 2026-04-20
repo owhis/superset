@@ -5,27 +5,25 @@ import { join } from "node:path";
 const ANTHROPIC_OAUTH_TOKEN_URL =
 	"https://console.anthropic.com/v1/oauth/token";
 
+// Public Claude Code OAuth client_id. Mirrors what mastracode's anthropic
+// provider uses so refreshed tokens remain compatible with the same auth.json
+// entries mastracode writes. If Anthropic rotates this, OAuth refresh breaks
+// for both us and mastracode simultaneously.
 const CLAUDE_CODE_OAUTH_CLIENT_ID = "9d1c250a-e61b-44d9-88ed-5944d1962f5e";
 
 const REFRESH_LEEWAY_MS = 30_000;
 
-export interface AnthropicOAuthHeaders {
-	"anthropic-beta": string;
-	"user-agent": string;
-	"x-app": string;
-}
-
-export const ANTHROPIC_OAUTH_HEADERS: AnthropicOAuthHeaders = {
+export const ANTHROPIC_OAUTH_HEADERS = {
 	"anthropic-beta": "claude-code-20250219,oauth-2025-04-20",
 	"user-agent": "claude-cli/2.1.2 (external, cli)",
 	"x-app": "cli",
-};
+} as const;
 
 export interface AnthropicOAuthCredential {
 	accessToken: string;
 }
 
-interface AuthJsonOAuthEntry {
+export interface AuthJsonOAuthEntry {
 	type: "oauth";
 	access: string;
 	refresh: string;
@@ -55,7 +53,7 @@ function readAuthJson(): Record<string, unknown> | null {
 	}
 }
 
-function isOAuthEntry(value: unknown): value is AuthJsonOAuthEntry {
+export function isOAuthEntry(value: unknown): value is AuthJsonOAuthEntry {
 	return (
 		typeof value === "object" &&
 		value !== null &&
@@ -71,10 +69,13 @@ function isOAuthEntry(value: unknown): value is AuthJsonOAuthEntry {
 }
 
 /**
- * Persist the refreshed entry by reading the current file, replacing the
- * provider's slot, and atomically renaming a temp file into place. Concurrent
- * writes from mastracode in another process can lose this update — acceptable
- * because the next call will just refresh again with the latest stored token.
+ * Persist the refreshed entry by reading the current file just before the
+ * write, replacing the `anthropic` slot, and atomically renaming a temp file
+ * into place. Reading immediately before write minimises (but does not
+ * eliminate) the window where a concurrent mastracode write to a *different*
+ * provider slot could be lost. Acceptable trade-off: refresh is rare, and
+ * adding cross-process file locking here would pull in a dependency for a
+ * once-per-hour code path. If this becomes an issue, switch to proper-lockfile.
  */
 function writeAnthropicEntry(entry: AuthJsonOAuthEntry): void {
 	const path = getAuthJsonPath();

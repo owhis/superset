@@ -11,6 +11,13 @@ import {
 const ANTHROPIC_SMALL_MODEL_ID = "claude-haiku-4-5-20251001";
 const OPENAI_SMALL_MODEL_ID = "gpt-4o-mini";
 
+// Mastracode stores the OpenAI Codex provider under "openai-codex", not "openai".
+// See packages/chat/src/server/desktop/auth/provider-ids.ts.
+const OPENAI_PROVIDER_ID = "openai-codex";
+const ANTHROPIC_PROVIDER_ID = "anthropic";
+
+const MIN_API_KEY_LENGTH = 30;
+
 /**
  * Resolves the mastracode auth.json path (same logic as mastracode's
  * `getAppDataDir`). We read it directly to avoid importing mastracode,
@@ -75,71 +82,79 @@ function resolveApiKey(
 	return null;
 }
 
-/** Real Anthropic API keys start with `sk-ant-api`. Filters out dev placeholders like "dummy". */
-function isAnthropicApiKey(key: string): boolean {
-	return key.startsWith("sk-ant-api");
+/**
+ * Anthropic API keys are issued in the form `sk-ant-api…` (currently
+ * `sk-ant-api03-…`). Reject anything else — most importantly OAuth access
+ * tokens (`sk-ant-oat…`), which Anthropic rejects when sent as `x-api-key`,
+ * and dev placeholders like `dummy`.
+ */
+export function isAnthropicApiKey(key: string): boolean {
+	return key.startsWith("sk-ant-api") && key.length >= MIN_API_KEY_LENGTH;
 }
 
-/** Real OpenAI keys start with `sk-`. Filters out dev placeholders like "dummy". */
-function isOpenAIApiKey(key: string): boolean {
-	return key.startsWith("sk-");
+/**
+ * OpenAI keys all start with `sk-` (legacy `sk-…`, project `sk-proj-…`,
+ * service-account `sk-svcacct-…`). The length floor catches placeholders.
+ */
+export function isOpenAIApiKey(key: string): boolean {
+	return key.startsWith("sk-") && key.length >= MIN_API_KEY_LENGTH;
 }
 
 /**
  * Returns an AI-SDK `LanguageModel` for small-model tasks (branch naming,
- * title generation). Tries Anthropic (API key → OAuth) first, falls back
- * to OpenAI. Returns `null` if no credentials are available.
+ * title generation). Returns `null` if no usable credentials are available.
  *
- * Anthropic resolution order:
+ * Resolution order:
  *   1. ANTHROPIC_API_KEY env var
  *   2. mastracode auth.json `apikey:anthropic` slot
  *   3. mastracode auth.json `anthropic` OAuth slot (refreshed if expired)
+ *   4. OPENAI_API_KEY env var
+ *   5. mastracode auth.json `apikey:openai-codex` slot
  *
- * Refreshing OAuth tokens is done via direct HTTP against
- * console.anthropic.com — we don't import mastracode here because it pulls
- * in onnxruntime-node (208 MB native binary) and breaks electron-vite
- * bundling.
+ * API keys are validated by prefix + minimum length so dev placeholders
+ * (e.g. `ANTHROPIC_API_KEY=dummy` from a sample .env) fall through to the
+ * next path instead of being sent to the API and failing 401.
+ *
+ * OAuth refresh is done via direct HTTP against console.anthropic.com — we
+ * don't import mastracode here because it pulls in onnxruntime-node (208 MB
+ * native binary) and breaks electron-vite bundling.
  */
-export async function getSmallModel(): Promise<unknown | null> {
+export async function getSmallModel(): Promise<unknown> {
 	const authData = readAuthData();
 
 	const anthropicKey = resolveApiKey(
 		process.env.ANTHROPIC_API_KEY,
 		authData,
-		"anthropic",
+		ANTHROPIC_PROVIDER_ID,
 		isAnthropicApiKey,
 	);
 	if (anthropicKey) {
-		console.log("[get-small-model] using Anthropic API key");
 		return createAnthropic({ apiKey: anthropicKey })(ANTHROPIC_SMALL_MODEL_ID);
 	}
 
 	const anthropicOAuth = await getAnthropicOAuthCredential();
 	if (anthropicOAuth) {
-		console.log("[get-small-model] using Anthropic OAuth");
 		return createAnthropic({
 			authToken: anthropicOAuth.accessToken,
-			headers: { ...ANTHROPIC_OAUTH_HEADERS },
+			headers: ANTHROPIC_OAUTH_HEADERS,
 		})(ANTHROPIC_SMALL_MODEL_ID);
 	}
 
 	const openaiKey = resolveApiKey(
 		process.env.OPENAI_API_KEY,
 		authData,
-		"openai",
+		OPENAI_PROVIDER_ID,
 		isOpenAIApiKey,
 	);
 	if (openaiKey) {
-		console.log("[get-small-model] using OpenAI API key");
 		return createOpenAI({ apiKey: openaiKey }).chat(OPENAI_SMALL_MODEL_ID);
 	}
 
 	console.warn(
-		"[get-small-model] no credentials found — fallback will be used. " +
+		"[get-small-model] no credentials found — naming will fall back. " +
 			`authData=${authData ? "present" : "missing"}, ` +
 			`anthropicEnv=${process.env.ANTHROPIC_API_KEY ? "set" : "unset"}, ` +
-			`openaiEnv=${process.env.OPENAI_API_KEY ? "set" : "unset"}, ` +
-			`anthropicEntryKeys=${authData?.anthropic ? Object.keys(authData.anthropic as Record<string, unknown>).join(",") : "none"}`,
+			`openaiEnv=${process.env.OPENAI_API_KEY ? "set" : "unset"}`,
 	);
 	return null;
 }
