@@ -47,7 +47,6 @@ export const env = createEnv({
 		DURABLE_STREAMS_URL: z.string().url(),
 		DURABLE_STREAMS_SECRET: z.string().min(1),
 		TAVILY_API_KEY: z.string().optional(),
-		CRON_SECRET: z.string().min(16),
 		RELAY_URL: z.string().url(),
 	},
 	client: {
