@@ -65,12 +65,15 @@ function getSelectedIcon(
 	otherHosts: WorkspaceHostOption[],
 ) {
 	if (hostTarget.kind === "local") {
-		return <HiOutlineComputerDesktop className="size-4 shrink-0" />;
+		return <HiOutlineComputerDesktop className="size-3 shrink-0" />;
 	}
 
 	const host = otherHosts.find((h) => h.id === hostTarget.hostId);
-	const Icon = host?.isCloud ? HiOutlineCloud : HiOutlineComputerDesktop;
-	return <Icon className="size-4 shrink-0" />;
+	if (host?.isCloud) {
+		return <HiOutlineCloud className="size-4 shrink-0" />;
+	}
+
+	return <HiOutlineServer className="size-4 shrink-0" />;
 }
 
 export function DevicePicker({
@@ -106,7 +109,7 @@ export function DevicePicker({
 					}
 				/>
 			</DropdownMenuTrigger>
-			<DropdownMenuContent align="end" className="w-72">
+			<DropdownMenuContent align="start" className="w-72">
 				<DropdownMenuItem
 					onSelect={() => onSelectHostTarget({ kind: "local" })}
 				>
